@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=6" />
+<link rel="stylesheet" href="styles.css?v=7" />
 </head>
 <body>
 
@@ -47,7 +47,7 @@
         <p class="role">Mechanical Engineering — TU Wien · <em>Design / CFD / Propulsion / Structures</em></p>
         <p class="intro">I'm a Mechanical Engineering student at TU Wien, building expertise in
         mechanics, thermodynamics, and fluid mechanics, with hands-on experience in CAD
-        (PTC Creo, CATIA V5) and CFD applications — complemented by Lean Six Sigma training.</p>
+        (PTC Creo, CATIA V5) and CFD applications.</p>
         <div class="cta-row">
           <a class="btn btn--solid" href="projects.html">View projects</a>
           <a class="btn" href="mailto:pro.kainz@icloud.com">Contact</a>
@@ -60,11 +60,9 @@
     </div>
   </div>
 
-  <!-- ============ LATTICE — floating, frameless ============ -->
-  <div class="fig-band fig-band--float">
-    <div class="wrap" data-reveal>
-      <canvas id="latticeCanvas" height="340"></canvas>
-    </div>
+  <!-- ============ LATTICE — floating, full-bleed ============ -->
+  <div class="fig-band fig-band--float fig-band--bleed">
+    <canvas id="latticeCanvas" height="460"></canvas>
   </div>
 
   <!-- ============ 1. OVERVIEW ============ -->
@@ -85,7 +83,7 @@
             <tr><th>Discipline</th><td>Mechanical Engineering — TU Wien, B.Sc.</td></tr>
             <tr><th>Core subjects</th><td>Mechanics · Thermodynamics · Fluid Mechanics</td></tr>
             <tr><th>Tools</th><td>PTC Creo Parametric · CATIA V5 · Fusion 360 · SOLIDWORKS · CFD · Python</td></tr>
-            <tr><th>Methods</th><td>FKM structural verification · ISO tolerancing · Trade studies · Lean Six Sigma</td></tr>
+            <tr><th>Methods</th><td>FKM structural verification · ISO tolerancing · Trade studies</td></tr>
             <tr><th>Domains</th><td>Machine design · Propulsion · Aerospace concepts</td></tr>
           </tbody>
         </table>
@@ -114,6 +112,11 @@
       </div>
     </div>
   </section>
+
+  <!-- ============ ARM — scroll-driven 6-axis kinematics ============ -->
+  <div class="fig-band fig-band--float fig-band--bleed">
+    <canvas id="armCanvas" height="460"></canvas>
+  </div>
 
   <!-- ============ FIG 0.2 — STRESS-STRAIN ============ -->
   <div class="fig-band">
@@ -199,8 +202,8 @@
   <div class="lb-cap" id="lbCap"></div>
 </div>
 
-<script src="bg.js?v=6"></script>
+<script src="bg.js?v=7"></script>
 <script src="shared.js?v=6"></script>
-<script src="anim.js?v=6"></script>
+<script src="anim.js?v=7"></script>
 </body>
 </html>

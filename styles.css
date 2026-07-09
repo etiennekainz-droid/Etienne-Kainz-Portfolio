@@ -157,6 +157,8 @@ main{ min-height:70vh; }
 .fig-band canvas{ display:block; width:100%; height:auto; }
 .fig-band--float{ border-top:0; padding-top:clamp(20px,3vw,36px); }
 .fig-band--float canvas{ cursor:crosshair; }
+.fig-band--bleed{ padding-inline:0; }
+.fig-band--bleed canvas{ width:100%; }
 
 /* ============================================================ TOC (home index) */
 .toc{ border-top:1px solid var(--line-2); }
