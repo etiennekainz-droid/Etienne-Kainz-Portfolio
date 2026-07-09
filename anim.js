@@ -1,13 +1,10 @@
 /* ============================================================
    Scientific figure animations — drafting-style, no libraries.
-   1) #latticeCanvas — 3-D crystal lattice, full-bleed; alternating
-      P-wave (longitudinal) and S-wave (transverse) packets at true
-      relative speeds, strain-tinted bonds, live seismogram probe,
-      pointer-steered camera.
-   2) #armCanvas     — 6-axis manipulator, scroll-driven kinematics,
-      drafting line-work on graph paper, live joint readouts.
-   3) #stressCanvas  — tensile-test dashboard (curve + specimen).
-   All pause off-screen and render a static frame under
+   1) #latticeCanvas — 3-D crystal lattice, rotating in perspective;
+      a longitudinal elastic wavepacket sweeps through, bonds tint
+      amber with strain; pointer steers the view; live HUD readout.
+   2) #stressCanvas  — engineering stress–strain curve, self-tracing.
+   Both pause off-screen and render a static frame under
    prefers-reduced-motion.
    ============================================================ */
 (function () {
@@ -17,7 +14,6 @@
   var INK = "rgba(200,214,226,";     // line ink
   var ACC = "rgba(147,180,205,";     // drafting blue
   var AMB = "rgba(207,160,104,";     // strain amber
-  var BG  = "#0f1114";
 
   function setupCanvas(canvas, cssH) {
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -32,660 +28,852 @@
 
   /* run `draw(t)` only while visible; single static frame if reduced motion */
   function animate(canvas, draw) {
-    if (REDUCED) { draw(2.0); return; }
-    var running = false, raf = 0, t0 = performance.now();
-    function loop(now) {
-      draw((now - t0) / 1000);
-      if (running) raf = requestAnimationFrame(loop);
+    if (REDUCED) {
+      draw(2.0);
+      return function () { draw(2.0); };
     }
-    new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) {
-        if (en.isIntersecting && !running) { running = true; raf = requestAnimationFrame(loop); }
-        else if (!en.isIntersecting && running) { running = false; cancelAnimationFrame(raf); }
-      });
-    }, { threshold: 0.03 }).observe(canvas);
+
+    var onscreen = false, pageVisible = !document.hidden, raf = 0;
+    var clock = 0, lastFrame = null;
+    function active() { return onscreen && pageVisible; }
+    function stop() {
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      lastFrame = null;
+    }
+    function loop(now) {
+      raf = 0;
+      if (!active()) { lastFrame = null; return; }
+      if (lastFrame !== null) clock += Math.max(0, now - lastFrame) / 1000;
+      lastFrame = now;
+      draw(clock);
+      if (active()) raf = requestAnimationFrame(loop);
+    }
+    function sync() {
+      if (active()) {
+        if (!raf) {
+          lastFrame = null;
+          raf = requestAnimationFrame(loop);
+        }
+      } else {
+        stop();
+      }
+    }
+    function setVisible(isVisible) {
+      onscreen = isVisible;
+      sync();
+    }
+
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) { setVisible(en.isIntersecting); });
+      }, { threshold: 0.05 }).observe(canvas);
+    } else {
+      setVisible(true);
+    }
+    document.addEventListener("visibilitychange", function () {
+      pageVisible = !document.hidden;
+      sync();
+    });
+    return function () { draw(clock); };
   }
 
-  function smooth(x) { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }
-
   /* ============================================================
-     1. CRYSTAL LATTICE — P/S elastic wave propagation
+     1. CRYSTAL LATTICE — coupled elastic-wave field
+     P and S packets travel through a cubic steel-like lattice,
+     with a delayed reflected packet and bond-level strain response.
      ============================================================ */
   var lattice = document.getElementById("latticeCanvas");
   if (lattice) (function () {
-    var H = 460;
-    var L = setupCanvas(lattice, H);
-    window.addEventListener("resize", (function () {
-      var to; return function () { clearTimeout(to); to = setTimeout(function () { L = setupCanvas(lattice, H); }, 160); };
-    })());
+    var H = 390;
+    var L;
+    function resizeLattice() {
+      H = lattice.clientWidth < 560 ? 332 : 390;
+      L = setupCanvas(lattice, H);
+    }
+    resizeLattice();
 
-    /* ---- geometry ---- */
-    var NX = 18, NY = 6, NZ = 6, S = 44;
-    var atoms = [], bonds = [], PROBE = 0;
+    var NX = 15, NY = 6, NZ = 5, S = 46;
+    var atoms = [], bonds = [];
+    var span = (NX - 1) * S;
+    var pad = 230;
+
     (function build() {
-      for (var i = 0; i < NX; i++) for (var j = 0; j < NY; j++) for (var k = 0; k < NZ; k++) {
-        atoms.push({ x: (i - (NX - 1) / 2) * S, y: (j - (NY - 1) / 2) * S, z: (k - (NZ - 1) / 2) * S });
+      var i, j, k;
+      for (i = 0; i < NX; i += 1) for (j = 0; j < NY; j += 1) for (k = 0; k < NZ; k += 1) {
+        atoms.push({
+          x: (i - (NX - 1) / 2) * S,
+          y: (j - (NY - 1) / 2) * S,
+          z: (k - (NZ - 1) / 2) * S,
+          i: i, j: j, k: k
+        });
       }
-      var idx = function (i, j, k) { return (i * NY + j) * NZ + k; };
-      for (var a = 0; a < NX; a++) for (var b = 0; b < NY; b++) for (var c = 0; c < NZ; c++) {
-        if (a + 1 < NX) bonds.push([idx(a, b, c), idx(a + 1, b, c)]);
-        if (b + 1 < NY) bonds.push([idx(a, b, c), idx(a, b + 1, c)]);
-        if (c + 1 < NZ) bonds.push([idx(a, b, c), idx(a, b, c + 1)]);
+      function index(x, y, z) { return (x * NY + y) * NZ + z; }
+      for (i = 0; i < NX; i += 1) for (j = 0; j < NY; j += 1) for (k = 0; k < NZ; k += 1) {
+        var here = index(i, j, k);
+        if (i + 1 < NX) bonds.push({ a: here, b: index(i + 1, j, k), axis: "x", rest: S });
+        if (j + 1 < NY) bonds.push({ a: here, b: index(i, j + 1, k), axis: "y", rest: S });
+        if (k + 1 < NZ) bonds.push({ a: here, b: index(i, j, k + 1), axis: "z", rest: S });
       }
-      PROBE = idx(Math.floor(NX / 2), Math.floor(NY / 2), Math.floor(NZ / 2));
     })();
 
-    /* ---- two wave modes, true relative speeds (v_s ≈ 0.55 v_p) ---- */
-    var SPAN = (NX - 1) * S, PAD = 300;
-    function packet(x, t, speed, amp, wid, kw) {
-      var c = ((t * speed) % (SPAN + 2 * PAD)) - SPAN / 2 - PAD;
-      var d = x - c;
-      return amp * Math.exp(-(d * d) / (2 * wid * wid)) * Math.sin(kw * d);
-    }
-    var CYCLE = 18;                       // s: P 8 · blend 1 · S 8 · blend 1
-    function modeMix(t) {
-      var ph = t % CYCLE;
-      if (ph < 8)  return { fP: 1, fS: 0, label: "P-WAVE — LONGITUDINAL", v: "v_p ≈ 5.9 km·s⁻¹" };
-      if (ph < 9)  { var q = smooth(ph - 8); return { fP: 1 - q, fS: q, label: "MODE TRANSITION", v: "—" }; }
-      if (ph < 17) return { fP: 0, fS: 1, label: "S-WAVE — TRANSVERSE", v: "v_s ≈ 3.2 km·s⁻¹" };
-      var q2 = smooth(ph - 17); return { fP: q2, fS: 1 - q2, label: "MODE TRANSITION", v: "—" };
+    function pulseAt(x, time, speed, phase, width, frequency, direction) {
+      var cycle = span + pad * 2;
+      var travel = (time * speed + phase) % cycle;
+      var centre = direction * (travel - pad - span / 2);
+      var delta = x - centre;
+      var envelope = Math.exp(-(delta * delta) / (2 * width * width));
+      return envelope * Math.sin(delta * frequency - time * speed * frequency * 0.46);
     }
 
-    /* ---- pointer-steered camera ---- */
-    var tgt = { x: 0, y: 0 }, cur = { x: 0, y: 0 };
+    function displacement(atom, time) {
+      var p = pulseAt(atom.x, time, 168, 0, 66, 0.052, 1);
+      var s = pulseAt(atom.x, time, 111, 226, 84, 0.041, 1);
+      var reflection = pulseAt(atom.x, time, 131, 420, 74, 0.048, -1);
+      var transverseShape = Math.cos(atom.z * 0.035) * (0.72 + 0.28 * Math.cos(atom.y * 0.048));
+      var dx = 12.5 * p - 5.4 * reflection;
+      var dy = (6.9 * s + 2.2 * reflection) * transverseShape;
+      var dz = 4.9 * s * Math.sin(atom.y * 0.055 + 0.8) - 2.5 * reflection;
+      var energy = Math.min(1, Math.abs(p) * 0.83 + Math.abs(s) * 0.58 + Math.abs(reflection) * 0.34);
+      return { x: dx, y: dy, z: dz, energy: energy, p: p, s: s, r: reflection };
+    }
+
+    var target = { x: 0, y: 0 };
+    var view = { x: 0, y: 0 };
     if (!REDUCED) {
-      lattice.addEventListener("pointermove", function (e) {
-        var r = lattice.getBoundingClientRect();
-        tgt.x = (e.clientX - r.left) / r.width - 0.5;
-        tgt.y = (e.clientY - r.top) / r.height - 0.5;
+      lattice.addEventListener("pointermove", function (event) {
+        var rect = lattice.getBoundingClientRect();
+        target.x = (event.clientX - rect.left) / rect.width - 0.5;
+        target.y = (event.clientY - rect.top) / rect.height - 0.5;
       });
-      lattice.addEventListener("pointerleave", function () { tgt.x = 0; tgt.y = 0; });
+      lattice.addEventListener("pointerleave", function () { target.x = 0; target.y = 0; });
     }
 
-    /* ---- projection (fitted so nothing clips at top/bottom) ---- */
-    var F = 680, CAMZ = 760;
-    function project(px, py, pz, sin1, cos1, sin2, cos2, out) {
-      var x = px * cos1 + pz * sin1;
-      var z = -px * sin1 + pz * cos1;
-      var y = py * cos2 - z * sin2;
-      z = py * sin2 + z * cos2;
-      var zz = z + CAMZ, sc = F / zz;
-      out.sx = L.w / 2 + x * sc;
-      out.sy = H / 2 + y * sc;
-      out.sc = sc; out.z = zz;
+    var F = 780, CAMZ = 595;
+    function project(point, sy, cy, sx, cx, out) {
+      var x = point.x * cy + point.z * sy;
+      var z = -point.x * sy + point.z * cy;
+      var y = point.y * cx - z * sx;
+      z = point.y * sx + z * cx;
+      var depth = z + CAMZ;
+      var fit = Math.min(1, Math.max(0.26, (L.w - 28) / 900));
+      var scale = F / depth * fit;
+      out.x = L.w / 2 + x * scale;
+      out.y = H / 2 + y * scale;
+      out.s = scale;
+      out.z = depth;
+      return out;
     }
 
-    var proj = atoms.map(function () { return { sx: 0, sy: 0, sc: 0, z: 0 }; });
-    var disp = new Array(atoms.length);
-    var order = atoms.map(function (_, n) { return n; });
+    var projections = atoms.map(function () { return { x: 0, y: 0, s: 0, z: 0 }; });
+    var motions = atoms.map(function () { return { x: 0, y: 0, z: 0, energy: 0, p: 0, s: 0, r: 0 }; });
+    var order = atoms.map(function (_, index) { return index; });
+    var world = { x: 0, y: 0, z: 0 };
 
-    /* ---- seismogram ring buffer ---- */
-    var TR_N = 240, trace = new Float32Array(TR_N), trHead = 0;
-
-    function hud(ctx, t, eps, mix) {
-      ctx.font = "10px 'IBM Plex Mono', monospace";
-      var x = 20, y = 30, lh = 16;
-      ctx.fillStyle = ACC + "0.95)";
-      ctx.fillText("ELASTIC WAVE — " + mix.label, x, y);
-      ctx.fillStyle = INK + "0.55)";
-      ctx.fillText(mix.v + "  (STEEL)", x, y + lh);
-      ctx.fillText("ε_max = 0.00" + String(Math.round(18 + eps * 30)).padStart(2, "0"), x, y + lh * 2);
-      ctx.fillText("t = " + t.toFixed(1).padStart(5, " ") + " s", x, y + lh * 3);
-      ctx.strokeStyle = INK + "0.25)";
-      ctx.beginPath(); ctx.moveTo(x, y + 8 + lh * 3); ctx.lineTo(x + 168, y + 8 + lh * 3); ctx.stroke();
-      ctx.fillStyle = INK + "0.35)";
-      ctx.fillText("N = " + atoms.length + " ATOMS · CUBIC LATTICE", x, y + lh * 4 + 4);
-    }
-
-    function seismogram(ctx) {
-      var w = 250, h = 66, x = 20, y = H - h - 22;
-      ctx.strokeStyle = INK + "0.20)"; ctx.strokeRect(x, y, w, h);
-      ctx.font = "9px 'IBM Plex Mono', monospace";
-      ctx.fillStyle = INK + "0.45)";
-      ctx.fillText("PROBE ATOM — u(t)  SEISMOGRAM", x + 8, y - 6);
-      ctx.strokeStyle = INK + "0.12)";
-      ctx.beginPath(); ctx.moveTo(x, y + h / 2); ctx.lineTo(x + w, y + h / 2); ctx.stroke();
-      ctx.strokeStyle = ACC + "0.85)"; ctx.lineWidth = 1.1;
+    function drawFieldGrid(ctx, time) {
+      var shift = (time * 12) % 34;
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = INK + "0.035)";
+      var x;
+      var y;
+      for (x = 18 + shift; x < L.w - 16; x += 34) {
+        ctx.beginPath(); ctx.moveTo(x, 14); ctx.lineTo(x, H - 18); ctx.stroke();
+      }
+      for (y = 18; y < H - 15; y += 34) {
+        ctx.beginPath(); ctx.moveTo(16, y); ctx.lineTo(L.w - 16, y); ctx.stroke();
+      }
+      ctx.strokeStyle = ACC + "0.13)";
       ctx.beginPath();
-      for (var i = 0; i < TR_N; i++) {
-        var v = trace[(trHead + i) % TR_N];
-        var px2 = x + (i / (TR_N - 1)) * w;
-        var py2 = y + h / 2 - v * 2.1;
-        i === 0 ? ctx.moveTo(px2, py2) : ctx.lineTo(px2, py2);
-      }
-      ctx.stroke(); ctx.lineWidth = 1;
+      ctx.moveTo(16, H - 18); ctx.lineTo(L.w - 16, H - 18);
+      ctx.stroke();
     }
 
-    function triad(ctx, sin1, cos1, sin2, cos2) {
-      var ox = L.w - 74, oy = H - 52, len = 22;
-      var axes = [{ x: 1, y: 0, z: 0, l: "x" }, { x: 0, y: -1, z: 0, l: "y" }, { x: 0, y: 0, z: 1, l: "z" }];
+    function drawWaveMonitor(ctx, time) {
+      var x0 = 18, y0 = H - 50, width = Math.min(224, L.w * 0.35);
+      var i;
+      ctx.strokeStyle = INK + "0.20)";
+      ctx.strokeRect(x0, y0, width, 22);
+      ctx.font = "8.5px 'IBM Plex Mono', monospace";
+      ctx.fillStyle = INK + "0.44)";
+      ctx.fillText(L.w < 480 ? "P/S ENVELOPE" : "COUPLED-MODE ENVELOPE", x0 + 6, y0 - 7);
+      ctx.beginPath();
+      for (i = 0; i <= 90; i += 1) {
+        var q = i / 90;
+        var virtualX = (q - 0.5) * span;
+        var p = pulseAt(virtualX, time, 168, 0, 66, 0.052, 1);
+        var s = pulseAt(virtualX, time, 111, 226, 84, 0.041, 1);
+        var yy = y0 + 11 - (p * 6.4 + s * 3.5);
+        if (i === 0) ctx.moveTo(x0 + q * width, yy);
+        else ctx.lineTo(x0 + q * width, yy);
+      }
+      ctx.strokeStyle = ACC + "0.72)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = AMB + "0.78)";
+      ctx.fillText("P", x0 + width - 28, y0 + 16);
+      ctx.fillStyle = ACC + "0.78)";
+      ctx.fillText("S", x0 + width - 15, y0 + 16);
+    }
+
+    function drawHud(ctx, time, metrics) {
+      var x = 18, y = 28, line = 16;
+      var energy = String(Math.round(metrics.energy * 100)).padStart(2, "0");
+      ctx.font = "10px 'IBM Plex Mono', monospace";
+      ctx.fillStyle = ACC + "0.95)";
+      if (L.w < 500) {
+        ctx.fillText("P + S LATTICE FIELD", x, y);
+        ctx.fillStyle = INK + "0.56)";
+        ctx.fillText("P 5.9  ·  S 3.2 km·s⁻¹", x, y + line);
+        ctx.fillText("εmax " + metrics.strain.toFixed(4) + "  ·  Δu " + metrics.displacement.toFixed(1), x, y + line * 2);
+        ctx.fillText("E " + energy + "%  ·  N " + atoms.length, x, y + line * 3);
+      } else if (L.w < 720) {
+        ctx.fillText("LATTICE DYNAMICS — P + S MODES", x, y);
+        ctx.fillStyle = INK + "0.56)";
+        ctx.fillText("P 5.9 / S 3.2 km·s⁻¹ / REFLECTION", x, y + line);
+        ctx.fillText("εmax = " + metrics.strain.toFixed(4) + "    Δu = " + metrics.displacement.toFixed(1) + " a.u.", x, y + line * 2);
+        ctx.fillText("ENERGY " + energy + "%    N = " + atoms.length + " ATOMS", x, y + line * 3);
+      } else {
+        ctx.fillText("LATTICE DYNAMICS — COUPLED ELASTIC MODES", x, y);
+        ctx.fillStyle = INK + "0.56)";
+        ctx.fillText("P-WAVE 5.9 km·s⁻¹   /   S-WAVE 3.2 km·s⁻¹   /   REFLECTION", x, y + line);
+        ctx.fillText("εmax = " + metrics.strain.toFixed(4) + "    Δu = " + metrics.displacement.toFixed(1) + " a.u.", x, y + line * 2);
+        ctx.fillText("ENERGY " + energy + "%    N = " + atoms.length + " ATOMS    a = 46", x, y + line * 3);
+      }
+      ctx.strokeStyle = INK + "0.26)";
+      ctx.beginPath(); ctx.moveTo(x, y + line * 3 + 8); ctx.lineTo(x + Math.min(278, L.w - x - 18), y + line * 3 + 8); ctx.stroke();
+    }
+
+    function drawTriad(ctx, sy, cy, sx, cx) {
+      var ox = L.w - 62, oy = H - 44, len = 22;
+      var axes = [
+        { x: 1, y: 0, z: 0, label: "x" },
+        { x: 0, y: -1, z: 0, label: "y" },
+        { x: 0, y: 0, z: 1, label: "z" }
+      ];
       ctx.font = "9px 'IBM Plex Mono', monospace";
-      for (var i = 0; i < 3; i++) {
-        var a = axes[i];
-        var x = a.x * cos1 + a.z * sin1;
-        var z = -a.x * sin1 + a.z * cos1;
-        var y = a.y * cos2 - z * sin2;
-        ctx.strokeStyle = ACC + "0.55)";
-        ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + x * len, oy + y * len); ctx.stroke();
-        ctx.fillStyle = INK + "0.6)";
-        ctx.fillText(a.l, ox + x * (len + 8) - 2, oy + y * (len + 8) + 3);
-      }
+      axes.forEach(function (axis) {
+        var xx = axis.x * cy + axis.z * sy;
+        var zz = -axis.x * sy + axis.z * cy;
+        var yy = axis.y * cx - zz * sx;
+        ctx.strokeStyle = ACC + "0.65)";
+        ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + xx * len, oy + yy * len); ctx.stroke();
+        ctx.fillStyle = INK + "0.70)";
+        ctx.fillText(axis.label, ox + xx * (len + 8) - 2, oy + yy * (len + 8) + 3);
+      });
     }
 
-    animate(lattice, function (t) {
+    function drawLattice(time) {
       var ctx = L.ctx;
       ctx.clearRect(0, 0, L.w, H);
+      drawFieldGrid(ctx, time);
 
-      cur.x += (tgt.x - cur.x) * 0.06;
-      cur.y += (tgt.y - cur.y) * 0.06;
-      var ry = t * 0.11 + cur.x * 0.8;
-      var rx = -0.30 + cur.y * 0.3 + 0.04 * Math.sin(t * 0.23);
-      var sin1 = Math.sin(ry), cos1 = Math.cos(ry);
-      var sin2 = Math.sin(rx), cos2 = Math.cos(rx);
+      view.x += (target.x - view.x) * 0.055;
+      view.y += (target.y - view.y) * 0.055;
+      var yaw = time * 0.105 + view.x * 0.84;
+      var pitch = -0.31 + view.y * 0.36;
+      var sy = Math.sin(yaw), cy = Math.cos(yaw);
+      var sx = Math.sin(pitch), cx = Math.cos(pitch);
+      var index;
+      var atom;
+      var motion;
+      var metrics = { strain: 0, displacement: 0, energy: 0 };
 
-      var mix = modeMix(t);
-      var n, a, uP, uS;
-      for (n = 0; n < atoms.length; n++) {
-        a = atoms[n];
-        uP = mix.fP ? packet(a.x, t, 185, 11, 64, 0.12) * mix.fP : 0;
-        uS = mix.fS ? packet(a.x, t, 105, 13, 70, 0.10) * mix.fS : 0;
-        disp[n] = uP + uS;
-        project(a.x + uP, a.y + uS, a.z, sin1, cos1, sin2, cos2, proj[n]);
+      for (index = 0; index < atoms.length; index += 1) {
+        atom = atoms[index];
+        motion = displacement(atom, time);
+        motions[index] = motion;
+        world.x = atom.x + motion.x;
+        world.y = atom.y + motion.y;
+        world.z = atom.z + motion.z;
+        project(world, sy, cy, sx, cx, projections[index]);
+        metrics.energy += motion.energy;
+        metrics.displacement = Math.max(metrics.displacement, Math.sqrt(motion.x * motion.x + motion.y * motion.y + motion.z * motion.z));
       }
-      trace[trHead] = disp[PROBE]; trHead = (trHead + 1) % TR_N;
+      metrics.energy /= atoms.length;
 
-      /* bonds — bucketed ink strokes + individual amber strained bonds */
-      var b1 = [], b2 = [], b3 = [], hot = [];
-      var i, b, p1, p2, strain, depth, epsMax = 0;
-      for (i = 0; i < bonds.length; i++) {
-        b = bonds[i];
-        p1 = proj[b[0]]; p2 = proj[b[1]];
-        strain = Math.abs(disp[b[0]] - disp[b[1]]) / 13;
-        if (strain > epsMax) epsMax = strain;
-        if (strain > 0.14) { hot.push([p1, p2, strain]); continue; }
-        depth = (p1.z + p2.z) / 2;
-        (depth < 640 ? b1 : depth < 860 ? b2 : b3).push([p1, p2]);
-      }
-      function strokeBucket(list, alpha) {
-        if (!list.length) return;
-        ctx.strokeStyle = INK + alpha + ")";
-        ctx.beginPath();
-        for (var q = 0; q < list.length; q++) {
-          ctx.moveTo(list[q][0].sx, list[q][0].sy);
-          ctx.lineTo(list[q][1].sx, list[q][1].sy);
-        }
-        ctx.stroke();
-      }
       ctx.lineWidth = 1;
-      strokeBucket(b3, "0.06"); strokeBucket(b2, "0.13"); strokeBucket(b1, "0.24");
-      for (i = 0; i < hot.length; i++) {
-        ctx.strokeStyle = AMB + Math.min(0.9, 0.25 + hot[i][2]) + ")";
-        ctx.beginPath(); ctx.moveTo(hot[i][0].sx, hot[i][0].sy); ctx.lineTo(hot[i][1].sx, hot[i][1].sy); ctx.stroke();
+      for (index = 0; index < bonds.length; index += 1) {
+        var bond = bonds[index];
+        var one = projections[bond.a];
+        var two = projections[bond.b];
+        var oneMotion = motions[bond.a];
+        var twoMotion = motions[bond.b];
+        var restDx = atoms[bond.b].x - atoms[bond.a].x;
+        var restDy = atoms[bond.b].y - atoms[bond.a].y;
+        var restDz = atoms[bond.b].z - atoms[bond.a].z;
+        var currentDx = restDx + twoMotion.x - oneMotion.x;
+        var currentDy = restDy + twoMotion.y - oneMotion.y;
+        var currentDz = restDz + twoMotion.z - oneMotion.z;
+        var currentLength = Math.sqrt(currentDx * currentDx + currentDy * currentDy + currentDz * currentDz);
+        var signedStrain = (currentLength - bond.rest) / bond.rest;
+        var strain = Math.abs(signedStrain);
+        var near = Math.max(0, Math.min(1, (1130 - (one.z + two.z) * 0.5) / 770));
+        metrics.strain = Math.max(metrics.strain, strain);
+        var alpha = 0.035 + near * 0.22 + strain * 1.1;
+        var colour = signedStrain >= 0 ? AMB : ACC;
+        ctx.strokeStyle = strain > 0.014 ? colour + Math.min(0.88, alpha) + ")" : INK + alpha + ")";
+        ctx.lineWidth = 0.55 + near * 0.65 + strain * 1.2;
+        ctx.beginPath(); ctx.moveTo(one.x, one.y); ctx.lineTo(two.x, two.y); ctx.stroke();
+
+        if (strain > 0.034 && index % 11 === 0) {
+          var packet = (time * (0.28 + strain * 2.2) + bond.a * 0.037) % 1;
+          var px = one.x + (two.x - one.x) * packet;
+          var py = one.y + (two.y - one.y) * packet;
+          ctx.beginPath(); ctx.arc(px, py, 0.8 + near * 0.85, 0, 6.2832);
+          ctx.fillStyle = colour + Math.min(0.58, strain * 9) + ")";
+          ctx.fill();
+        }
       }
 
-      /* atoms — painter's order, excited atoms glow */
-      order.sort(function (m, n2) { return proj[n2].z - proj[m].z; });
-      var pr, exc;
-      for (i = 0; i < order.length; i++) {
-        n = order[i];
-        pr = proj[n];
-        exc = Math.min(1, Math.abs(disp[n]) / 13 * 1.7);
-        var dfog = Math.max(0, Math.min(1, (1250 - pr.z) / 800));
-        var r = (1.15 + exc * 1.15) * pr.sc * 1.85;
-        if (exc > 0.25) {
-          ctx.beginPath(); ctx.arc(pr.sx, pr.sy, r * 2.7, 0, 6.2832);
-          ctx.fillStyle = ACC + (0.11 * exc * dfog) + ")"; ctx.fill();
+      order.sort(function (left, right) { return projections[right].z - projections[left].z; });
+      for (index = 0; index < order.length; index += 1) {
+        var id = order[index];
+        var point = projections[id];
+        var excitation = motions[id].energy;
+        var depth = Math.max(0, Math.min(1, (1120 - point.z) / 740));
+        var radius = (1.12 + excitation * 1.45) * point.s * 1.65;
+        if (excitation > 0.22) {
+          ctx.beginPath(); ctx.arc(point.x, point.y, radius * (2.25 + excitation), 0, 6.2832);
+          ctx.fillStyle = (motions[id].p >= 0 ? ACC : AMB) + (0.055 + excitation * 0.105) * depth + ")";
+          ctx.fill();
         }
-        ctx.beginPath(); ctx.arc(pr.sx, pr.sy, r, 0, 6.2832);
-        ctx.fillStyle = INK + (0.2 + 0.58 * dfog + 0.25 * exc) + ")";
+        ctx.beginPath(); ctx.arc(point.x, point.y, radius, 0, 6.2832);
+        ctx.fillStyle = INK + (0.17 + depth * 0.56 + excitation * 0.22) + ")";
         ctx.fill();
       }
 
-      hud(ctx, t, epsMax, mix);
-      seismogram(ctx);
-      triad(ctx, sin1, cos1, sin2, cos2);
+      drawHud(ctx, time, metrics);
+      drawWaveMonitor(ctx, time);
+      drawTriad(ctx, sy, cy, sx, cx);
+    }
+
+    var redrawLattice = animate(lattice, drawLattice);
+
+    var resizeTimer;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        resizeLattice();
+        if (REDUCED) redrawLattice();
+      }, 150);
     });
   })();
 
   /* ============================================================
-     2. SIX-AXIS ARM — scroll-driven kinematics, drafting style
-     ============================================================ */
-  var armC = document.getElementById("armCanvas");
-  if (armC) (function () {
-    var H = 460;
-    var A = setupCanvas(armC, H);
-    window.addEventListener("resize", (function () {
-      var to; return function () { clearTimeout(to); to = setTimeout(function () { A = setupCanvas(armC, H); }, 160); };
-    })());
-
-    var D2R = Math.PI / 180;
-    /* keyframes over scroll progress p: [J2,J3,J4] deg · grip · J1 turntable deg */
-    var K = [
-      { p: 0.00, a: [115, -95, -40], g: 0.85, tt:   0 },
-      { p: 0.25, a: [ 72, -58, -46], g: 1.00, tt:  14 },
-      { p: 0.48, a: [ 50, -34, -58], g: 0.15, tt:  14 },
-      { p: 0.72, a: [ 96, -72, -14], g: 0.15, tt: -24 },
-      { p: 1.00, a: [ 62, -22, -36], g: 0.90, tt: -40 }
-    ];
-    function poseAt(p) {
-      var i = 0;
-      while (i < K.length - 2 && p > K[i + 1].p) i++;
-      var k0 = K[i], k1 = K[i + 1];
-      var q = smooth((p - k0.p) / (k1.p - k0.p));
-      return {
-        a: [k0.a[0] + (k1.a[0] - k0.a[0]) * q, k0.a[1] + (k1.a[1] - k0.a[1]) * q, k0.a[2] + (k1.a[2] - k0.a[2]) * q],
-        g: k0.g + (k1.g - k0.g) * q,
-        tt: k0.tt + (k1.tt - k0.tt) * q
-      };
-    }
-    var curPose = poseAt(0), scrollP = 0;
-
-    function fk(pose, u, bx, fy) {
-      var L1 = 168 * u, L2 = 142 * u, L3 = 60 * u;
-      var t1 = pose.a[0] * D2R, t2 = t1 + pose.a[1] * D2R, t3 = t2 + pose.a[2] * D2R;
-      var S0 = { x: bx, y: fy - 118 * u };
-      var E = { x: S0.x + L1 * Math.cos(t1), y: S0.y - L1 * Math.sin(t1) };
-      var W1 = { x: E.x + L2 * Math.cos(t2), y: E.y - L2 * Math.sin(t2) };
-      var T = { x: W1.x + L3 * Math.cos(t3), y: W1.y - L3 * Math.sin(t3) };
-      return { S: S0, E: E, W: W1, T: T, t1: t1, t2: t2, t3: t3 };
-    }
-
-    /* link with parallel edges, soft fill, dashed centerline */
-    function link(ctx, a, b, w1, w2) {
-      var dx = b.x - a.x, dy = b.y - a.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
-      var nx = -dy / d, ny = dx / d;
-      ctx.beginPath();
-      ctx.moveTo(a.x + nx * w1, a.y + ny * w1);
-      ctx.lineTo(b.x + nx * w2, b.y + ny * w2);
-      ctx.lineTo(b.x - nx * w2, b.y - ny * w2);
-      ctx.lineTo(a.x - nx * w1, a.y - ny * w1);
-      ctx.closePath();
-      ctx.fillStyle = "rgba(147,180,205,.055)"; ctx.fill();
-      ctx.strokeStyle = INK + "0.8)"; ctx.lineWidth = 1.3; ctx.stroke();
-      ctx.setLineDash([5, 6]);
-      ctx.strokeStyle = INK + "0.22)"; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-      ctx.setLineDash([]);
-    }
-    function joint(ctx, p, r, ang) {
-      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 6.2832);
-      ctx.fillStyle = BG; ctx.fill();
-      ctx.strokeStyle = INK + "0.85)"; ctx.lineWidth = 1.3; ctx.stroke();
-      ctx.beginPath(); ctx.arc(p.x, p.y, r * 0.45, 0, 6.2832);
-      ctx.strokeStyle = INK + "0.5)"; ctx.lineWidth = 1; ctx.stroke();
-      for (var i = 0; i < 6; i++) {
-        var th = ang + i * Math.PI / 3;
-        ctx.beginPath();
-        ctx.arc(p.x + Math.cos(th) * r * 0.72, p.y + Math.sin(th) * r * 0.72, 1.3, 0, 6.2832);
-        ctx.fillStyle = INK + "0.6)"; ctx.fill();
-      }
-      ctx.beginPath(); ctx.arc(p.x, p.y, 1.6, 0, 6.2832);
-      ctx.fillStyle = ACC + "0.9)"; ctx.fill();
-    }
-    function angleArc(ctx, p, r, from, to, label) {
-      ctx.strokeStyle = ACC + "0.45)"; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(p.x, p.y, r, -from, -to, from < to); ctx.stroke();
-      ctx.font = "9px 'IBM Plex Mono', monospace";
-      ctx.fillStyle = ACC + "0.8)";
-      var mid = -(from + to) / 2;
-      ctx.fillText(label, p.x + Math.cos(mid) * (r + 12) - 10, p.y + Math.sin(mid) * (r + 12) + 3);
-    }
-
-    var trail = [];
-
-    animate(armC, function (t) {
-      var ctx = A.ctx, W = A.w;
-      var u = Math.min(1, W / 1150);
-      var bx = W * 0.44, fy = H - 72;
-
-      /* scroll scrub */
-      var r = armC.getBoundingClientRect();
-      var vh = window.innerHeight;
-      var p = Math.max(0, Math.min(1, (vh - r.top) / (vh + r.height * 0.6)));
-      scrollP += (p - scrollP) * 0.09;
-      var target = poseAt(scrollP);
-      for (var i = 0; i < 3; i++) curPose.a[i] += (target.a[i] - curPose.a[i]) * 0.14;
-      curPose.g += (target.g - curPose.g) * 0.14;
-      curPose.tt += (target.tt - curPose.tt) * 0.14;
-      /* servo dither — tiny life */
-      var dith = [Math.sin(t * 6.1) * 0.22, Math.sin(t * 7.3 + 1) * 0.25, Math.sin(t * 8.7 + 2) * 0.3];
-      var shown = { a: [curPose.a[0] + dith[0], curPose.a[1] + dith[1], curPose.a[2] + dith[2]], g: curPose.g, tt: curPose.tt };
-
-      ctx.clearRect(0, 0, W, H);
-
-      /* graph paper */
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = INK + "0.045)";
-      ctx.beginPath();
-      for (var gx = 0; gx <= W; gx += 36) { ctx.moveTo(gx, 0); ctx.lineTo(gx, H); }
-      for (var gy = 0; gy <= H; gy += 36) { ctx.moveTo(0, gy); ctx.lineTo(W, gy); }
-      ctx.stroke();
-      ctx.strokeStyle = INK + "0.08)";
-      ctx.beginPath();
-      for (gx = 0; gx <= W; gx += 180) { ctx.moveTo(gx, 0); ctx.lineTo(gx, H); }
-      ctx.stroke();
-
-      /* floor + hatching */
-      ctx.strokeStyle = INK + "0.5)";
-      ctx.beginPath(); ctx.moveTo(bx - 240 * u, fy); ctx.lineTo(bx + 420 * u, fy); ctx.stroke();
-      ctx.strokeStyle = INK + "0.25)";
-      ctx.beginPath();
-      for (var hx = bx - 236 * u; hx < bx + 418 * u; hx += 14) { ctx.moveTo(hx, fy); ctx.lineTo(hx - 8, fy + 8); }
-      ctx.stroke();
-
-      /* pick / place targets from keyframes */
-      var pk = fk(poseAt(0.48), u, bx, fy), pl = fk(poseAt(1), u, bx, fy);
-      function targetMark(pt, lbl) {
-        ctx.strokeStyle = AMB + "0.55)"; ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(pt.x - 9, pt.y); ctx.lineTo(pt.x + 9, pt.y);
-        ctx.moveTo(pt.x, pt.y - 9); ctx.lineTo(pt.x, pt.y + 9);
-        ctx.stroke();
-        ctx.beginPath(); ctx.arc(pt.x, pt.y, 5.5, 0, 6.2832); ctx.stroke();
-        ctx.setLineDash([3, 5]);
-        ctx.strokeStyle = AMB + "0.25)";
-        ctx.beginPath(); ctx.moveTo(pt.x, pt.y + 9); ctx.lineTo(pt.x, fy); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.font = "9px 'IBM Plex Mono', monospace";
-        ctx.fillStyle = AMB + "0.75)";
-        ctx.fillText(lbl, pt.x + 12, pt.y - 6);
-      }
-      targetMark(pk.T, "P1 — PICK");
-      targetMark(pl.T, "P2 — PLACE");
-
-      /* base pedestal + turntable */
-      var bw = 88 * u;
-      ctx.strokeStyle = INK + "0.8)"; ctx.lineWidth = 1.3;
-      ctx.beginPath();
-      ctx.moveTo(bx - bw, fy); ctx.lineTo(bx - bw * 0.62, fy - 96 * u);
-      ctx.lineTo(bx + bw * 0.62, fy - 96 * u); ctx.lineTo(bx + bw, fy);
-      ctx.closePath();
-      ctx.fillStyle = "rgba(147,180,205,.04)"; ctx.fill(); ctx.stroke();
-      ctx.strokeStyle = INK + "0.2)"; ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (var hb = 0; hb < 5; hb++) {
-        ctx.moveTo(bx - bw * 0.8 + hb * bw * 0.4, fy - 4);
-        ctx.lineTo(bx - bw * 0.55 + hb * bw * 0.4, fy - 92 * u);
-      }
-      ctx.stroke();
-      /* turntable ellipse + J1 tick marks */
-      var tty = fy - 100 * u, ttr = 64 * u;
-      ctx.strokeStyle = INK + "0.7)"; ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.ellipse(bx, tty, ttr, ttr * 0.22, 0, 0, 6.2832); ctx.stroke();
-      var ttRad = shown.tt * D2R;
-      for (i = 0; i < 12; i++) {
-        var ta = ttRad + i * Math.PI / 6;
-        var tx = bx + Math.cos(ta) * ttr * 0.92, tyy = tty + Math.sin(ta) * ttr * 0.22 * 0.92;
-        ctx.beginPath(); ctx.arc(tx, tyy, 1.1, 0, 6.2832);
-        ctx.fillStyle = ACC + "0.65)"; ctx.fill();
-      }
-
-      /* kinematic chain */
-      var f = fk(shown, u, bx, fy);
-      /* cable — sagging service loop */
-      ctx.strokeStyle = ACC + "0.30)"; ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.moveTo(bx - bw * 0.7, fy - 40 * u);
-      ctx.bezierCurveTo(bx - 150 * u, fy - 180 * u, f.E.x - 120 * u, f.E.y - 60 * u, f.E.x - 8, f.E.y - 14);
-      ctx.stroke();
-
-      link(ctx, f.S, f.E, 15 * u, 11.5 * u);
-      link(ctx, f.E, f.W, 11.5 * u, 8.5 * u);
-      link(ctx, f.W, f.T, 7 * u, 5 * u);
-      joint(ctx, f.S, 17 * u, f.t1);
-      joint(ctx, f.E, 13 * u, f.t2);
-      joint(ctx, f.W, 9.5 * u, f.t3);
-      angleArc(ctx, f.S, 24 * u, 0, f.t1, "J2 " + Math.round(shown.a[0]) + "°");
-      angleArc(ctx, f.E, 20 * u, f.t1, f.t2, "J3 " + Math.round(shown.a[1]) + "°");
-      angleArc(ctx, f.W, 16 * u, f.t2, f.t3, "J4 " + Math.round(shown.a[2]) + "°");
-
-      /* gripper */
-      ctx.save();
-      ctx.translate(f.T.x, f.T.y);
-      ctx.rotate(-f.t3);
-      var gap = (5 + 13 * shown.g) * u, jl = 26 * u;
-      ctx.strokeStyle = INK + "0.85)"; ctx.lineWidth = 1.3;
-      ctx.beginPath(); ctx.moveTo(0, -gap - 6 * u); ctx.lineTo(0, gap + 6 * u); ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, -gap); ctx.lineTo(jl, -gap); ctx.lineTo(jl, -gap + 5 * u);
-      ctx.moveTo(0, gap); ctx.lineTo(jl, gap); ctx.lineTo(jl, gap - 5 * u);
-      ctx.stroke();
-      /* J5 roll collar */
-      var roll = scrollP * 4;
-      for (i = 0; i < 4; i++) {
-        var ra = roll + i * Math.PI / 2;
-        ctx.beginPath();
-        ctx.arc(-9 * u, 0, 6 * u, ra, ra + 0.7);
-        ctx.strokeStyle = ACC + "0.7)"; ctx.stroke();
-      }
-      ctx.restore();
-
-      /* TCP trail + marker */
-      trail.push({ x: f.T.x, y: f.T.y });
-      if (trail.length > 110) trail.shift();
-      ctx.beginPath();
-      for (i = 0; i < trail.length; i++) i === 0 ? ctx.moveTo(trail[i].x, trail[i].y) : ctx.lineTo(trail[i].x, trail[i].y);
-      ctx.strokeStyle = ACC + "0.22)"; ctx.lineWidth = 1; ctx.stroke();
-      ctx.beginPath(); ctx.arc(f.T.x, f.T.y, 2.4, 0, 6.2832);
-      ctx.fillStyle = ACC + "0.95)"; ctx.fill();
-
-      /* HUD */
-      ctx.font = "10px 'IBM Plex Mono', monospace";
-      var hx2 = 20, hy = 30, lh = 16;
-      ctx.fillStyle = ACC + "0.95)";
-      ctx.fillText("6-AXIS MANIPULATOR — KINEMATIC STUDY", hx2, hy);
-      ctx.fillStyle = INK + "0.55)";
-      ctx.fillText("J1 " + String(Math.round(shown.tt)).padStart(4) + "°   J2 " + String(Math.round(shown.a[0])).padStart(4) + "°   J3 " + String(Math.round(shown.a[1])).padStart(4) + "°", hx2, hy + lh);
-      ctx.fillText("J4 " + String(Math.round(shown.a[2])).padStart(4) + "°   J5 " + String(Math.round(roll / D2R) % 360).padStart(4) + "°   GRIP " + Math.round(shown.g * 100) + "%", hx2, hy + lh * 2);
-      ctx.fillText("TCP  x=" + Math.round((f.T.x - bx) * 2) + "  z=" + Math.round((fy - f.T.y) * 2) + "  mm", hx2, hy + lh * 3);
-      var hint = 1 - Math.min(1, scrollP / 0.07);
-      if (hint > 0.02) {
-        ctx.fillStyle = AMB + (0.85 * hint) + ")";
-        ctx.fillText("SCROLL — ACTUATES JOINTS ↓", hx2, hy + lh * 4 + 6);
-      }
-      ctx.fillStyle = INK + "0.3)";
-      ctx.fillText("SEQ: PARK → REACH → GRIP → LIFT → PLACE", Math.max(hx2, W - 300), H - 24);
-    });
-  })();
-
-  /* ============================================================
-     3. STRESS–STRAIN — tensile test dashboard
+     2. STRESS–STRAIN — tensile test dashboard
+     Self-tracing engineering σ–ε curve with a live tensile
+     specimen (stretch → neck → fracture), scan cursor, and
+     mono readouts. Structural-steel values, schematic.
      ============================================================ */
   var stress = document.getElementById("stressCanvas");
   if (stress) (function () {
-    var H2 = 330;
-    var S2 = setupCanvas(stress, H2);
-    var WIDE = S2.w >= 720;
-    var panelW = WIDE ? 300 : 0;
-    var m = { l: 64, r: panelW + 26, t: 30, b: 46 };
-    var pw = S2.w - m.l - m.r, ph = H2 - m.t - m.b;
+    var H2;
+    var S2;
+    var wide;
+    var sideW;
+    var m, pw, ph;
+    function reflow() {
+      H2 = stress.clientWidth && stress.clientWidth < 560 ? 308 : 360;
+      S2 = setupCanvas(stress, H2);
+      wide = S2.w >= 820;
+      sideW = wide ? Math.min(278, Math.round(S2.w * 0.30)) : 0;
+      m = {
+        l: S2.w < 460 ? 48 : 62,
+        r: sideW + (wide ? 30 : 22),
+        t: S2.w < 460 ? 36 : 38,
+        b: 46
+      };
+      pw = S2.w - m.l - m.r;
+      ph = H2 - m.t - m.b;
+    }
+    reflow();
+
     var X = function (u) { return m.l + u * pw; };
     var Y = function (v) { return m.t + (1 - v) * ph; };
 
+    var SIG_SCALE = 510;
+    var EPS_SCALE = 25;
+    var E_MODULUS = 210;
+    var YIELD_SIG = 0.695;
+    // σy / E = 0.16875% strain, kept consistent with the displayed 210 GPa.
+    var YIELD_U = YIELD_SIG * SIG_SCALE * 100 / (E_MODULUS * 1000 * EPS_SCALE);
+    var YIELD_END = 0.036, UTS_U = 0.60, END_U = 0.91;
+
+    // Engineering stress–strain response for a structural-steel specimen.
+    // The narrow elastic toe is to scale; later response remains schematic.
     function sigma(u) {
-      if (u < 0.10) return u * 6.2;
-      if (u < 0.16) return 0.62 + 0.015 * Math.sin((u - 0.10) * 90);
-      if (u < 0.62) { var q = (u - 0.16) / 0.46; return 0.62 + 0.26 * (1 - Math.pow(1 - q, 2.2)); }
-      var q2 = (u - 0.62) / 0.38; return 0.88 - 0.17 * q2 * q2;
+      if (u <= 0) return 0;
+      if (u < YIELD_U) return YIELD_SIG * u / YIELD_U;                  // elastic
+      if (u < YIELD_END) {
+        var plateau = (u - YIELD_U) / (YIELD_END - YIELD_U);
+        return YIELD_SIG - 0.021 * Math.sin(plateau * Math.PI) - 0.009 * plateau;
+      }
+      if (u < UTS_U) {
+        var hardening = (u - YIELD_END) / (UTS_U - YIELD_END);
+        return 0.686 + 0.314 * (1 - Math.pow(1 - hardening, 1.82));
+      }
+      var necking = (u - UTS_U) / (END_U - UTS_U);
+      return 1 - 0.17 * necking * necking;
     }
-    var YIELD_U = 0.10, UTS_U = 0.62, END_U = 0.97;
-    var SIG_SCALE = 505 / 0.88, EPS_SCALE = 25;
 
     function state(u) {
       if (u < YIELD_U) return "ELASTIC";
-      if (u < 0.16) return "YIELD";
-      if (u < UTS_U) return "STRAIN HARDENING";
+      if (u < YIELD_END) return "YIELDING";
+      if (u < UTS_U) return "WORK HARDENING";
       if (u < END_U - 0.004) return "NECKING";
       return "FRACTURE";
     }
 
+    function tangent(u) {
+      var du = 0.0015;
+      var lo = Math.max(0, u - du);
+      var hi = Math.min(END_U, u + du);
+      return (sigma(hi) - sigma(lo)) * SIG_SCALE / ((hi - lo) * EPS_SCALE);
+    }
+
+    function responseInk(u) {
+      return u >= UTS_U ? AMB : ACC;
+    }
+
+    function drawZones(ctx) {
+      ctx.fillStyle = ACC + "0.035)";
+      ctx.fillRect(X(0), m.t, X(YIELD_END) - X(0), ph);
+      ctx.fillStyle = ACC + "0.070)";
+      ctx.fillRect(X(YIELD_END), m.t, X(UTS_U) - X(YIELD_END), ph);
+      ctx.fillStyle = AMB + "0.055)";
+      ctx.fillRect(X(UTS_U), m.t, X(END_U) - X(UTS_U), ph);
+      ctx.fillStyle = AMB + "0.025)";
+      ctx.fillRect(X(END_U), m.t, X(1) - X(END_U), ph);
+
+      ctx.save();
+      ctx.setLineDash([2, 5]);
+      ctx.lineWidth = 1;
+      var limits = [YIELD_U, YIELD_END, UTS_U, END_U];
+      for (var i = 0; i < limits.length; i += 1) {
+        ctx.strokeStyle = (i < 2 ? ACC : AMB) + "0.22)";
+        ctx.beginPath(); ctx.moveTo(X(limits[i]), m.t); ctx.lineTo(X(limits[i]), Y(0)); ctx.stroke();
+      }
+      ctx.restore();
+
+      if (pw > 520) {
+        ctx.font = "9px 'IBM Plex Mono', monospace";
+        ctx.fillStyle = ACC + "0.56)";
+        ctx.fillText("ELASTIC  0–0.17%", m.l + 14, m.t + 13);
+        ctx.strokeStyle = ACC + "0.32)";
+        ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(m.l + 10, m.t + 17); ctx.lineTo(X(YIELD_U), m.t + 29); ctx.stroke();
+        ctx.fillStyle = INK + "0.34)";
+        ctx.fillText("UNIFORM PLASTIC", X(0.27), m.t + 13);
+        ctx.fillStyle = AMB + "0.55)";
+        ctx.fillText("NECKING", X(0.69), m.t + 13);
+      }
+    }
+
     function axes(ctx) {
-      ctx.strokeStyle = INK + "0.05)"; ctx.lineWidth = 1;
-      for (var gx = 0; gx <= 10; gx++) { ctx.beginPath(); ctx.moveTo(X(gx / 10), Y(0)); ctx.lineTo(X(gx / 10), Y(1)); ctx.stroke(); }
-      for (var gy = 0; gy <= 5; gy++) { ctx.beginPath(); ctx.moveTo(X(0), Y(gy / 5)); ctx.lineTo(X(1), Y(gy / 5)); ctx.stroke(); }
-      ctx.strokeStyle = INK + "0.45)";
+      var gx, gy;
+      drawZones(ctx);
+      ctx.strokeStyle = INK + "0.065)";
+      ctx.lineWidth = 1;
+      for (gx = 0; gx <= 10; gx += 1) {
+        ctx.beginPath(); ctx.moveTo(X(gx / 10), Y(0)); ctx.lineTo(X(gx / 10), Y(1)); ctx.stroke();
+      }
+      for (gy = 0; gy <= 5; gy += 1) {
+        ctx.beginPath(); ctx.moveTo(X(0), Y(gy / 5)); ctx.lineTo(X(1), Y(gy / 5)); ctx.stroke();
+      }
+      ctx.strokeStyle = INK + "0.48)";
       ctx.beginPath(); ctx.moveTo(X(0), Y(1)); ctx.lineTo(X(0), Y(0)); ctx.lineTo(X(1), Y(0)); ctx.stroke();
-      ctx.fillStyle = INK + "0.5)";
-      ctx.font = "10px 'IBM Plex Mono', monospace";
-      ctx.fillText("STRESS σ (MPa)", 12, m.t + 8);
-      ctx.fillText("STRAIN ε →", X(1) - 74, Y(0) + 30);
-      for (var ty = 1; ty <= 5; ty++) {
-        var mpa = Math.round(ty / 5 * SIG_SCALE);
-        ctx.fillStyle = INK + "0.30)";
-        ctx.fillText(String(mpa), 26, Y(ty / 5) + 3);
-      }
-    }
-    function label(ctx, txt, x, y, alignRight) {
-      ctx.font = "10px 'IBM Plex Mono', monospace";
-      ctx.fillStyle = ACC + "0.9)";
-      ctx.fillText(txt, alignRight ? x - ctx.measureText(txt).width : x, y);
-    }
 
-    function specimen(ctx, u, frac) {
-      var px0 = S2.w - panelW - 4, pw2 = panelW - 26;
-      var cx = px0 + pw2 / 2 + 12, cy = 96;
-      ctx.strokeStyle = INK + "0.18)";
-      ctx.strokeRect(px0 + 12, 24, pw2, 132);
       ctx.font = "9.5px 'IBM Plex Mono', monospace";
-      ctx.fillStyle = INK + "0.45)";
-      ctx.fillText("TENSILE SPECIMEN — SCHEMATIC", px0 + 24, 42);
-
-      var eps = u * EPS_SCALE / 100;
-      var L0 = pw2 * 0.44;
-      var L = L0 * (1 + eps * 2.4);
-      var gripW = 22, gripH = 40, gaugeH = 18;
-      var neckP = u <= UTS_U ? 0 : Math.min(1, (u - UTS_U) / (END_U - UTS_U));
-      var broken = u >= END_U - 0.004;
-      var gap = broken ? 7 : 0;
-
-      var xL = cx - L / 2 - gripW, xR = cx + L / 2;
-      ctx.lineWidth = 1.2;
-      ctx.strokeStyle = INK + "0.75)";
-      ctx.fillStyle = "rgba(147,180,205,.10)";
-
-      function half(sideR) {
-        ctx.beginPath();
-        var s0 = sideR ? cx + gap / 2 : xL + gripW;
-        var s1 = sideR ? xR : cx - gap / 2;
-        var gx0 = sideR ? xR : xL, gx1 = sideR ? xR + gripW : xL + gripW;
-        ctx.rect(Math.min(gx0, gx1), cy - gripH / 2, gripW, gripH);
-        var wEnd = gaugeH / 2, wMid = (gaugeH / 2) * (1 - 0.55 * neckP);
-        ctx.moveTo(s0, cy - (sideR ? wMid : wEnd));
-        ctx.lineTo(s1, cy - (sideR ? wEnd : wMid));
-        ctx.lineTo(s1, cy + (sideR ? wEnd : wMid));
-        ctx.lineTo(s0, cy + (sideR ? wMid : wEnd));
-        ctx.closePath();
-        ctx.fill(); ctx.stroke();
+      ctx.fillStyle = INK + "0.50)";
+      ctx.fillText("engineering stress σ  (MPa)", Math.max(8, m.l - 52), m.t - 14);
+      ctx.fillText("engineering strain ε  (%)", Math.max(m.l, X(1) - 152), Y(0) + 31);
+      for (gy = 0; gy <= 5; gy += 1) {
+        var mpa = Math.round(gy / 5 * SIG_SCALE);
+        ctx.fillStyle = INK + "0.34)";
+        ctx.fillText(String(mpa), Math.max(6, m.l - 36), Y(gy / 5) + 3);
       }
-      half(false); half(true);
+      for (gx = 0; gx <= 5; gx += 1) {
+        var strainPct = Math.round(gx / 5 * EPS_SCALE);
+        var tx = X(gx / 5) - (gx === 0 ? 2 : 6);
+        ctx.fillStyle = INK + "0.31)";
+        ctx.fillText(String(strainPct), tx, Y(0) + 16);
+      }
+    }
 
-      if (broken) {
-        ctx.strokeStyle = AMB + "0.9)";
+    function label(ctx, text, x, y, colour, alignRight) {
+      ctx.font = "9.5px 'IBM Plex Mono', monospace";
+      ctx.fillStyle = (colour || ACC) + "0.90)";
+      ctx.fillText(text, alignRight ? x - ctx.measureText(text).width : x, y);
+    }
+
+    function curvePath(ctx, until) {
+      var step = 0.003;
+      var u;
+      ctx.beginPath();
+      for (u = 0; u <= until + step * 0.5; u += step) {
+        var capped = Math.min(until, u);
+        var x = X(capped);
+        var y = Y(sigma(capped));
+        if (u === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+    }
+
+    function strokeCurve(ctx, from, until, colour, width) {
+      if (until <= from) return;
+      var step = 0.003;
+      var u;
+      ctx.beginPath();
+      for (u = from; u <= until + step * 0.5; u += step) {
+        var capped = Math.min(until, u);
+        if (u === from) ctx.moveTo(X(capped), Y(sigma(capped)));
+        else ctx.lineTo(X(capped), Y(sigma(capped)));
+      }
+      ctx.strokeStyle = colour + "0.94)";
+      ctx.lineWidth = width;
+      ctx.stroke();
+    }
+
+    function drawCurve(ctx, uMax, time) {
+      // Full response remains as a quiet reference while the live trace grows.
+      curvePath(ctx, END_U);
+      ctx.strokeStyle = INK + "0.18)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      var fill = ctx.createLinearGradient(0, m.t, 0, Y(0));
+      fill.addColorStop(0, ACC + "0.16)");
+      fill.addColorStop(0.72, ACC + "0.055)");
+      fill.addColorStop(1, ACC + "0)");
+      curvePath(ctx, uMax);
+      ctx.lineTo(X(uMax), Y(0));
+      ctx.lineTo(X(0), Y(0));
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+
+      var blueUntil = Math.min(uMax, UTS_U);
+      strokeCurve(ctx, 0, blueUntil, ACC, 1.8);
+      if (uMax > UTS_U) strokeCurve(ctx, UTS_U, uMax, AMB, 1.95);
+
+      // A small travelling signal rides on the active trace, echoing the specimen field.
+      if (!REDUCED && uMax > 0.08) {
+        var sweep = Math.max(0.018, uMax - 0.18 + ((time * 0.036) % 0.18));
+        var sx = X(sweep), sy = Y(sigma(sweep));
+        ctx.beginPath(); ctx.arc(sx, sy, 2.1, 0, 6.2832);
+        ctx.fillStyle = responseInk(sweep) + "0.75)";
+        ctx.fill();
+      }
+    }
+
+    function marker(ctx, u, caption, colour, active, dx, dy) {
+      var px = X(u), py = Y(sigma(u));
+      var alpha = active ? 0.96 : 0.24;
+      ctx.strokeStyle = colour + alpha + ")";
+      ctx.lineWidth = active ? 1.25 : 0.85;
+      ctx.beginPath(); ctx.arc(px, py, active ? 3.2 : 2.3, 0, 6.2832); ctx.stroke();
+      if (pw < 405) return;
+
+      ctx.font = "9px 'IBM Plex Mono', monospace";
+      var textW = ctx.measureText(caption).width;
+      var tx = Math.max(m.l + 6, Math.min(X(1) - textW - 4, px + dx));
+      var ty = Math.max(m.t + 15, Math.min(Y(0) - 6, py + dy));
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(tx - 4, ty - 3); ctx.stroke();
+      ctx.fillStyle = colour + (active ? "0.88)" : "0.38)");
+      ctx.fillText(caption, tx, ty);
+    }
+
+    function scanCursor(ctx, u, time) {
+      var px = X(u), py = Y(sigma(u));
+      var colour = responseInk(u);
+      var pulse = 0.5 + 0.5 * Math.sin(time * 7.5);
+      ctx.save();
+      ctx.setLineDash([2, 4]);
+      ctx.strokeStyle = colour + "0.30)";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, Y(0)); ctx.moveTo(px, py); ctx.lineTo(X(0), py); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalCompositeOperation = "lighter";
+      ctx.beginPath(); ctx.arc(px, py, 8 + pulse * 4, 0, 6.2832);
+      ctx.fillStyle = colour + (0.06 + pulse * 0.04) + ")"; ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py, 4.4, 0, 6.2832);
+      ctx.fillStyle = colour + "0.54)"; ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py, 1.8, 0, 6.2832);
+      ctx.fillStyle = "rgba(230,244,252,.96)"; ctx.fill();
+      ctx.restore();
+    }
+
+    function drawGrip(ctx, x, y, width, height, reverse) {
+      var i;
+      ctx.fillStyle = ACC + "0.085)";
+      ctx.fillRect(x, y - height / 2, width, height);
+      ctx.strokeStyle = INK + "0.62)";
+      ctx.lineWidth = 1.05;
+      ctx.strokeRect(x, y - height / 2, width, height);
+      ctx.strokeStyle = INK + "0.22)";
+      ctx.lineWidth = 0.7;
+      for (i = 6; i < height; i += 7) {
         ctx.beginPath();
-        ctx.moveTo(cx - gap / 2, cy - 9); ctx.lineTo(cx - 1, cy - 2);
-        ctx.lineTo(cx - gap / 2 - 1, cy + 3); ctx.lineTo(cx - 2, cy + 9);
+        if (reverse) {
+          ctx.moveTo(x + 3, y - height / 2 + i);
+          ctx.lineTo(x + width - 3, y - height / 2 + i - 4);
+        } else {
+          ctx.moveTo(x + 3, y - height / 2 + i - 4);
+          ctx.lineTo(x + width - 3, y - height / 2 + i);
+        }
         ctx.stroke();
-        if (frac < 0.5) {
-          ctx.beginPath(); ctx.arc(cx, cy, 14 * (1 - frac * 2) + 4, 0, 6.2832);
-          ctx.fillStyle = AMB + (0.25 * (1 - frac * 2)) + ")"; ctx.fill();
+      }
+    }
+
+    function drawGaugeField(ctx, start, end, cy, height, time, intensity, neck, colour) {
+      if (end - start < 12) return;
+      var x, y, i, lane;
+      var width = end - start;
+      var amp = height * (0.10 + 0.13 * intensity + 0.09 * neck);
+      ctx.lineWidth = 0.8;
+      for (lane = -1; lane <= 1; lane += 1) {
+        ctx.beginPath();
+        for (i = 0; i <= 20; i += 1) {
+          x = start + width * i / 20;
+          y = cy + lane * height * 0.19 + Math.sin((x - start) * 0.15 - time * 6.2 + lane * 1.4) * amp;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = colour + (0.12 + intensity * 0.16) + ")";
+        ctx.stroke();
+      }
+      for (i = 0; i < 3; i += 1) {
+        var packet = (time * 0.34 + i * 0.37) % 1;
+        x = start + packet * width;
+        ctx.beginPath(); ctx.arc(x, cy + Math.sin(packet * 8 + time * 4) * amp, 1.15 + intensity, 0, 6.2832);
+        ctx.fillStyle = colour + (0.28 + intensity * 0.25) + ")";
+        ctx.fill();
+      }
+    }
+
+    /* ---- live dogbone specimen with axial-wave strain field ---- */
+    function specimen(ctx, u, time, fractureAge) {
+      var panelX = S2.w - sideW + 12;
+      var specimenW = sideW - 24;
+      var cx = panelX + specimenW / 2;
+      var cy = 103;
+      var eps = u * EPS_SCALE / 100;
+      var L0 = Math.min(126, specimenW * 0.58);
+      var gaugeLength = L0 * (1 + eps * 1.12);
+      var gripW = 22, gripH = 42, gaugeH = 17;
+      var neck = u <= UTS_U ? 0 : Math.min(1, (u - UTS_U) / (END_U - UTS_U));
+      var fractured = u >= END_U - 0.003;
+      var gap = fractured ? 7.5 : 0;
+      var gaugeLeft = cx - gaugeLength / 2;
+      var gaugeRight = cx + gaugeLength / 2;
+      var innerLeft = cx - gap / 2;
+      var innerRight = cx + gap / 2;
+      var tone = responseInk(u);
+      var outerHalf = gaugeH / 2;
+      var innerHalf = outerHalf * (1 - neck * 0.61);
+
+      ctx.font = "9.5px 'IBM Plex Mono', monospace";
+      ctx.fillStyle = ACC + "0.86)";
+      ctx.fillText("AXIAL TENSILE SPECIMEN", panelX, 27);
+      ctx.fillStyle = INK + "0.38)";
+      ctx.fillText("S355-TYPE  ·  εx FIELD", panelX, 43);
+      ctx.strokeStyle = INK + "0.18)";
+      ctx.beginPath(); ctx.moveTo(panelX, 51); ctx.lineTo(panelX + specimenW, 51); ctx.stroke();
+
+      drawGrip(ctx, gaugeLeft - gripW, cy, gripW, gripH, false);
+      drawGrip(ctx, gaugeRight, cy, gripW, gripH, true);
+
+      function gaugePath(left) {
+        if (left) {
+          ctx.moveTo(gaugeLeft, cy - outerHalf);
+          ctx.lineTo(innerLeft, cy - innerHalf);
+          ctx.lineTo(innerLeft, cy + innerHalf);
+          ctx.lineTo(gaugeLeft, cy + outerHalf);
+        } else {
+          ctx.moveTo(innerRight, cy - innerHalf);
+          ctx.lineTo(gaugeRight, cy - outerHalf);
+          ctx.lineTo(gaugeRight, cy + outerHalf);
+          ctx.lineTo(innerRight, cy + innerHalf);
+        }
+        ctx.closePath();
+      }
+
+      var specimenFill = ctx.createLinearGradient(gaugeLeft, cy, gaugeRight, cy);
+      specimenFill.addColorStop(0, ACC + "0.09)");
+      specimenFill.addColorStop(0.50, tone + (0.12 + neck * 0.10) + ")");
+      specimenFill.addColorStop(1, ACC + "0.09)");
+      ctx.beginPath(); gaugePath(true); gaugePath(false);
+      ctx.fillStyle = specimenFill; ctx.fill();
+
+      ctx.save();
+      ctx.beginPath(); gaugePath(true); gaugePath(false); ctx.clip();
+      drawGaugeField(ctx, gaugeLeft, gaugeRight, cy, gaugeH, time, sigma(u), neck, tone);
+      ctx.restore();
+
+      ctx.beginPath(); gaugePath(true); gaugePath(false);
+      ctx.strokeStyle = INK + "0.76)";
+      ctx.lineWidth = 1.15;
+      ctx.stroke();
+
+      // Extension gauge, moving ticks, and a quiet centreline.
+      var dimY = cy + 34;
+      ctx.strokeStyle = ACC + "0.48)";
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(gaugeLeft, dimY - 4); ctx.lineTo(gaugeLeft, dimY + 4);
+      ctx.moveTo(gaugeRight, dimY - 4); ctx.lineTo(gaugeRight, dimY + 4);
+      ctx.moveTo(gaugeLeft, dimY); ctx.lineTo(gaugeRight, dimY);
+      ctx.stroke();
+      ctx.fillStyle = INK + "0.48)";
+      ctx.font = "9px 'IBM Plex Mono', monospace";
+      ctx.fillText("L = L0 + ΔL  ·  ε = " + (u * EPS_SCALE).toFixed(2) + " %", cx - 61, dimY + 16);
+
+      if (fractured) {
+        var flash = Math.max(0, 1 - fractureAge / 0.75);
+        ctx.strokeStyle = AMB + "0.94)";
+        ctx.lineWidth = 1.25;
+        ctx.beginPath();
+        ctx.moveTo(cx - gap / 2, cy - innerHalf);
+        ctx.lineTo(cx - 1, cy - 3);
+        ctx.lineTo(cx - gap / 2 - 1, cy + 2);
+        ctx.lineTo(cx - 2, cy + innerHalf);
+        ctx.stroke();
+        if (flash > 0) {
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+          ctx.beginPath(); ctx.arc(cx, cy, 8 + flash * 18, 0, 6.2832);
+          ctx.fillStyle = AMB + (flash * 0.18) + ")"; ctx.fill();
+          ctx.restore();
         }
       }
-      ctx.strokeStyle = ACC + "0.5)";
-      ctx.beginPath();
-      ctx.moveTo(cx - L / 2, cy + 22); ctx.lineTo(cx - L / 2, cy + 28);
-      ctx.moveTo(cx + L / 2, cy + 22); ctx.lineTo(cx + L / 2, cy + 28);
-      ctx.moveTo(cx - L / 2, cy + 25); ctx.lineTo(cx + L / 2, cy + 25);
-      ctx.stroke();
-      ctx.fillStyle = INK + "0.4)";
-      ctx.fillText("L = L₀ + ΔL", cx - 30, cy + 40);
     }
 
-    function readout(ctx, u) {
-      var px0 = S2.w - panelW - 4, pw2 = panelW - 26;
-      var x = px0 + 24, y = 186, lh = 19;
-      var sig = Math.round(sigma(u) * SIG_SCALE);
-      var eps = (u * EPS_SCALE).toFixed(1);
-      ctx.font = "10px 'IBM Plex Mono', monospace";
+    function telemetryWave(ctx, x, y, width, time, intensity, colour) {
+      var i;
       ctx.strokeStyle = INK + "0.18)";
-      ctx.strokeRect(px0 + 12, 168, pw2, 118);
-      ctx.fillStyle = INK + "0.45)"; ctx.fillText("LIVE READOUT", x, y);
-      ctx.fillStyle = INK + "0.65)";
-      ctx.fillText("σ  = " + String(sig).padStart(3, " ") + " MPa", x, y + lh);
-      ctx.fillText("ε  = " + eps + " %", x, y + lh * 2);
-      ctx.fillText("E  = 210 GPa", x, y + lh * 3);
-      var st = state(u);
-      ctx.fillStyle = st === "FRACTURE" ? AMB + "0.95)" : ACC + "0.95)";
-      ctx.fillText("STATE: " + st, x, y + lh * 4 + 4);
-      ctx.beginPath(); ctx.arc(x + pw2 - 34, y + lh * 4, 3.5, 0, 6.2832);
-      ctx.fillStyle = st === "FRACTURE" ? AMB + "0.95)" : ACC + "0.9)"; ctx.fill();
+      ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + width, y); ctx.stroke();
+      ctx.beginPath();
+      for (i = 0; i <= 28; i += 1) {
+        var px = x + width * i / 28;
+        var py = y + Math.sin(i * 0.56 - time * 5.4) * (2 + intensity * 3.2) * Math.exp(-Math.pow((i - 15) / 12, 2));
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = colour + "0.74)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
     }
 
-    var PERIOD = 12;
-    animate(stress, function (t) {
+    /* ---- floating diagnostic readout; no panel chrome ---- */
+    function readout(ctx, u, time) {
+      var x = S2.w - sideW + 12;
+      var width = sideW - 24;
+      var y = 190;
+      var sig = Math.round(sigma(u) * SIG_SCALE);
+      var eps = (u * EPS_SCALE).toFixed(2);
+      var slope = tangent(u);
+      var st = state(u);
+      var tone = responseInk(u);
+
+      ctx.font = "9.5px 'IBM Plex Mono', monospace";
+      ctx.fillStyle = ACC + "0.86)";
+      ctx.fillText("TEST TELEMETRY", x, y);
+      ctx.strokeStyle = INK + "0.20)";
+      ctx.beginPath(); ctx.moveTo(x, y + 7); ctx.lineTo(x + width, y + 7); ctx.stroke();
+
+      function row(offset, key, value, colour) {
+        ctx.fillStyle = INK + "0.44)";
+        ctx.fillText(key, x, y + offset);
+        ctx.fillStyle = (colour || INK) + "0.78)";
+        ctx.fillText(value, x + 62, y + offset);
+      }
+
+      row(25, "σ", String(sig) + " MPa", tone);
+      row(41, "ε", eps + " %", tone);
+      row(57, "E", E_MODULUS + " GPa", ACC);
+      row(73, "dσ/dε", slope.toFixed(0) + " MPa/%", ACC);
+      row(89, "STATE", st, tone);
+
+      ctx.fillStyle = INK + "0.36)";
+      ctx.fillText("LOAD", x, y + 111);
+      ctx.fillText("ε / εf", x, y + 126);
+      function bar(by, value, colour) {
+        ctx.strokeStyle = INK + "0.20)";
+        ctx.beginPath(); ctx.moveTo(x + 48, by); ctx.lineTo(x + width, by); ctx.stroke();
+        ctx.strokeStyle = colour + "0.82)";
+        ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(x + 48, by); ctx.lineTo(x + 48 + (width - 48) * Math.max(0, Math.min(1, value)), by); ctx.stroke();
+      }
+      bar(y + 108, sigma(u), tone);
+      bar(y + 123, u / END_U, tone);
+
+      ctx.fillStyle = INK + "0.36)";
+      ctx.fillText("AXIAL WAVE / εx", x, y + 146);
+      telemetryWave(ctx, x, y + 158, width, time, sigma(u), tone);
+    }
+
+    function compactReadout(ctx, u) {
+      var sig = Math.round(sigma(u) * SIG_SCALE);
+      var text = "σ " + sig + " MPa   ε " + (u * EPS_SCALE).toFixed(2) + " %   " + state(u);
+      ctx.font = "9.5px 'IBM Plex Mono', monospace";
+      ctx.fillStyle = responseInk(u) + "0.86)";
+      if (S2.w < 455) {
+        ctx.fillText("σ " + sig + " MPa   ε " + (u * EPS_SCALE).toFixed(2) + " %", m.l + 5, m.t + 22);
+        ctx.fillText(state(u), m.l + 5, m.t + 36);
+      } else {
+        ctx.fillText(text, m.l + 7, m.t + 22);
+      }
+    }
+
+    var PERIOD = 14;
+    var TEST_RUN = 9.6;
+    function drawStress(time) {
       var ctx = S2.ctx;
-      var cycle = REDUCED ? 7.5 : (t % PERIOD);
-      var prog = Math.min(cycle / 7.5, 1);
-      var uMax = END_U * (1 - Math.pow(1 - prog, 3));
-      var fracT = Math.max(0, cycle - 7.5);
+      var cycle = REDUCED ? TEST_RUN : (time % PERIOD);
+      var progress = Math.min(cycle / TEST_RUN, 1);
+      var uMax = END_U * (1 - Math.pow(1 - progress, 2.35));
+      var fractureAge = Math.max(0, cycle - TEST_RUN);
 
       ctx.clearRect(0, 0, S2.w, H2);
       axes(ctx);
+      drawCurve(ctx, uMax, time);
 
-      var grad = ctx.createLinearGradient(0, m.t, 0, Y(0));
-      grad.addColorStop(0, "rgba(147,180,205,.14)");
-      grad.addColorStop(1, "rgba(147,180,205,0)");
-      ctx.beginPath(); ctx.moveTo(X(0), Y(0));
-      for (var u = 0; u <= uMax; u += 0.004) ctx.lineTo(X(u), Y(sigma(u)));
-      ctx.lineTo(X(uMax), Y(0)); ctx.closePath();
-      ctx.fillStyle = grad; ctx.fill();
+      var yieldActive = uMax >= YIELD_U;
+      var utsActive = uMax >= UTS_U;
+      var fractureActive = uMax >= END_U - 0.002;
+      marker(ctx, YIELD_U, "σy  355 MPa", ACC, yieldActive, 25, 25);
+      marker(ctx, UTS_U, "UTS  510 MPa", ACC, utsActive, -83, -18);
+      marker(ctx, END_U, "FRACTURE", AMB, fractureActive, -82, 20);
 
-      ctx.strokeStyle = INK + "0.9)"; ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      for (u = 0; u <= uMax; u += 0.004) {
-        var px = X(u), py = Y(sigma(u));
-        u === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
-      }
-      ctx.stroke();
-
-      if (uMax > YIELD_U) {
-        var yx = X(YIELD_U), yy = Y(sigma(YIELD_U));
-        ctx.strokeStyle = ACC + "0.35)"; ctx.setLineDash([3, 4]);
-        ctx.beginPath(); ctx.moveTo(X(0), yy); ctx.lineTo(yx, yy); ctx.stroke(); ctx.setLineDash([]);
-        label(ctx, "σy  YIELD", yx + 8, yy - 6);
-        label(ctx, "E = Δσ/Δε", X(0.035), Y(0.30));
-      }
-      if (uMax > UTS_U) {
-        var ux = X(UTS_U), uy = Y(sigma(UTS_U));
-        ctx.beginPath(); ctx.arc(ux, uy, 3, 0, Math.PI * 2); ctx.fillStyle = ACC + "0.95)"; ctx.fill();
-        label(ctx, "UTS", ux - 10, uy - 10, true);
-      }
-      if (uMax >= END_U - 0.001) {
-        var fx = X(END_U), fy = Y(sigma(END_U));
-        ctx.strokeStyle = AMB + "0.95)"; ctx.lineWidth = 1.4;
-        ctx.beginPath(); ctx.moveTo(fx - 4, fy - 4); ctx.lineTo(fx + 4, fy + 4);
-        ctx.moveTo(fx + 4, fy - 4); ctx.lineTo(fx - 4, fy + 4); ctx.stroke();
-        ctx.fillStyle = AMB + "0.9)";
-        ctx.font = "10px 'IBM Plex Mono', monospace";
-        ctx.fillText("FRACTURE", fx - 62, fy - 12);
+      if (yieldActive && pw > 360) {
+        var yieldY = Y(sigma(YIELD_U));
+        ctx.save();
+        ctx.setLineDash([2, 4]);
+        ctx.strokeStyle = ACC + "0.28)";
+        ctx.lineWidth = 0.9;
+        ctx.beginPath(); ctx.moveTo(X(0), yieldY); ctx.lineTo(X(YIELD_U), yieldY); ctx.stroke();
+        ctx.restore();
+        if (pw > 520) label(ctx, "E = 210 GPa", X(0.075), Y(0.27), ACC, false);
       }
 
-      if (prog < 1) {
-        var cxp = X(uMax), cyp = Y(sigma(uMax));
-        ctx.strokeStyle = ACC + "0.25)"; ctx.setLineDash([2, 4]);
-        ctx.beginPath(); ctx.moveTo(cxp, cyp); ctx.lineTo(cxp, Y(0));
-        ctx.moveTo(cxp, cyp); ctx.lineTo(X(0), cyp); ctx.stroke(); ctx.setLineDash([]);
-        ctx.beginPath(); ctx.arc(cxp, cyp, 9, 0, 6.2832); ctx.fillStyle = ACC + "0.12)"; ctx.fill();
-        ctx.beginPath(); ctx.arc(cxp, cyp, 4.5, 0, 6.2832); ctx.fillStyle = ACC + "0.35)"; ctx.fill();
-        ctx.beginPath(); ctx.arc(cxp, cyp, 2, 0, 6.2832); ctx.fillStyle = "rgba(230,244,252,.95)"; ctx.fill();
+      scanCursor(ctx, uMax, time);
+      if (wide) {
+        specimen(ctx, uMax, time, fractureAge);
+        readout(ctx, uMax, time);
+      } else {
+        compactReadout(ctx, uMax);
       }
+    }
 
-      if (WIDE) { specimen(ctx, uMax, fracT); readout(ctx, uMax); }
-      else {
-        var sig2 = Math.round(sigma(uMax) * SIG_SCALE);
-        ctx.font = "10px 'IBM Plex Mono', monospace";
-        ctx.fillStyle = INK + "0.6)";
-        ctx.fillText("σ = " + sig2 + " MPa   ε = " + (uMax * EPS_SCALE).toFixed(1) + " %   " + state(uMax), m.l + 8, m.t + 24);
-      }
+    var redrawStress = animate(stress, drawStress);
+
+    var stressResizeTimer;
+    window.addEventListener("resize", function () {
+      clearTimeout(stressResizeTimer);
+      stressResizeTimer = setTimeout(function () {
+        reflow();
+        if (REDUCED) redrawStress();
+      }, 150);
     });
   })();
 })();

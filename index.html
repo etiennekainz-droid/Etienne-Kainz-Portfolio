@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=7" />
+<link rel="stylesheet" href="styles.css?v=8" />
 </head>
 <body>
 
@@ -31,7 +31,7 @@
       <a href="aerial.html"><span class="n">04</span>Aerial</a>
       <a href="certifications.html"><span class="n">05</span>Certifications</a>
     </div>
-    <button class="menu-btn" id="menuBtn" aria-label="Menu">
+    <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-controls="navLinks" aria-expanded="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
     </button>
   </nav>
@@ -53,16 +53,35 @@
           <a class="btn" href="mailto:pro.kainz@icloud.com">Contact</a>
         </div>
       </div>
-      <figure class="fig portrait" data-reveal>
+      <figure class="fig portrait portrait--hero" data-reveal>
         <img class="fig-media" src="assets/headshot/etienne.jpg" alt="Etienne Kainz" />
         <figcaption><b>E. KAINZ</b><span>VIENNA · 2026</span></figcaption>
       </figure>
     </div>
   </div>
 
-  <!-- ============ LATTICE — floating, full-bleed ============ -->
-  <div class="fig-band fig-band--float fig-band--bleed">
-    <canvas id="latticeCanvas" height="460"></canvas>
+  <!-- ============ FIG. 0.1 — SCROLL-DRIVEN MANIPULATOR ============ -->
+  <div class="arm-band">
+    <div class="wrap">
+      <figure class="arm-figure" data-reveal aria-labelledby="armCaption">
+        <div class="arm-stage">
+          <canvas id="robotArmCanvas" aria-label="Three-dimensional six-axis robotic arm responding to page scroll"></canvas>
+          <div class="arm-hud" aria-hidden="true">
+            <span class="arm-hud__eyebrow">FIG. 0.1 · KINEMATIC STUDY</span>
+            <span class="arm-hud__value" id="armStatus">INITIALIZING KINEMATICS</span>
+            <span class="arm-hud__hint">SCROLL-COUPLED · SIX-AXIS PATH</span>
+          </div>
+        </div>
+        <figcaption id="armCaption"><b>FIG. 0.1</b><span>MK-VI MULTI-AXIS MANIPULATOR — SCROLL-COUPLED KINEMATIC STUDY</span><span>J1–J6 · PATH</span></figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <!-- ============ LATTICE — floating, frameless ============ -->
+  <div class="fig-band fig-band--float">
+    <div class="wrap" data-reveal>
+      <canvas id="latticeCanvas" height="340"></canvas>
+    </div>
   </div>
 
   <!-- ============ 1. OVERVIEW ============ -->
@@ -112,11 +131,6 @@
       </div>
     </div>
   </section>
-
-  <!-- ============ ARM — scroll-driven 6-axis kinematics ============ -->
-  <div class="fig-band fig-band--float fig-band--bleed">
-    <canvas id="armCanvas" height="460"></canvas>
-  </div>
 
   <!-- ============ FIG 0.2 — STRESS-STRAIN ============ -->
   <div class="fig-band">
@@ -202,8 +216,9 @@
   <div class="lb-cap" id="lbCap"></div>
 </div>
 
-<script src="bg.js?v=7"></script>
-<script src="shared.js?v=6"></script>
-<script src="anim.js?v=7"></script>
+<script src="bg.js?v=9"></script>
+<script src="shared.js?v=7"></script>
+<script src="anim.js?v=9"></script>
+<script type="module" src="robot-arm.js?v=3"></script>
 </body>
 </html>
