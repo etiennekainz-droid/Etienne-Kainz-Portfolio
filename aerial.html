@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aerial Photography — Etienne Kainz</title>
+<meta name="description" content="Aerial and drone photography across Austria, Germany, France, Brazil, Peru, Chile, Colombia, Bolivia, and Panama." />
+<link rel="icon" type="image/jpeg" href="assets/brand/k-logo.jpg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css?v=5" />
+</head>
+<body>
+
+<header>
+  <nav class="nav">
+    <a class="brand" href="index.html">
+      <img src="assets/brand/k-logo.jpg" alt="Kainz logo" />
+      <span class="t">ETIENNE KAINZ<small>MECHANICAL ENGINEERING</small></span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="index.html"><span class="n">01</span>Home</a>
+      <a href="projects.html"><span class="n">02</span>Projects</a>
+      <a href="drawings.html"><span class="n">03</span>Drawings</a>
+      <a href="aerial.html" class="active"><span class="n">04</span>Aerial</a>
+      <a href="certifications.html"><span class="n">05</span>Certifications</a>
+    </div>
+    <button class="menu-btn" id="menuBtn" aria-label="Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+  </nav>
+</header>
+
+<main>
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head" data-reveal>
+        <span class="sec-no">SECTION 04</span>
+        <h2 class="section-title">Aerial Photography</h2>
+        <p class="section-lead">Aerial &amp; drone photography captured across Austria, Germany,
+        France, Brazil, Peru, Chile, Colombia, Bolivia, and Panama.</p>
+      </div>
+      <div class="grid-3" id="aerialGrid" data-reveal></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="titleblock">
+      <div class="cell"><span class="lbl">Name</span><span class="val">ETIENNE KAINZ</span></div>
+      <div class="cell"><span class="lbl">Affiliation</span><span class="val">TU WIEN — MECH. ENG.</span></div>
+      <div class="cell"><span class="lbl">Document</span><span class="val">PORTFOLIO · REV. C</span></div>
+      <div class="cell"><span class="lbl">Contact</span><span class="val"><a href="mailto:pro.kainz@icloud.com">E-MAIL</a></span></div>
+    </div>
+    <div class="foot-note">
+      <span>© <span id="year"></span> ETIENNE KAINZ</span>
+      <span>SECTION 04 — AERIAL PHOTOGRAPHY</span>
+    </div>
+  </div>
+</footer>
+
+<div class="lightbox" id="lightbox" aria-hidden="true">
+  <button class="lb-close" id="lbClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <button class="lb-nav prev" id="lbPrev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <img class="lb-img" id="lbImg" src="" alt="" />
+  <button class="lb-nav next" id="lbNext" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 5l7 7-7 7"/></svg></button>
+  <div class="lb-cap" id="lbCap"></div>
+</div>
+
+<script>
+/* build the 21-photo grid */
+(function () {
+  var grid = document.getElementById("aerialGrid");
+  var html = "";
+  for (var i = 1; i <= 21; i++) {
+    var n = (i < 10 ? "0" : "") + i;
+    html += '<figure class="fig fig-click" data-lb-group="aerial" data-cap="Aerial photograph ' + n + '/21">' +
+            '<img class="fig-media" src="assets/aerial/aerial-' + n + '.jpg" alt="Aerial photograph ' + n + '" loading="lazy" />' +
+            "</figure>";
+  }
+  grid.innerHTML = html;
+})();
+</script>
+<script src="shared.js?v=5"></script>
+</body>
+</html>
