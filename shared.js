@@ -5,7 +5,22 @@
   /* mobile menu */
   var menuBtn = document.getElementById("menuBtn");
   var navLinks = document.getElementById("navLinks");
-  if (menuBtn) menuBtn.addEventListener("click", function () { navLinks.classList.toggle("open"); });
+  function setMenuOpen(open) {
+    if (!menuBtn || !navLinks) return;
+    navLinks.classList.toggle("open", open);
+    menuBtn.setAttribute("aria-expanded", String(open));
+  }
+  if (menuBtn && navLinks) {
+    menuBtn.addEventListener("click", function () {
+      setMenuOpen(!navLinks.classList.contains("open"));
+    });
+    navLinks.addEventListener("click", function (event) {
+      if (event.target.closest("a")) setMenuOpen(false);
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") setMenuOpen(false);
+    });
+  }
 
   /* year */
   var y = document.getElementById("year");
@@ -23,12 +38,17 @@
   onScrollProgress();
 
   /* subtle scroll reveal */
-  var io = new IntersectionObserver(function (entries) {
-    entries.forEach(function (en) {
-      if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
-    });
-  }, { threshold: 0.1, rootMargin: "0px 0px -6% 0px" });
-  document.querySelectorAll("[data-reveal]").forEach(function (n) { io.observe(n); });
+  var revealNodes = document.querySelectorAll("[data-reveal]");
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
+      });
+    }, { threshold: 0.1, rootMargin: "0px 0px -6% 0px" });
+    revealNodes.forEach(function (n) { io.observe(n); });
+  } else {
+    revealNodes.forEach(function (n) { n.classList.add("in"); });
+  }
 
   /* ---------- lightbox ----------
      Any element with [data-lb-group] joins a gallery. Image source is

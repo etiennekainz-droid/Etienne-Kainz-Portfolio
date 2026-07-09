@@ -157,8 +157,6 @@ main{ min-height:70vh; }
 .fig-band canvas{ display:block; width:100%; height:auto; }
 .fig-band--float{ border-top:0; padding-top:clamp(20px,3vw,36px); }
 .fig-band--float canvas{ cursor:crosshair; }
-.fig-band--bleed{ padding-inline:0; }
-.fig-band--bleed canvas{ width:100%; }
 
 /* ============================================================ TOC (home index) */
 .toc{ border-top:1px solid var(--line-2); }
@@ -308,4 +306,387 @@ main{ min-height:70vh; }
 @media (prefers-reduced-motion:reduce){
   *{ transition-duration:.01ms!important; animation-duration:.01ms!important; }
   [data-reveal]{ opacity:1; transform:none; }
+}
+
+/* ============================================================
+   FIG. 0.1 — Interactive six-axis robotic arm
+   ============================================================ */
+.hero-grid{
+  grid-template-columns:minmax(0,.92fr) minmax(460px,1.28fr);
+  align-items:center;
+}
+
+.arm-figure{
+  position:relative;
+  overflow:hidden;
+  border-color:rgba(147,180,205,.32);
+  background:
+    radial-gradient(circle at 64% 18%, rgba(111,164,198,.14), transparent 34%),
+    linear-gradient(145deg, #121920, #0b0f13 70%);
+  box-shadow:0 24px 60px rgba(0,0,0,.26);
+}
+
+.arm-stage{
+  position:relative;
+  min-height:520px;
+  isolation:isolate;
+  overflow:hidden;
+  background:
+    linear-gradient(rgba(147,180,205,.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(147,180,205,.055) 1px, transparent 1px),
+    radial-gradient(circle at 53% 46%, rgba(40,74,97,.26), transparent 44%),
+    #0c1116;
+  background-size:28px 28px, 28px 28px, auto, auto;
+  touch-action:none;
+  cursor:grab;
+}
+
+.arm-stage:active{ cursor:grabbing; }
+
+.arm-stage::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:
+    linear-gradient(90deg, rgba(147,180,205,.14), transparent 18%, transparent 82%, rgba(147,180,205,.08)),
+    linear-gradient(0deg, rgba(5,8,11,.52), transparent 26%, transparent 76%, rgba(5,8,11,.28));
+}
+
+#robotArmCanvas{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  width:100%;
+  height:100%;
+  display:block;
+  outline:none;
+}
+
+.arm-hud{
+  position:absolute;
+  z-index:2;
+  top:17px;
+  left:18px;
+  display:grid;
+  gap:5px;
+  pointer-events:none;
+  font-family:var(--mono);
+  text-transform:uppercase;
+}
+
+.arm-hud__eyebrow{
+  font-size:9.5px;
+  letter-spacing:.16em;
+  color:var(--accent-2);
+}
+
+.arm-hud__value{
+  font-size:10px;
+  letter-spacing:.1em;
+  color:var(--text-2);
+}
+
+.arm-hud__hint{
+  margin-top:5px;
+  font-size:8.5px;
+  letter-spacing:.12em;
+  color:var(--muted);
+}
+
+.arm-profile{
+  position:absolute;
+  z-index:2;
+  right:17px;
+  bottom:16px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 8px 6px 6px;
+  border:1px solid rgba(214,224,232,.16);
+  background:rgba(9,13,17,.68);
+  backdrop-filter:blur(6px);
+  font-family:var(--mono);
+  font-size:8.5px;
+  letter-spacing:.12em;
+  color:var(--text-2);
+}
+
+.arm-profile img{
+  width:31px;
+  height:31px;
+  object-fit:cover;
+  filter:grayscale(1) contrast(1.05);
+}
+
+.arm-figure figcaption{
+  position:relative;
+  z-index:3;
+  align-items:flex-start;
+}
+
+.arm-figure figcaption span:nth-last-child(1){
+  color:var(--accent);
+  white-space:nowrap;
+}
+
+@media (max-width:1024px){
+  .hero-grid{ grid-template-columns:minmax(0,1fr) minmax(390px,1.05fr); gap:clamp(28px,4vw,54px); }
+  .arm-stage{ min-height:470px; }
+}
+
+@media (max-width:820px){
+  .hero-grid{ grid-template-columns:1fr; }
+  .arm-figure{ width:100%; max-width:680px; }
+  .arm-stage{ min-height:460px; }
+}
+
+@media (max-width:520px){
+  .arm-stage{ min-height:390px; }
+  .arm-hud{ top:13px; left:14px; }
+  .arm-profile{ right:12px; bottom:12px; }
+  .arm-profile span{ display:none; }
+  .arm-figure figcaption{ display:grid; grid-template-columns:auto 1fr; }
+  .arm-figure figcaption span:nth-last-child(1){ grid-column:2; }
+}
+
+/* The arm is deliberately presented as an open lab visualization rather than
+   a framed product render. The field fades at its edge instead of forming a box. */
+.hero{ position:relative; }
+.hero::after{
+  content:"";
+  position:absolute;
+  left:var(--pad);
+  right:var(--pad);
+  bottom:0;
+  height:1px;
+  background:linear-gradient(90deg, transparent, rgba(147,180,205,.32) 16%, rgba(147,180,205,.09) 76%, transparent);
+  pointer-events:none;
+}
+
+.arm-figure{
+  margin:0;
+  padding:0 0 8px;
+  overflow:visible;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+}
+
+.arm-stage{
+  min-height:550px;
+  overflow:visible;
+  background:transparent;
+}
+
+.arm-stage::before{
+  inset:-10% -8%;
+  background:
+    radial-gradient(ellipse at 52% 57%, rgba(77,130,162,.18) 0%, rgba(40,77,99,.08) 36%, transparent 68%),
+    repeating-linear-gradient(0deg, rgba(147,180,205,.075) 0 1px, transparent 1px 29px),
+    repeating-linear-gradient(90deg, rgba(147,180,205,.065) 0 1px, transparent 1px 29px);
+  background-size:auto, 100% 29px, 29px 100%;
+  -webkit-mask-image:radial-gradient(ellipse 76% 68% at 52% 56%, #000 26%, rgba(0,0,0,.72) 53%, transparent 100%);
+  mask-image:radial-gradient(ellipse 76% 68% at 52% 56%, #000 26%, rgba(0,0,0,.72) 53%, transparent 100%);
+}
+
+.arm-stage::after{
+  content:"";
+  position:absolute;
+  z-index:0;
+  left:10%;
+  right:8%;
+  bottom:9%;
+  height:1px;
+  pointer-events:none;
+  background:linear-gradient(90deg, transparent, rgba(147,180,205,.44), rgba(195,217,234,.14), transparent);
+  box-shadow:0 0 20px rgba(108,168,208,.16);
+}
+
+#robotArmCanvas{ filter:drop-shadow(0 20px 20px rgba(0,0,0,.14)); }
+
+.arm-hud{
+  top:26px;
+  left:9%;
+  text-shadow:0 1px 14px rgba(4,8,12,.95);
+}
+
+.arm-hud__eyebrow{ color:#d3e9f6; }
+.arm-hud__value{ color:#b7cad7; }
+.arm-hud__hint{ color:rgba(169,177,185,.76); }
+
+.arm-profile{
+  right:9%;
+  bottom:13%;
+  padding:0;
+  border:0;
+  background:transparent;
+  backdrop-filter:none;
+  opacity:.78;
+  text-shadow:0 1px 12px #080c10;
+}
+
+.arm-profile img{
+  width:27px;
+  height:27px;
+  border:1px solid rgba(195,217,234,.3);
+}
+
+.arm-figure figcaption{
+  max-width:90%;
+  margin:0 auto;
+  padding:12px 0 0;
+  border-top:1px solid rgba(147,180,205,.24);
+  background:transparent;
+  color:var(--muted);
+}
+
+@media (max-width:1024px){
+  .arm-stage{ min-height:500px; }
+  .arm-hud{ left:5%; }
+  .arm-profile{ right:5%; }
+}
+
+@media (max-width:820px){
+  .arm-stage{ min-height:470px; }
+  .arm-figure figcaption{ max-width:100%; }
+}
+
+@media (max-width:520px){
+  .arm-stage{ min-height:405px; }
+  .arm-hud{ top:18px; left:5%; }
+  .arm-profile{ right:5%; bottom:12%; }
+}
+
+/* Quiet hierarchy refinements: the site reads as a technical record, not a
+   glossy sci-fi interface. */
+.section-head{ position:relative; }
+.section-head::after{
+  content:"";
+  display:block;
+  width:clamp(54px,8vw,96px);
+  height:1px;
+  margin-top:22px;
+  background:linear-gradient(90deg, var(--accent), rgba(147,180,205,0));
+}
+
+.fig{
+  position:relative;
+  isolation:isolate;
+  box-shadow:0 12px 34px rgba(0,0,0,.12);
+  transition:transform .38s ease, border-color .38s ease, box-shadow .38s ease;
+}
+
+.fig::before{
+  content:"";
+  position:absolute;
+  z-index:2;
+  top:-1px;
+  left:12px;
+  width:30px;
+  height:1px;
+  background:var(--accent-2);
+  opacity:.65;
+  pointer-events:none;
+}
+
+.fig-click:hover{
+  transform:translateY(-3px);
+  border-color:rgba(195,217,234,.42);
+  box-shadow:0 20px 46px rgba(0,0,0,.24);
+}
+
+.fig figcaption{
+  background:linear-gradient(90deg, rgba(15,17,20,.86), rgba(21,24,29,.45));
+  backdrop-filter:blur(5px);
+}
+
+.spec-table tr,
+.cap-item,
+.toc-row,
+.cert-row{ transition:background .3s ease, border-color .3s ease; }
+
+/* ============================================================ HERO / FIG. 0.1
+   Restore the portrait as the human anchor, then give the mechanism its own
+   wide, scroll-linked working envelope. */
+.hero-grid{
+  grid-template-columns:minmax(0,1fr) minmax(280px,360px);
+  align-items:center;
+}
+
+.portrait--hero{
+  width:100%;
+  max-width:360px;
+  justify-self:end;
+  margin:0;
+}
+
+.portrait--hero .fig-media{
+  aspect-ratio:4/5;
+  object-fit:cover;
+  object-position:center 20%;
+}
+
+.arm-band{
+  position:relative;
+  padding:clamp(4px,1.8vw,22px) 0 clamp(24px,4vw,56px);
+}
+
+.arm-band::before{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  top:50%;
+  height:min(54vw,680px);
+  transform:translateY(-50%);
+  pointer-events:none;
+  background:
+    radial-gradient(ellipse at 51% 48%, rgba(57,121,158,.13), transparent 52%),
+    linear-gradient(90deg, transparent, rgba(159,209,231,.035) 28%, rgba(207,161,103,.04) 51%, rgba(159,209,231,.035) 74%, transparent);
+}
+
+.arm-band .wrap{ position:relative; }
+
+.arm-band .arm-stage{
+  min-height:clamp(520px,58vw,670px);
+  cursor:default;
+  touch-action:auto;
+}
+
+.arm-band .arm-stage::before{
+  inset:-12% -5%;
+  opacity:.94;
+  background:
+    radial-gradient(ellipse at 55% 60%, rgba(66,139,180,.2), transparent 41%),
+    radial-gradient(circle at 72% 36%, rgba(218,161,91,.1), transparent 18%),
+    repeating-linear-gradient(0deg, rgba(132,192,219,.075) 0 1px, transparent 1px 32px),
+    repeating-linear-gradient(90deg, rgba(132,192,219,.065) 0 1px, transparent 1px 32px);
+  background-size:auto, auto, 100% 32px, 32px 100%;
+}
+
+.arm-band .arm-stage::after{
+  left:7%;
+  right:7%;
+  bottom:8%;
+  background:linear-gradient(90deg, transparent, rgba(102,198,231,.38), rgba(222,165,95,.5), rgba(102,198,231,.22), transparent);
+  box-shadow:0 0 26px rgba(99,186,222,.18), 0 0 44px rgba(213,154,88,.1);
+}
+
+.arm-band #robotArmCanvas{ pointer-events:none; }
+
+.arm-band .arm-hud{ left:6%; }
+.arm-band .arm-figure figcaption{ max-width:94%; }
+
+@media (max-width:820px){
+  .hero-grid{ grid-template-columns:1fr; }
+  .portrait--hero{ justify-self:start; max-width:min(360px,100%); margin-top:26px; }
+  .arm-band .arm-stage{ min-height:500px; }
+}
+
+@media (max-width:520px){
+  .portrait--hero{ max-width:280px; }
+  .arm-band .arm-stage{ min-height:405px; }
+  .arm-band .arm-hud{ left:5%; }
 }
