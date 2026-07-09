@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=9" />
+<link rel="stylesheet" href="styles.css?v=10" />
 </head>
-<body>
+<body class="aerial-page">
 
 <header>
   <nav class="nav">
@@ -41,7 +41,10 @@
         <p class="section-lead">Aerial &amp; drone photography captured across Austria, Germany,
         France, Brazil, Peru, Chile, Colombia, Bolivia, and Panama.</p>
       </div>
-      <div class="grid-3" id="aerialGrid" data-reveal></div>
+      <figure class="fig fig-click aerial-feature" data-lb-group="aerial" data-cap="Aerial photograph 01/21">
+        <img class="fig-media" src="assets/aerial/aerial-01.jpg" alt="Aerial photograph 01" loading="eager" decoding="async" fetchpriority="high" />
+      </figure>
+      <div class="grid-3" id="aerialGrid"></div>
     </div>
   </section>
 </main>
@@ -76,8 +79,9 @@
   var html = "";
   for (var i = 1; i <= 21; i++) {
     var n = (i < 10 ? "0" : "") + i;
+    var loading = i <= 6 ? "eager" : "lazy";
     html += '<figure class="fig fig-click" data-lb-group="aerial" data-cap="Aerial photograph ' + n + '/21">' +
-            '<img class="fig-media" src="assets/aerial/aerial-' + n + '.jpg" alt="Aerial photograph ' + n + '" loading="lazy" />' +
+            '<img class="fig-media" src="assets/aerial/aerial-' + n + '.jpg" alt="Aerial photograph ' + n + '" loading="' + loading + '" decoding="async" />' +
             "</figure>";
   }
   grid.innerHTML = html;
