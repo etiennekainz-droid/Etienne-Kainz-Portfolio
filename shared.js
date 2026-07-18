@@ -2,12 +2,68 @@
 (function () {
   "use strict";
 
+  var root = document.documentElement;
+  var body = document.body;
+
+  /* A restrained instrumentation layer ties the portfolio pages to the live
+     simulations without turning the interface into a fictional cockpit. */
+  var telemetry = document.createElement("aside");
+  telemetry.className = "site-telemetry";
+  telemetry.setAttribute("aria-hidden", "true");
+  telemetry.innerHTML =
+    '<span class="site-telemetry__code">EK // FIELD</span>' +
+    '<span class="site-telemetry__track"><i></i></span>' +
+    '<span class="site-telemetry__section">SYSTEM 01</span>' +
+    '<span class="site-telemetry__value">000.0%</span>';
+  body.appendChild(telemetry);
+  var telemetryTrack = telemetry.querySelector("i");
+  var telemetryValue = telemetry.querySelector(".site-telemetry__value");
+  var telemetrySection = telemetry.querySelector(".site-telemetry__section");
+
+  var pageCode = body.classList.contains("projects-page") ? "PROJECT FIELD 02" :
+    body.classList.contains("drawings-page") ? "DRAWING FIELD 03" :
+    body.classList.contains("aerial-page") ? "AERIAL FIELD 04" :
+    body.classList.contains("certifications-page") ? "KNOWLEDGE FIELD 05" :
+    "SYSTEM 01";
+  telemetrySection.textContent = pageCode;
+
+  var pointerTargetX = 50;
+  var pointerTargetY = 35;
+  var pointerX = pointerTargetX;
+  var pointerY = pointerTargetY;
+  var pointerFrame = 0;
+  function paintPointerField() {
+    pointerFrame = 0;
+    pointerX += (pointerTargetX - pointerX) * 0.12;
+    pointerY += (pointerTargetY - pointerY) * 0.12;
+    root.style.setProperty("--pointer-x", pointerX.toFixed(2) + "%");
+    root.style.setProperty("--pointer-y", pointerY.toFixed(2) + "%");
+    if (Math.abs(pointerTargetX - pointerX) > 0.08 || Math.abs(pointerTargetY - pointerY) > 0.08) {
+      pointerFrame = requestAnimationFrame(paintPointerField);
+    }
+  }
+  window.addEventListener("pointermove", function (event) {
+    pointerTargetX = event.clientX / Math.max(1, window.innerWidth) * 100;
+    pointerTargetY = event.clientY / Math.max(1, window.innerHeight) * 100;
+    if (!pointerFrame) pointerFrame = requestAnimationFrame(paintPointerField);
+  }, { passive: true });
+
+  var fieldShockTimer = 0;
+  window.addEventListener("ek:field-event", function () {
+    body.classList.remove("field-shock");
+    void body.offsetWidth;
+    body.classList.add("field-shock");
+    clearTimeout(fieldShockTimer);
+    fieldShockTimer = setTimeout(function () { body.classList.remove("field-shock"); }, 1300);
+  });
+
   /* mobile menu */
   var menuBtn = document.getElementById("menuBtn");
   var navLinks = document.getElementById("navLinks");
   function setMenuOpen(open) {
     if (!menuBtn || !navLinks) return;
     navLinks.classList.toggle("open", open);
+    body.classList.toggle("nav-open", open);
     menuBtn.setAttribute("aria-expanded", String(open));
   }
   if (menuBtn && navLinks) {
@@ -32,7 +88,12 @@
   document.body.appendChild(pb);
   function onScrollProgress() {
     var max = document.documentElement.scrollHeight - window.innerHeight;
-    pb.style.width = (max > 0 ? (window.scrollY / max) * 100 : 0) + "%";
+    var progress = max > 0 ? Math.max(0, Math.min(1, window.scrollY / max)) : 0;
+    var percent = progress * 100;
+    pb.style.width = percent + "%";
+    telemetryTrack.style.transform = "scaleY(" + progress.toFixed(4) + ")";
+    telemetryValue.textContent = percent.toFixed(1).padStart(5, "0") + "%";
+    body.classList.toggle("is-scrolled", window.scrollY > 24);
   }
   window.addEventListener("scroll", onScrollProgress, { passive: true });
   onScrollProgress();
@@ -48,6 +109,37 @@
     revealNodes.forEach(function (n) { io.observe(n); });
   } else {
     revealNodes.forEach(function (n) { n.classList.add("in"); });
+  }
+
+  /* Project pages use a thin positional rail instead of another boxed index. */
+  var projects = Array.prototype.slice.call(document.querySelectorAll(".proj[id]"));
+  if (projects.length > 1) {
+    var projectRail = document.createElement("nav");
+    projectRail.className = "project-rail";
+    projectRail.setAttribute("aria-label", "Project index");
+    projects.forEach(function (project, projectIndex) {
+      var link = document.createElement("a");
+      link.href = "#" + project.id;
+      link.setAttribute("aria-label", "Project " + project.getAttribute("data-project"));
+      link.innerHTML = '<span>' + String(projectIndex + 1).padStart(2, "0") + '</span><i></i>';
+      projectRail.appendChild(link);
+    });
+    body.appendChild(projectRail);
+    var railLinks = Array.prototype.slice.call(projectRail.querySelectorAll("a"));
+    if ("IntersectionObserver" in window) {
+      var projectObserver = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          var activeIndex = projects.indexOf(entry.target);
+          railLinks.forEach(function (link, linkIndex) {
+            if (linkIndex === activeIndex) link.setAttribute("aria-current", "true");
+            else link.removeAttribute("aria-current");
+          });
+          telemetrySection.textContent = "PROJECT FIELD " + entry.target.getAttribute("data-project");
+        });
+      }, { threshold: 0.22, rootMargin: "-18% 0px -48% 0px" });
+      projects.forEach(function (project) { projectObserver.observe(project); });
+    }
   }
 
   /* ---------- lightbox ----------
@@ -81,6 +173,18 @@
   }
   function close() { lb.classList.remove("open"); document.body.style.overflow = ""; }
   function step(d) { idx = (idx + d + items.length) % items.length; render(); }
+
+  Array.prototype.slice.call(document.querySelectorAll("[data-lb-group]")).forEach(function (node) {
+    node.setAttribute("role", "button");
+    node.setAttribute("tabindex", "0");
+    node.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      var group = node.getAttribute("data-lb-group");
+      var all = Array.prototype.slice.call(document.querySelectorAll('[data-lb-group="' + group + '"]'));
+      open(group, all.indexOf(node));
+    });
+  });
 
   document.addEventListener("click", function (e) {
     var t = e.target.closest("[data-lb-group]");

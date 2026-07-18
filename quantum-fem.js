@@ -20,7 +20,8 @@
   var motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   var reducedMotion = motionQuery.matches;
   var lastUiKey = "";
-  var INTRO_SECONDS = 8;
+  var lastFieldBroadcast = "free";
+  var INTRO_SECONDS = 5.8;
   // P_R ≈ sin²(ΔE t / 2ℏ): 2π / ω gives a 7.0 s left→right→left cycle.
   var TUNNEL_OMEGA = 0.9;
 
@@ -87,60 +88,145 @@
     return smooth(clamp(time / INTRO_SECONDS, 0, 1));
   }
 
-  function periodicPulse(time, period, centre, halfWidth) {
-    var phase = ((time % period) + period) % period;
-    var distance = Math.abs(phase - centre);
-    distance = Math.min(distance, period - distance);
-    if (distance >= halfWidth) return 0;
-    return smooth(1 - distance / halfWidth);
+  function seededRandom(seed) {
+    var state = seed >>> 0;
+    return function () {
+      state += 0x6D2B79F5;
+      var value = state;
+      value = Math.imul(value ^ value >>> 15, value | 1);
+      value ^= value + Math.imul(value ^ value >>> 7, value | 61);
+      return ((value ^ value >>> 14) >>> 0) / 4294967296;
+    };
   }
 
-  /* Three deliberately incommensurate control clocks prevent the live field
-     from settling into one cinematic loop. Each perturbation has a familiar
-     reduced-order interpretation: detuning, basis injection, or drive. */
-  function autonomousControls(time, progress) {
-    var controls = {
-      gate: 0,
-      excited: 0,
-      surge: 0,
-      gateX: 0,
-      id: "free",
-      status: "",
-      detail: ""
+  /* A seeded event queue replaces a short repeated "video" cycle. Gate
+     quenches, modal injections, weak measurements and residual-driven mesh
+     refinement all receive different intervals, durations and locations. The
+     deterministic seed keeps QA reproducible while the history never closes
+     into a practical common period. */
+  function createAutonomousController(seed) {
+    var random = seededRandom(seed || 0x51A7E);
+    var initialized = false;
+    var events = {};
+
+    function makeEvent(name, firstDelay, durationMin, durationMax, gapMin, gapMax) {
+      events[name] = {
+        name: name,
+        start: INTRO_SECONDS + firstDelay,
+        duration: mix(durationMin, durationMax, random()),
+        durationMin: durationMin,
+        durationMax: durationMax,
+        gapMin: gapMin,
+        gapMax: gapMax,
+        x: mix(-1.65, 1.65, random()),
+        z: mix(-0.7, 0.7, random()),
+        outcome: random() < 0.5 ? -1 : 1,
+        serial: 0
+      };
+    }
+
+    function initialize() {
+      if (initialized) return;
+      initialized = true;
+      makeEvent("gate", 0.35, 1.65, 2.55, 3.4, 6.4);
+      makeEvent("refine", 0.75, 1.8, 3.2, 4.2, 7.5);
+      makeEvent("surge", 1.25, 1.25, 2.15, 5.0, 8.7);
+      makeEvent("excited", 2.1, 1.7, 2.8, 6.5, 11.0);
+      makeEvent("measure", 3.6, 1.25, 2.05, 10.0, 17.0);
+      makeEvent("caustic", 0.55, 2.5, 4.6, 2.8, 5.8);
+    }
+
+    function advanceEvent(event, time) {
+      while (time > event.start + event.duration) {
+        event.start += event.duration + mix(event.gapMin, event.gapMax, random());
+        event.duration = mix(event.durationMin, event.durationMax, random());
+        event.x = mix(-1.85, 1.85, random());
+        event.z = mix(-0.82, 0.82, random());
+        event.outcome = random() < 0.5 ? -1 : 1;
+        event.serial += 1;
+      }
+      if (time < event.start || time > event.start + event.duration) return 0;
+      var local = (time - event.start) / event.duration;
+      return Math.pow(Math.sin(local * Math.PI), 1.45);
+    }
+
+    return {
+      update: function (time, progress) {
+        initialize();
+        var controls = {
+          gate: 0,
+          excited: 0,
+          surge: 0,
+          measure: 0,
+          refine: 0,
+          caustic: 0,
+          gateX: 0,
+          focusX: 0,
+          focusZ: 0,
+          measurementOutcome: 1,
+          eventSerial: 0,
+          id: "free",
+          status: "",
+          detail: ""
+        };
+        if (reducedMotion || progress < 0.999) return controls;
+
+        controls.gate = advanceEvent(events.gate, time);
+        controls.refine = advanceEvent(events.refine, time);
+        controls.surge = advanceEvent(events.surge, time);
+        controls.excited = advanceEvent(events.excited, time);
+        controls.measure = advanceEvent(events.measure, time);
+        controls.caustic = advanceEvent(events.caustic, time);
+        controls.gateX = events.gate.x;
+        controls.focusX = controls.refine > controls.measure ? events.refine.x : events.measure.x;
+        controls.focusZ = controls.refine > controls.measure ? events.refine.z : events.measure.z;
+        controls.measurementOutcome = events.measure.outcome;
+        controls.eventSerial = events.gate.serial + events.refine.serial * 7 +
+          events.surge.serial * 17 + events.excited.serial * 31 + events.measure.serial * 47;
+
+        var channels = [];
+        if (controls.gate > 0.075) channels.push("δV");
+        if (controls.excited > 0.075) channels.push("φ₂");
+        if (controls.surge > 0.075) channels.push("J(t)");
+        if (controls.measure > 0.075) channels.push("Mᶻ");
+        if (controls.refine > 0.16) channels.push("h/2");
+        if (!channels.length) return controls;
+
+        var strongest = Math.max(
+          controls.gate,
+          controls.excited,
+          controls.surge,
+          controls.measure * 1.08,
+          controls.refine * 0.82
+        );
+        if (channels.length > 1) {
+          controls.id = "composite-" + channels.join("-");
+          controls.status = "NONCOMMUTING SOLVER EVENT · " + channels.join(" + ");
+          controls.detail = "STATE HISTORY + ADAPTIVE DISCRETIZATION → LIVE RESPONSE";
+        } else if (strongest === controls.measure * 1.08) {
+          controls.id = "measure-" + events.measure.serial;
+          controls.status = "WEAK MEASUREMENT TRAJECTORY · Mᶻ";
+          controls.detail = "CONDITIONAL σᶻ UPDATE · NORM-PRESERVING SINGLE TRAJECTORY";
+        } else if (strongest === controls.gate) {
+          controls.id = "gate-" + events.gate.serial;
+          controls.status = "GATE QUENCH δV(t) · LOCAL DETUNING";
+          controls.detail = "LOCAL POTENTIAL STEP → PHASE-SHEAR CAUSTIC";
+        } else if (strongest === controls.excited) {
+          controls.id = "excited-" + events.excited.serial;
+          controls.status = "EXCITED-MODE INJECTION · φ₂ ADMIXTURE";
+          controls.detail = "BRIEF BASIS-2 OCCUPATION → TRANSVERSE NODAL SHEET";
+        } else if (strongest === controls.surge) {
+          controls.id = "surge-" + events.surge.serial;
+          controls.status = "BARRIER QUENCH · J(t) COUPLING PULSE";
+          controls.detail = "TRANSIENT BARRIER NARROWING → CURRENT-TUBE SURGE";
+        } else {
+          controls.id = "refine-" + events.refine.serial;
+          controls.status = "RESIDUAL ESTIMATOR · ADAPTIVE h/2 SWARM";
+          controls.detail = "LOCAL ERROR INDICATOR ηₖ → MOVING REFINEMENT PATCH";
+        }
+        return controls;
+      }
     };
-    if (reducedMotion || progress < 0.999) return controls;
-
-    controls.gate = periodicPulse(time, 9.73, 8.66, 1.06);
-    controls.surge = periodicPulse(time, 13.37, 10.57, 0.92);
-    controls.excited = periodicPulse(time, 17.11, 12.48, 1.28);
-    controls.gateX = Math.sin(time * 0.41 + 0.7) * 1.34;
-
-    var activeControls = [];
-    if (controls.gate >= 0.055) activeControls.push("δV");
-    if (controls.excited >= 0.055) activeControls.push("φ₂");
-    if (controls.surge >= 0.055) activeControls.push("J(t)");
-    var strongest = Math.max(controls.gate, controls.excited, controls.surge);
-    if (strongest < 0.055) return controls;
-    if (activeControls.length > 1) {
-      controls.id = "combined-" + activeControls.join("-");
-      controls.status = "COMPOSITE QUANTUM DRIVE · " + activeControls.join(" + ");
-      controls.detail = "COUPLED CONTROL CHANNELS → NONCOMMUTING STATE RESPONSE";
-      return controls;
-    }
-    if (strongest === controls.gate) {
-      controls.id = "gate";
-      controls.status = "GATE QUENCH δV(t) · LOCAL DETUNING";
-      controls.detail = "LOCAL POTENTIAL STEP → PHASE-SHEAR RESPONSE";
-    } else if (strongest === controls.excited) {
-      controls.id = "excited";
-      controls.status = "EXCITED-MODE INJECTION · φ₂ ADMIXTURE";
-      controls.detail = "BRIEF BASIS-2 OCCUPATION → TRANSVERSE NODE";
-    } else {
-      controls.id = "surge";
-      controls.status = "BARRIER QUENCH · J(t) COUPLING PULSE";
-      controls.detail = "TRANSIENT BARRIER NARROWING → ENHANCED TUNNEL COUPLING";
-    }
-    return controls;
   }
 
   /* Stateful two-level core in the localized-dot basis. The Bloch vector is
@@ -248,6 +334,23 @@
           state.z = nextZ / norm;
           state.phase -= coupling * deltaTime * 0.5;
         }
+        /* Conditional weak-measurement trajectory. This is not ensemble
+           decoherence: one signed measurement record gradually localizes the
+           pure state, then the Hamiltonian resumes from that updated state. */
+        if (deltaTime > 0 && controls.measure > 0.0001) {
+          var measurementStep = controls.measure * deltaTime * 0.72;
+          var record = controls.measurementOutcome || 1;
+          state.z += record * (1 - state.z * state.z) * measurementStep;
+          state.x *= Math.max(0.92, 1 - controls.measure * deltaTime * 0.11);
+          state.y *= Math.max(0.92, 1 - controls.measure * deltaTime * 0.11);
+          var measuredNorm = Math.sqrt(
+            state.x * state.x + state.y * state.y + state.z * state.z
+          ) || 1;
+          state.x /= measuredNorm;
+          state.y /= measuredNorm;
+          state.z /= measuredNorm;
+          state.phase += record * controls.measure * deltaTime * 0.18;
+        }
         return resultFromState(coupling, controls);
       }
     };
@@ -268,6 +371,20 @@
       (perturbed ? 1 : 0) + ":" + controlId;
     if (key === lastUiKey) return;
     lastUiKey = key;
+
+    var broadcastId = perturbed ? "touch" : controlId;
+    if (liveEvolution && broadcastId !== "free" && broadcastId !== lastFieldBroadcast) {
+      lastFieldBroadcast = broadcastId;
+      window.dispatchEvent(new CustomEvent("ek:field-event", {
+        detail: {
+          source: "quantum",
+          type: perturbed ? "touch" : controlId.split("-")[0],
+          intensity: perturbed ? 0.68 : 0.92
+        }
+      }));
+    } else if (!perturbed && !controlActive) {
+      lastFieldBroadcast = "free";
+    }
 
     if (statusNode) {
       statusNode.textContent = liveEvolution
@@ -489,7 +606,19 @@
     var lastSize = "";
     var interaction;
     var evolution = createBlochEvolution();
+    var controlEvolution = createAutonomousController(0xF411B4C);
     var fallbackFlowPhase = 0;
+    var fallbackRandom = seededRandom(0x2DCA11);
+    var fallbackWisps = [];
+    for (var fallbackWispId = 0; fallbackWispId < 52; fallbackWispId += 1) {
+      fallbackWisps.push({
+        x: mix(-9.8, 9.8, fallbackRandom()),
+        y: mix(-3.8, 3.8, fallbackRandom()),
+        z: mix(-5.4, 5.4, fallbackRandom()),
+        phase: fallbackRandom() * Math.PI * 2,
+        speed: mix(0.22, 0.72, fallbackRandom())
+      });
+    }
 
     function resizeFallback() {
       var bounds = canvas.getBoundingClientRect();
@@ -548,6 +677,11 @@
         density *= 1 + controls.gate * gateLocal *
           Math.sin(gateDx * 5.2 - nowSeconds * 2.6) * 0.18;
       }
+      if (controls.caustic > 0.002) {
+        density *= 1 + controls.caustic *
+          Math.sin(x * 3.15 + Math.sin(z * 2.7 - nowSeconds * 0.83) * 1.3 - nowSeconds * 1.4) *
+          Math.cos(z * 3.8 - x * 0.46 + nowSeconds * 0.67) * 0.17;
+      }
       if (interaction && interaction.state.strength > 0.002) {
         var dx = x - interaction.state.x;
         var dz = z - interaction.state.z;
@@ -587,9 +721,11 @@
 
       var meshReveal = smooth(progress / 0.2);
       var fieldReveal = windowed(progress, 0.26, 0.44);
-      var refine = windowed(progress, 0.78, 0.96);
+      var controls = controlEvolution.update(nowSeconds, progress);
+      var refine = progress < 0.999
+        ? windowed(progress, 0.78, 0.96)
+        : controls.refine;
       var assembly = pulseWindow(progress, 0.16, 0.27, 0.42);
-      var controls = autonomousControls(nowSeconds, progress);
       var stateData = evolution.update(
         nowSeconds,
         progress,
@@ -621,6 +757,52 @@
         ctx.beginPath();
         ctx.moveTo(12, gy);
         ctx.lineTo(width - 12, gy);
+        ctx.stroke();
+      }
+
+      var liveReveal = windowed(progress, 0.62, 0.98);
+      var fallbackActivity = clamp(
+        fallbackCurrent * 0.34 + controls.surge * 0.68 + controls.excited * 0.42 +
+        controls.caustic * 0.82 + controls.measure * 0.54,
+        0,
+        1.35
+      );
+      fallbackWisps.forEach(function (wisp, wispId) {
+        var wispClock = nowSeconds * wisp.speed + wisp.phase;
+        var wispPoint = project(
+          wisp.x + Math.sin(wispClock) * (0.25 + fallbackActivity * 0.55),
+          wisp.y + Math.cos(wispClock * 1.37) * (0.16 + fallbackActivity * 0.3),
+          wisp.z + Math.sin(wispClock * 0.73) * (0.3 + controls.measure * 0.62)
+        );
+        var wispAlpha = liveReveal * (0.025 + fallbackActivity * 0.075) *
+          (0.45 + 0.55 * Math.abs(Math.sin(wispClock * 1.9 + wispId)));
+        ctx.beginPath();
+        ctx.arc(wispPoint.x, wispPoint.y, 0.55 + (wispId % 4) * 0.28, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(112,196,221," + wispAlpha.toFixed(3) + ")";
+        ctx.fill();
+      });
+
+      for (var causticId = 0; causticId < (width < 620 ? 3 : 5); causticId += 1) {
+        ctx.beginPath();
+        for (var causticPointId = 0; causticPointId < 58; causticPointId += 1) {
+          var causticU = causticPointId / 57;
+          var causticX = mix(-10.5, 10.5, causticU);
+          var causticLens = Math.exp(-causticX * causticX * 0.026);
+          var causticFold = Math.sin(
+            causticX * (0.48 + causticId * 0.024) - nowSeconds * (0.46 + causticId * 0.037) +
+            Math.sin(causticX * 0.19 + nowSeconds * 0.23) * 1.55 + causticId * 0.9
+          );
+          var causticProjected = project(
+            causticX,
+            (causticId - 2) * 0.31 + causticFold * (0.28 + causticLens * 0.58),
+            (causticId - 2) * 0.5 + Math.cos(causticX * 0.39 + nowSeconds * 0.33) * 0.48
+          );
+          if (causticPointId === 0) ctx.moveTo(causticProjected.x, causticProjected.y);
+          else ctx.lineTo(causticProjected.x, causticProjected.y);
+        }
+        ctx.strokeStyle = "rgba(105,191,217," +
+          (liveReveal * (0.014 + fallbackCurrent * 0.025 + controls.caustic * 0.19)).toFixed(3) + ")";
+        ctx.lineWidth = causticId === 2 ? 1.05 : 0.65;
         ctx.stroke();
       }
 
@@ -692,6 +874,23 @@
       ctx.strokeStyle = "rgba(207,160,104," + (0.28 + energy * 0.5).toFixed(3) + ")";
       ctx.stroke();
 
+      if (controls.gate > 0.01) {
+        var gatePlaneA = project(controls.gateX, -3.8, -3.6);
+        var gatePlaneB = project(controls.gateX, 4.2, -3.6);
+        var gatePlaneC = project(controls.gateX, 4.2, 3.6);
+        var gatePlaneD = project(controls.gateX, -3.8, 3.6);
+        ctx.beginPath();
+        ctx.moveTo(gatePlaneA.x, gatePlaneA.y);
+        ctx.lineTo(gatePlaneB.x, gatePlaneB.y);
+        ctx.lineTo(gatePlaneC.x, gatePlaneC.y);
+        ctx.lineTo(gatePlaneD.x, gatePlaneD.y);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(207,160,104," + (controls.gate * 0.045).toFixed(3) + ")";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(207,160,104," + (controls.gate * 0.24).toFixed(3) + ")";
+        ctx.stroke();
+      }
+
       if (assembly > 0.01) {
         var scanX = mix(-4.5, 4.5, windowed(progress, 0.16, 0.4));
         var scanA = project(scanX, -0.5, -1.25);
@@ -714,6 +913,27 @@
           ctx.strokeStyle = "rgba(207,160,104," +
             (energy * Math.max(0.1, 0.54 - ring * 0.105)).toFixed(3) + ")";
           ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+
+      if (controls.measure > 0.01) {
+        var measurementCentre = project(controls.focusX, 0.2, controls.focusZ);
+        for (var shellId = 0; shellId < 6; shellId += 1) {
+          var shellRadius = (18 + shellId * 15) * (0.8 + controls.measure * 0.5);
+          ctx.beginPath();
+          ctx.ellipse(
+            measurementCentre.x,
+            measurementCentre.y,
+            shellRadius,
+            shellRadius * (0.38 + shellId * 0.025),
+            shellId * 0.37 + nowSeconds * 0.14 * controls.measurementOutcome,
+            0,
+            Math.PI * 2
+          );
+          ctx.strokeStyle = "rgba(144,218,235," +
+            (controls.measure * Math.max(0.04, 0.32 - shellId * 0.045)).toFixed(3) + ")";
+          ctx.lineWidth = shellId === 0 ? 1.15 : 0.7;
           ctx.stroke();
         }
       }
@@ -755,9 +975,24 @@
 
       if (refine > 0.01) {
         for (var rx = -0.9; rx <= 0.9; rx += 0.3) {
-          var refineA = project(rx, -0.5, -1.3);
-          var refineB = project(rx, 1.9, 1.3);
+          var refineFocusX = progress >= 0.999 ? controls.focusX : 0;
+          var refineFocusZ = progress >= 0.999 ? controls.focusZ : 0;
+          var refineA = project(rx + refineFocusX, -0.5, -1.3 + refineFocusZ);
+          var refineB = project(rx + refineFocusX, 1.9, 1.3 + refineFocusZ);
           line(refineA, refineB, "rgba(157,218,235,ALPHA)", refine * 0.3, 0.55);
+        }
+        for (var refineParticle = 0; refineParticle < 42; refineParticle += 1) {
+          var particleAngle = refineParticle * 2.399 + nowSeconds * (0.34 + (refineParticle % 7) * 0.045);
+          var particleRadius = 0.18 + (refineParticle % 13) / 13 * 1.45 * (1.16 - refine * 0.36);
+          var refinePoint = project(
+            refineFocusX + Math.cos(particleAngle) * particleRadius,
+            ((refineParticle * 17) % 31) / 31 * 2.3 - 0.9,
+            refineFocusZ + Math.sin(particleAngle) * particleRadius * 0.72
+          );
+          ctx.beginPath();
+          ctx.arc(refinePoint.x, refinePoint.y, 0.65 + refine * 0.55, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(157,218,235," + (refine * 0.42).toFixed(3) + ")";
+          ctx.fill();
         }
       }
 
@@ -1087,7 +1322,9 @@
         uPointer: { value: new THREE.Vector2(0, 0) },
         uPointerStrength: { value: 0 },
         uControl: { value: new THREE.Vector3(0, 0, 0) },
-        uGate: { value: new THREE.Vector2(0, 0) }
+        uGate: { value: new THREE.Vector2(0, 0) },
+        uEvent: { value: new THREE.Vector4(0, 0, 0, 0) },
+        uFocus: { value: new THREE.Vector3(0, 0, 1) }
       },
       vertexShader: [
         "attribute float aDensity;",
@@ -1099,6 +1336,8 @@
         "uniform float uPointerStrength;",
         "uniform vec3 uControl;",
         "uniform vec2 uGate;",
+        "uniform vec4 uEvent;",
+        "uniform vec3 uFocus;",
         "varying float vDensity;",
         "varying float vPhase;",
         "varying float vPerturbation;",
@@ -1113,15 +1352,24 @@
         "  float gateEnvelope = exp(-(gateDx * gateDx * 1.28 + position.z * position.z * 0.72));",
         "  float gateWave = sin(gateDx * 5.1 - uTime * 2.55) * gateEnvelope * uGate.y;",
         "  float phaseFront = sin(position.x * 2.05 - uTime * (1.05 + uControl.z * 0.78) + position.y * 0.72 + position.z * 1.48);",
+        "  float phaseFold = sin(position.x * 3.12 + sin(position.z * 2.7 - uTime * 0.83) * 1.35 + position.y * 1.06 - uTime * 1.41);",
+        "  phaseFold *= cos(position.z * 3.8 - position.x * 0.46 + uTime * 0.67);",
+        "  vec2 eventDelta = position.xz - uFocus.xy;",
+        "  float eventRadius = length(eventDelta);",
+        "  float measurementFront = sin(eventRadius * 10.2 - uTime * 5.4) * exp(-eventRadius * 0.72) * uEvent.x;",
         "  float frontEnvelope = (0.22 + 0.78 * vDensity) * exp(-position.y * position.y * 0.16);",
-        "  vPerturbation = abs(pointerWave) + abs(gateWave) * 0.5 + uControl.y * 0.12;",
-        "  vPhase = aPhase + pointerWave * 1.48 + gateWave * 0.9 + phaseFront * (0.1 + uControl.y * 0.2);",
+        "  float caustic = phaseFold * uEvent.z * (0.12 + vDensity * 0.38);",
+        "  vPerturbation = abs(pointerWave) + abs(gateWave) * 0.5 + uControl.y * 0.12 + abs(measurementFront) * 0.3 + abs(caustic) * 0.45;",
+        "  vPhase = aPhase + pointerWave * 1.48 + gateWave * 0.9 + phaseFront * (0.1 + uControl.y * 0.2) + caustic * 1.6 + measurementFront * uFocus.z * 0.82;",
         "  vec3 displaced = position;",
         "  displaced.y += sin(uTime * 0.7 + position.x * 1.35) * 0.018 * vDensity;",
         "  displaced.y += pointerWave * 0.125 + gateWave * 0.055;",
         "  displaced.z += pointerWave * pointerRadial.y * 0.082;",
         "  displaced.y += phaseFront * frontEnvelope * (0.022 + uControl.y * 0.052 + uControl.z * 0.027);",
         "  displaced.z += cos(position.x * 1.58 - uTime * 0.93 + position.y) * frontEnvelope * (0.014 + uControl.y * 0.032 + uControl.z * 0.025);",
+        "  displaced.y += caustic * (0.08 + uEvent.z * 0.085) + measurementFront * 0.075;",
+        "  displaced.x += caustic * cos(position.z * 2.1 + uTime) * 0.052;",
+        "  displaced.z += caustic * sin(position.y * 1.9 - uTime * 0.7) * 0.09;",
         "  vec4 mv = modelViewMatrix * vec4(displaced, 1.0);",
         "  float perspective = clamp(5.0 / max(1.0, -mv.z), 0.52, 1.75);",
         "  gl_PointSize = (1.25 + 12.5 * pow(max(vDensity,0.0),0.48) + vPerturbation * 2.2) * uPixelRatio * perspective;",
@@ -1327,6 +1575,198 @@
       currentStreamlines.push(streamline);
     }
 
+    /* The numerical domain remains finite, but its evanescent tail, phase
+       fronts and diagnostic fields are deliberately allowed to cross the
+       camera frustum. CSS should therefore give the canvas an overflow-visible
+       full-bleed stage; the finite box is no longer the visual boundary. */
+    var effectRandom = seededRandom(0xC05E71C);
+    var farFieldCount = isMobile ? 86 : 184;
+    var farFieldPositions = new Float32Array(farFieldCount * 3);
+    var farFieldDrift = new Float32Array(farFieldCount * 3);
+    var farFieldSeeds = new Float32Array(farFieldCount);
+    for (var farId = 0; farId < farFieldCount; farId += 1) {
+      var farAngle = effectRandom() * Math.PI * 2;
+      var farRadius = mix(4.5, 11.8, Math.pow(effectRandom(), 0.72));
+      farFieldPositions[farId * 3] = Math.cos(farAngle) * farRadius;
+      farFieldPositions[farId * 3 + 1] = mix(-4.2, 4.6, effectRandom());
+      farFieldPositions[farId * 3 + 2] = Math.sin(farAngle) * farRadius * 0.62;
+      farFieldDrift[farId * 3] = mix(-0.72, 0.72, effectRandom());
+      farFieldDrift[farId * 3 + 1] = mix(-0.58, 0.58, effectRandom());
+      farFieldDrift[farId * 3 + 2] = mix(-0.72, 0.72, effectRandom());
+      farFieldSeeds[farId] = effectRandom();
+    }
+    var farFieldGeometry = new THREE.BufferGeometry();
+    farFieldGeometry.setAttribute("position", new THREE.BufferAttribute(farFieldPositions, 3));
+    farFieldGeometry.setAttribute("aDrift", new THREE.BufferAttribute(farFieldDrift, 3));
+    farFieldGeometry.setAttribute("aSeed", new THREE.BufferAttribute(farFieldSeeds, 1));
+    var farFieldMaterial = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: {
+        uTime: { value: 0 },
+        uReveal: { value: 0 },
+        uActivity: { value: 0 },
+        uMeasure: { value: 0 },
+        uPixelRatio: { value: Math.min(window.devicePixelRatio || 1, pixelCap) }
+      },
+      vertexShader: [
+        "attribute vec3 aDrift;",
+        "attribute float aSeed;",
+        "uniform float uTime;",
+        "uniform float uReveal;",
+        "uniform float uActivity;",
+        "uniform float uMeasure;",
+        "uniform float uPixelRatio;",
+        "varying float vAlpha;",
+        "varying float vSeed;",
+        "void main(){",
+        "  vec3 p = position;",
+        "  float clock = uTime * (0.16 + aSeed * 0.31) + aSeed * 21.0;",
+        "  p += aDrift * sin(clock) * (0.42 + uActivity * 0.72);",
+        "  p.y += sin(p.x * 0.32 - uTime * 0.48 + aSeed * 9.0) * (0.18 + uActivity * 0.38);",
+        "  p.z += cos(p.x * 0.21 + uTime * 0.39 + aSeed * 13.0) * (0.28 + uMeasure * 0.7);",
+        "  float radial = length(p.xz);",
+        "  float tail = exp(-max(0.0, radial - 4.1) * 0.12);",
+        "  float flicker = 0.42 + 0.58 * sin(clock * 2.3) * sin(clock * 1.17 + 1.4);",
+        "  vAlpha = uReveal * tail * (0.035 + uActivity * 0.11 + uMeasure * 0.16) * (0.45 + abs(flicker));",
+        "  vSeed = aSeed;",
+        "  vec4 mv = modelViewMatrix * vec4(p, 1.0);",
+        "  gl_PointSize = (1.1 + aSeed * 2.4 + uActivity * 2.6) * uPixelRatio * clamp(5.0 / max(1.0,-mv.z),0.45,1.5);",
+        "  gl_Position = projectionMatrix * mv;",
+        "}"
+      ].join("\n"),
+      fragmentShader: [
+        "varying float vAlpha;",
+        "varying float vSeed;",
+        "void main(){",
+        "  vec2 p = gl_PointCoord - vec2(0.5);",
+        "  float r = length(p);",
+        "  if(r > 0.5) discard;",
+        "  float soft = 1.0 - smoothstep(0.04,0.5,r);",
+        "  vec3 colour = mix(vec3(0.27,0.58,0.73),vec3(0.63,0.86,0.94),vSeed);",
+        "  gl_FragColor = vec4(colour, soft * vAlpha);",
+        "}"
+      ].join("\n")
+    });
+    var farFieldWisps = new THREE.Points(farFieldGeometry, farFieldMaterial);
+    farFieldWisps.frustumCulled = false;
+    farFieldWisps.renderOrder = 0;
+    scene.add(farFieldWisps);
+
+    var causticLineCount = isMobile ? 4 : 7;
+    var causticSamples = isMobile ? 52 : 88;
+    var phaseCaustics = [];
+    for (var causticId = 0; causticId < causticLineCount; causticId += 1) {
+      var causticArray = new Float32Array(causticSamples * 3);
+      var causticGeometry = new THREE.BufferGeometry();
+      causticGeometry.setAttribute("position", new THREE.BufferAttribute(causticArray, 3));
+      var causticMaterial = new THREE.LineBasicMaterial({
+        color: causticId % 3 === 0 ? 0xb5e4ef : 0x5eaac8,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      });
+      var causticLine = new THREE.Line(causticGeometry, causticMaterial);
+      causticLine.frustumCulled = false;
+      causticLine.renderOrder = 4;
+      scene.add(causticLine);
+      phaseCaustics.push(causticLine);
+    }
+
+    var gatePlaneMaterial = new THREE.MeshBasicMaterial({
+      color: 0xcfa068,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false
+    });
+    var gatePlane = new THREE.Mesh(new THREE.PlaneGeometry(8.2, 8.2, 1, 1), gatePlaneMaterial);
+    gatePlane.rotation.y = Math.PI / 2;
+    gatePlane.renderOrder = 7;
+    root.add(gatePlane);
+    var gateRings = [];
+    for (var gateRingId = 0; gateRingId < 4; gateRingId += 1) {
+      var gateRingMaterial = new THREE.MeshBasicMaterial({
+        color: 0xcfa068,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false
+      });
+      var gateRing = new THREE.Mesh(
+        new THREE.TorusGeometry(1.25 + gateRingId * 0.72, 0.014 + gateRingId * 0.003, 6, 76),
+        gateRingMaterial
+      );
+      gateRing.rotation.y = Math.PI / 2;
+      gateRing.renderOrder = 9;
+      root.add(gateRing);
+      gateRings.push(gateRing);
+    }
+
+    var measurementGroup = new THREE.Group();
+    root.add(measurementGroup);
+    var measurementShells = [];
+    for (var shellId = 0; shellId < 5; shellId += 1) {
+      var shellMaterial = new THREE.MeshBasicMaterial({
+        color: shellId === 0 ? 0xe0edf2 : 0x86d2e6,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        wireframe: true,
+        blending: THREE.AdditiveBlending
+      });
+      var shell = new THREE.Mesh(
+        new THREE.SphereGeometry(0.72 + shellId * 0.34, isMobile ? 12 : 18, isMobile ? 8 : 12),
+        shellMaterial
+      );
+      shell.rotation.set(shellId * 0.43, shellId * 0.7, shellId * 0.19);
+      shell.renderOrder = 12;
+      measurementGroup.add(shell);
+      measurementShells.push(shell);
+    }
+
+    var refineSwarmCount = isMobile ? 58 : 126;
+    var refineSwarmArray = new Float32Array(refineSwarmCount * 3);
+    var refineSwarmSeeds = new Float32Array(refineSwarmCount * 3);
+    for (var swarmId = 0; swarmId < refineSwarmCount; swarmId += 1) {
+      refineSwarmSeeds[swarmId * 3] = effectRandom();
+      refineSwarmSeeds[swarmId * 3 + 1] = effectRandom();
+      refineSwarmSeeds[swarmId * 3 + 2] = effectRandom();
+    }
+    var refineSwarmGeometry = new THREE.BufferGeometry();
+    refineSwarmGeometry.setAttribute("position", new THREE.BufferAttribute(refineSwarmArray, 3));
+    var refineSwarmMaterial = new THREE.PointsMaterial({
+      color: 0x9edff0,
+      size: isMobile ? 0.035 : 0.043,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    var refineSwarm = new THREE.Points(refineSwarmGeometry, refineSwarmMaterial);
+    refineSwarm.frustumCulled = false;
+    refineSwarm.renderOrder = 15;
+    root.add(refineSwarm);
+    var refinementHaloMaterial = new THREE.MeshBasicMaterial({
+      color: 0x98d9ea,
+      transparent: true,
+      opacity: 0,
+      wireframe: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    var refinementHalo = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(1.0, isMobile ? 1 : 2),
+      refinementHaloMaterial
+    );
+    refinementHalo.renderOrder = 14;
+    root.add(refinementHalo);
+
     var potentialVertices = [];
     var potentialIndices = [];
     var PX = 45;
@@ -1393,6 +1833,7 @@
     var streamFlowPhase = 0;
     var interaction;
     var evolution = createBlochEvolution();
+    var controlEvolution = createAutonomousController(0xA73C19D);
     var frameInterval = isMobile ? 1000 / 48 : 1000 / 60;
 
     function resize() {
@@ -1407,13 +1848,14 @@
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       fieldMaterial.uniforms.uPixelRatio.value = Math.min(window.devicePixelRatio || 1, pixelCap);
+      farFieldMaterial.uniforms.uPixelRatio.value = Math.min(window.devicePixelRatio || 1, pixelCap);
     }
 
     function updateField(nowSeconds) {
       var reveal = windowed(progress, 0.28, 0.45);
       var eigenMix = windowed(progress, 0.38, 0.57);
       var pointerStrength = interaction ? interaction.state.strength : 0;
-      var controls = autonomousControls(nowSeconds, progress);
+      var controls = controlEvolution.update(nowSeconds, progress);
       var stateData = evolution.update(
         nowSeconds,
         progress,
@@ -1498,6 +1940,17 @@
       fieldMaterial.uniforms.uPointerStrength.value = pointerStrength;
       fieldMaterial.uniforms.uControl.value.set(controls.gate, controls.excited, controls.surge);
       fieldMaterial.uniforms.uGate.value.set(controls.gateX, controls.gate);
+      fieldMaterial.uniforms.uEvent.value.set(
+        controls.measure,
+        controls.refine,
+        controls.caustic,
+        controls.eventSerial % 19 / 19
+      );
+      fieldMaterial.uniforms.uFocus.value.set(
+        controls.focusX,
+        controls.focusZ,
+        controls.measurementOutcome
+      );
       return {
         norm: normalizedIntegral,
         right: total > 0 ? rightTotal / total : 0,
@@ -1506,7 +1959,14 @@
         gate: controls.gate,
         excited: controls.excited,
         surge: controls.surge,
+        measure: controls.measure,
+        refine: controls.refine,
+        caustic: controls.caustic,
         gateX: controls.gateX,
+        focusX: controls.focusX,
+        focusZ: controls.focusZ,
+        measurementOutcome: controls.measurementOutcome,
+        eventSerial: controls.eventSerial,
         controlId: controls.id,
         controlStatus: controls.status,
         controlDetail: controls.detail
@@ -1566,9 +2026,9 @@
         var offset = lineId - (streamlineCount - 1) * 0.5;
         for (var pointId = 0; pointId < streamlineSamples; pointId += 1) {
           var u = pointId / (streamlineSamples - 1);
-          var x = mix(-3.55, 3.55, u);
+          var x = mix(-7.15, 7.15, u);
           var envelope = Math.sin(Math.PI * u);
-          var neck = 0.27 + 0.73 * Math.abs(x) / 3.55;
+          var neck = 0.27 + 0.73 * Math.abs(x) / 7.15;
           var phase = u * Math.PI * 2.25 + streamFlowPhase * 4.4 + lineId * 0.91;
           var gateLocal = Math.exp(-Math.pow(x - (meta.gateX || 0), 2) * 1.1);
           positions[pointId * 3] = x + Math.sin(phase * 0.63) * envelope * 0.045;
@@ -1589,7 +2049,7 @@
         (1 + currentMagnitude * 0.28 + (meta.surge || 0) * 0.22);
       for (var packet = 0; packet < fluxCount; packet += 1) {
         var t = ((packet / fluxCount + streamFlowPhase * 0.34) % 1 + 1) % 1;
-        var x = mix(-3.25, 3.35, t);
+        var x = mix(-6.65, 6.75, t);
         var envelope = Math.sin(Math.PI * t);
         var packetPhase = packet * 1.73 + streamFlowPhase * 4.1;
         fluxArray[packet * 3] = x;
@@ -1597,6 +2057,112 @@
         fluxArray[packet * 3 + 2] = Math.cos(packetPhase) * 0.23 * envelope;
       }
       fluxGeometry.attributes.position.needsUpdate = true;
+    }
+
+    function updateUnboundedEffects(nowSeconds, meta) {
+      var live = windowed(progress, 0.62, 0.98);
+      var activity = clamp(
+        (meta.current || 0) * 0.34 +
+        (meta.surge || 0) * 0.68 +
+        (meta.excited || 0) * 0.42 +
+        (meta.caustic || 0) * 0.82 +
+        (meta.measure || 0) * 0.54,
+        0,
+        1.35
+      );
+      farFieldMaterial.uniforms.uTime.value = nowSeconds;
+      farFieldMaterial.uniforms.uReveal.value = live;
+      farFieldMaterial.uniforms.uActivity.value = activity;
+      farFieldMaterial.uniforms.uMeasure.value = meta.measure || 0;
+      farFieldWisps.rotation.y = reducedMotion ? 0 : nowSeconds * 0.009;
+      farFieldWisps.rotation.x = reducedMotion ? 0 : Math.sin(nowSeconds * 0.037) * 0.055;
+
+      phaseCaustics.forEach(function (line, lineId) {
+        var positions = line.geometry.attributes.position.array;
+        var band = lineId - (causticLineCount - 1) * 0.5;
+        var serialShift = (meta.eventSerial || 0) * 0.137;
+        for (var pointId = 0; pointId < causticSamples; pointId += 1) {
+          var u = pointId / (causticSamples - 1);
+          var x = mix(-11.4, 11.4, u);
+          var lens = Math.exp(-x * x * 0.026);
+          var foldA = Math.sin(
+            x * (0.48 + lineId * 0.021) - nowSeconds * (0.46 + lineId * 0.031) +
+            Math.sin(x * 0.19 + nowSeconds * 0.23 + serialShift) * 1.65 + lineId * 0.91
+          );
+          var foldB = Math.sin(x * 1.27 + nowSeconds * 0.74 - lineId * 0.63) *
+            Math.cos(x * 0.31 - nowSeconds * 0.29 + lineId);
+          positions[pointId * 3] = x;
+          positions[pointId * 3 + 1] = band * 0.34 + foldA * (0.32 + lens * 0.58) +
+            foldB * (0.08 + (meta.caustic || 0) * 0.22);
+          positions[pointId * 3 + 2] = band * 0.56 +
+            Math.cos(x * 0.39 + nowSeconds * 0.33 + lineId * 0.72) * (0.44 + lens * 0.36) +
+            foldA * (meta.measure || 0) * 0.28;
+        }
+        line.geometry.attributes.position.needsUpdate = true;
+        line.material.opacity = live * (
+          0.012 +
+          (meta.current || 0) * 0.025 +
+          (meta.caustic || 0) * (lineId % 3 === 0 ? 0.24 : 0.135) +
+          (meta.measure || 0) * 0.055
+        );
+      });
+
+      var gateAmount = meta.gate || 0;
+      gatePlane.position.set(meta.gateX || 0, 0, 0);
+      gatePlane.rotation.z = reducedMotion ? 0 : Math.sin(nowSeconds * 0.33) * 0.045;
+      gatePlane.scale.set(
+        0.55 + gateAmount * 0.45,
+        0.55 + gateAmount * 0.45,
+        1
+      );
+      gatePlaneMaterial.opacity = gateAmount * 0.048;
+      gateRings.forEach(function (ring, ringId) {
+        var gatePhase = ((nowSeconds * (0.52 + ringId * 0.05) + ringId * 0.22) % 1 + 1) % 1;
+        ring.position.set(meta.gateX || 0, 0, 0);
+        ring.scale.setScalar(0.72 + gatePhase * (0.9 + gateAmount * 0.85));
+        ring.material.opacity = gateAmount * Math.max(0.035, (1 - gatePhase) * 0.31 - ringId * 0.022);
+      });
+
+      var measurement = meta.measure || 0;
+      measurementGroup.position.set(meta.focusX || 0, 0.05, meta.focusZ || 0);
+      measurementGroup.rotation.y = reducedMotion ? 0 : nowSeconds * 0.27 * (meta.measurementOutcome || 1);
+      measurementGroup.rotation.z = reducedMotion ? 0 : -nowSeconds * 0.19;
+      measurementShells.forEach(function (shell, shellId) {
+        var shellWave = 0.86 + shellId * 0.18 +
+          (reducedMotion ? 0 : Math.sin(nowSeconds * 1.4 - shellId * 0.9) * 0.08);
+        shell.scale.set(
+          shellWave * (1 + measurement * 0.2),
+          shellWave * (1 - measurement * 0.15),
+          shellWave * (1 + measurement * 0.42)
+        );
+        shell.material.opacity = measurement * Math.max(0.035, 0.23 - shellId * 0.032);
+        if (!reducedMotion) {
+          shell.rotation.x += 0.0015 * (shellId + 1) * (meta.measurementOutcome || 1);
+          shell.rotation.y -= 0.0011 * (shellId + 1);
+        }
+      });
+
+      var refine = meta.refine || 0;
+      refinementHalo.position.set(meta.focusX || 0, 0, meta.focusZ || 0);
+      refinementHalo.rotation.x = reducedMotion ? 0.2 : nowSeconds * 0.17;
+      refinementHalo.rotation.y = reducedMotion ? 0.35 : -nowSeconds * 0.23;
+      refinementHalo.scale.setScalar(0.7 + refine * 0.78 + Math.sin(nowSeconds * 1.1) * refine * 0.08);
+      refinementHaloMaterial.opacity = refine * 0.24;
+      for (var swarmId = 0; swarmId < refineSwarmCount; swarmId += 1) {
+        var seedA = refineSwarmSeeds[swarmId * 3];
+        var seedB = refineSwarmSeeds[swarmId * 3 + 1];
+        var seedC = refineSwarmSeeds[swarmId * 3 + 2];
+        var swarmAngle = seedA * Math.PI * 2 + nowSeconds * (0.32 + seedC * 0.88);
+        var swarmRadius = (0.16 + Math.pow(seedB, 0.58) * 1.55) * (1.18 - refine * 0.38);
+        refineSwarmArray[swarmId * 3] = (meta.focusX || 0) + Math.cos(swarmAngle) * swarmRadius;
+        refineSwarmArray[swarmId * 3 + 1] = (seedC - 0.5) * 2.65 * (0.65 + swarmRadius * 0.22) +
+          Math.sin(swarmAngle * 1.7) * 0.09;
+        refineSwarmArray[swarmId * 3 + 2] = (meta.focusZ || 0) +
+          Math.sin(swarmAngle) * swarmRadius * (0.58 + seedC * 0.52);
+      }
+      refineSwarmGeometry.attributes.position.needsUpdate = true;
+      refineSwarmMaterial.opacity = refine * 0.62;
+      refineSwarmMaterial.size = (isMobile ? 0.035 : 0.043) * (1 + refine * 0.5);
     }
 
     function updateCamera(nowSeconds) {
@@ -1636,7 +2202,8 @@
       var horizontalHalfFov = Math.atan(Math.tan(verticalHalfFov) * camera.aspect);
       var limitingHalfFov = Math.max(0.08, Math.min(verticalHalfFov, horizontalHalfFov));
       var horizontalDomainRadius = 4.96;
-      var requiredDistance = horizontalDomainRadius / Math.sin(limitingHalfFov);
+      var framingScale = mix(1, isMobile ? 0.93 : 0.82, liveMix);
+      var requiredDistance = horizontalDomainRadius / Math.sin(limitingHalfFov) * framingScale;
       var fit = Math.max(1, requiredDistance / Math.max(0.001, baseDistance));
       camera.position.set(
         cameraTarget.x + dx * fit,
@@ -1652,8 +2219,9 @@
     function updateScene(nowSeconds, delta) {
       var meshBuild = clamp(progress / 0.25, 0, 1);
       var assemblyPulse = pulseWindow(progress, 0.16, 0.28, 0.42);
-      var refinement = windowed(progress, 0.78, 0.96);
       var meta = updateField(nowSeconds);
+      var introRefinement = progress < 0.999 ? windowed(progress, 0.78, 0.96) : 0;
+      var refinement = Math.max(introRefinement, meta.refine || 0);
       var interactionStrength = interaction ? interaction.state.strength : 0;
       var energyPulse = clamp(Math.max(
         pulseWindow(progress, 0.43, 0.53, 0.67),
@@ -1663,9 +2231,11 @@
 
       meshMaterial.uniforms.uReveal.value = meshBuild;
       meshMaterial.uniforms.uPulse.value = assemblyPulse;
-      meshMaterial.uniforms.uOpacity.value = 0.17 + windowed(progress, 0.1, 0.34) * 0.15;
+      meshMaterial.uniforms.uOpacity.value = 0.12 + windowed(progress, 0.1, 0.34) * 0.15 -
+        windowed(progress, 0.78, 1) * 0.055;
       cloudMaterial.opacity = clamp(0.13 + assemblyPulse * 0.45 - windowed(progress, 0.46, 0.66) * 0.13, 0.05, 0.58);
-      domainEdges.material.opacity = 0.08 + meshBuild * 0.17;
+      domainEdges.material.opacity = (0.08 + meshBuild * 0.17) *
+        (1 - windowed(progress, 0.66, 1) * 0.93);
 
       barrierMaterial.opacity = 0.025 + windowed(progress, 0.08, 0.27) * 0.1 + energyPulse * 0.105;
       barrierEdgesMaterial.opacity = 0.13 + windowed(progress, 0.08, 0.27) * 0.25 + energyPulse * 0.43;
@@ -1689,10 +2259,14 @@
       });
       energyGroup.scale.setScalar(0.72 + energyPulse * 0.58);
 
-      refineMaterial.opacity = refinement * 0.54;
+      refineLines.position.x = progress >= 0.999 ? (meta.focusX || 0) : 0;
+      refineLines.position.z = progress >= 0.999 ? (meta.focusZ || 0) : 0;
+      refineMaterial.opacity = refinement * (progress >= 0.999 ? 0.36 : 0.54);
       refineLines.scale.set(0.86 + refinement * 0.14, 0.86 + refinement * 0.14, 0.86 + refinement * 0.14);
-      potentialMaterial.opacity = 0.025 + windowed(progress, 0.05, 0.3) * 0.045;
-      potentialWireMaterial.opacity = 0.07 + windowed(progress, 0.05, 0.3) * 0.09;
+      potentialMaterial.opacity = 0.02 + windowed(progress, 0.05, 0.3) * 0.04 -
+        windowed(progress, 0.7, 1) * 0.018;
+      potentialWireMaterial.opacity = 0.05 + windowed(progress, 0.05, 0.3) * 0.08 -
+        windowed(progress, 0.7, 1) * 0.035;
 
       if (Math.abs(meta.signedCurrent || 0) > 0.015) {
         fluxDirection = meta.signedCurrent >= 0 ? 1 : -1;
@@ -1700,6 +2274,7 @@
       meta.direction = fluxDirection >= 0 ? 1 : -1;
       updateContours(meta);
       updateCurrentFlow(delta || 0, meta);
+      updateUnboundedEffects(nowSeconds, meta);
       updateCamera(nowSeconds);
       updateUi(progress, {
         nodes: nodeCount,
