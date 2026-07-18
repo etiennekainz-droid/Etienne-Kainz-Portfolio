@@ -14,15 +14,37 @@
   var ACC = "rgba(147,180,205,";     // drafting blue
   var AMB = "rgba(207,160,104,";     // strain amber
 
-  function setupCanvas(canvas, cssH) {
+  function setupCanvas(canvas, previous) {
+    /* CSS owns the displayed box. Mirror that exact box into the backing
+       store; otherwise a CSS !important height can silently stretch a bitmap
+       that was allocated using an unrelated JavaScript height. */
+    var rect = canvas.getBoundingClientRect();
+    var fallbackWidth = previous && previous.w ? previous.w :
+      (canvas.clientWidth || (canvas.parentElement && canvas.parentElement.clientWidth) || 1);
+    var fallbackHeight = previous && previous.h ? previous.h :
+      (canvas.clientHeight || parseFloat(canvas.getAttribute("height")) || 340);
+    var w = Math.max(1, rect.width || fallbackWidth);
+    var h = Math.max(1, rect.height || fallbackHeight);
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    var w = canvas.clientWidth || canvas.parentElement.clientWidth;
-    canvas.width = w * dpr;
-    canvas.height = cssH * dpr;
-    canvas.style.height = cssH + "px";
+    var pixelWidth = Math.max(1, Math.round(w * dpr));
+    var pixelHeight = Math.max(1, Math.round(h * dpr));
     var ctx = canvas.getContext("2d");
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    return { ctx: ctx, w: w, h: cssH };
+
+    if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+    if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+
+    /* The independently derived scales absorb fractional CSS pixels and
+       backing-store rounding. In CSS-pixel coordinates circles, type, and
+       projected lattice cells therefore retain a 1:1 aspect ratio. */
+    ctx.setTransform(pixelWidth / w, 0, 0, pixelHeight / h, 0, 0);
+    return {
+      ctx: ctx,
+      w: w,
+      h: h,
+      dpr: dpr,
+      pixelWidth: pixelWidth,
+      pixelHeight: pixelHeight
+    };
   }
 
   /* run `draw(t)` only while visible; single static frame if reduced motion */
@@ -86,8 +108,21 @@
     var H = 390;
     var L;
     function resizeLattice() {
-      H = lattice.clientWidth < 560 ? 332 : 390;
-      L = setupCanvas(lattice, H);
+      L = setupCanvas(lattice, L);
+      H = L.h;
+    }
+    function syncLatticeSize() {
+      var rect = lattice.getBoundingClientRect();
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var hasBox = rect.width > 0 && rect.height > 0;
+      var expectedWidth = hasBox ? Math.max(1, Math.round(rect.width * dpr)) : (L ? L.pixelWidth : lattice.width);
+      var expectedHeight = hasBox ? Math.max(1, Math.round(rect.height * dpr)) : (L ? L.pixelHeight : lattice.height);
+      if (!L ||
+          (hasBox && (Math.abs(rect.width - L.w) > 0.05 || Math.abs(rect.height - L.h) > 0.05)) ||
+          Math.abs(dpr - L.dpr) > 0.001 ||
+          lattice.width !== expectedWidth || lattice.height !== expectedHeight) {
+        resizeLattice();
+      }
     }
     resizeLattice();
 
@@ -261,6 +296,7 @@
     }
 
     function drawLattice(time) {
+      syncLatticeSize();
       var ctx = L.ctx;
       ctx.clearRect(0, 0, L.w, H);
       drawFieldGrid(ctx, time);
@@ -348,13 +384,20 @@
     var redrawLattice = animate(lattice, drawLattice);
 
     var resizeTimer;
-    window.addEventListener("resize", function () {
+    function scheduleLatticeResize() {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(function () {
         resizeLattice();
         if (REDUCED) redrawLattice();
-      }, 150);
-    });
+      }, 80);
+    }
+    window.addEventListener("resize", scheduleLatticeResize, { passive: true });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", scheduleLatticeResize, { passive: true });
+    }
+    if (window.ResizeObserver) {
+      new ResizeObserver(scheduleLatticeResize).observe(lattice);
+    }
   })();
 
 })();

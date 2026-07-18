@@ -11,6 +11,11 @@
     if (!document.body || document.querySelector("canvas.atom-bg")) return;
 
     var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var coarsePointer = (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+      (navigator.maxTouchPoints || 0) > 0;
+    var frameInterval = coarsePointer ? 1000 / 30 : 1000 / 42;
+    var activeFrameInterval = coarsePointer ? 1000 / 10 : 1000 / 14;
+    var trailLimit = coarsePointer ? 5 : 8;
     var canvas = document.createElement("canvas");
     canvas.className = "atom-bg";
     canvas.setAttribute("aria-hidden", "true");
@@ -83,7 +88,10 @@
     }
 
     function seed() {
-      var desired = Math.max(15, Math.min(30, Math.round(W * H / 70000)));
+      var desired = Math.max(
+        coarsePointer ? 12 : 14,
+        Math.min(coarsePointer ? 18 : 26, Math.round(W * H / (coarsePointer ? 85000 : 75000)))
+      );
       atoms = [];
       positions = [];
       photons = [];
@@ -125,13 +133,25 @@
     }
 
     function resize() {
-      W = Math.max(1, window.innerWidth);
-      H = Math.max(1, window.innerHeight);
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = Math.round(W * dpr);
-      canvas.height = Math.round(H * dpr);
+      var nextW = Math.max(1, window.innerWidth);
+      var nextH = Math.max(1, window.innerHeight);
+      var nextDpr = Math.min(window.devicePixelRatio || 1, coarsePointer ? 1.25 : 1.6);
+      var pixelW = Math.round(nextW * nextDpr);
+      var pixelH = Math.round(nextH * nextDpr);
+      if (W === nextW && H === nextH && Math.abs(dpr - nextDpr) < 0.001 &&
+          canvas.width === pixelW && canvas.height === pixelH) return;
+
+      var firstSize = !W || !H;
+      var orientationChanged = !firstSize && (W > H) !== (nextW > nextH);
+      var majorResize = firstSize || orientationChanged ||
+        Math.abs(nextW - W) > 160 || Math.abs(nextH - H) > 160;
+      W = nextW;
+      H = nextH;
+      dpr = nextDpr;
+      canvas.width = pixelW;
+      canvas.height = pixelH;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      seed();
+      if (majorResize || !atoms.length) seed();
       if (reducedMotion) {
         updateAtoms(0, 0);
         drawScene(0, 0);
@@ -470,16 +490,13 @@
     function drawElectronTrail(electron, depth) {
       if (electron.trail.length < 2) return;
       ctx.lineWidth = 0.55;
-      for (var index = electron.trail.length - 1; index > 0; index -= 1) {
-        var current = electron.trail[index];
-        var next = electron.trail[index - 1];
-        var alpha = (1 - index / electron.trail.length) * depth * 0.095;
-        ctx.strokeStyle = rgba(electron.hue, alpha);
-        ctx.beginPath();
-        ctx.moveTo(current.x, current.y);
-        ctx.lineTo(next.x, next.y);
-        ctx.stroke();
+      ctx.strokeStyle = rgba(electron.hue, depth * (coarsePointer ? 0.052 : 0.072));
+      ctx.beginPath();
+      ctx.moveTo(electron.trail[0].x, electron.trail[0].y);
+      for (var index = 1; index < electron.trail.length; index += 1) {
+        ctx.lineTo(electron.trail[index].x, electron.trail[index].y);
       }
+      ctx.stroke();
     }
 
     function drawAtom(atom, position, time) {
@@ -718,7 +735,7 @@
           if (electron.trailClock > 0.038) {
             electron.trailClock = 0;
             electron.trail.unshift(electronPoint(atom, electron));
-            if (electron.trail.length > 10) electron.trail.pop();
+            if (electron.trail.length > trailLimit) electron.trail.pop();
           }
         });
       }
@@ -811,8 +828,8 @@
 
     function drawScene(time, dt) {
       ctx.clearRect(0, 0, W, H);
-      drawGrid(time);
-      drawAmbientFields(time);
+      /* The static CSS field already provides the grid and broad glow. Avoid
+         repainting two viewport-sized effects behind every atom frame. */
       drawPassiveBonds(time);
       drawMolecules(time);
       for (var index = 0; index < atoms.length; index += 1) drawAtom(atoms[index], positions[index], time);
@@ -828,11 +845,10 @@
         raf = 0;
         return;
       }
-      // The fixed background yields visual and thermal priority while the
-      // dedicated WebGL study is on-screen. We still advance at ~14 fps so
-      // the transition back to the ambient field remains continuous.
-      if ((document.body.classList.contains("quantum-active") ||
-          document.body.classList.contains("failure-active")) && now - quietLast < 72) {
+      var studyActive = document.body.classList.contains("quantum-active") ||
+        document.body.classList.contains("failure-active");
+      var minimumFrameTime = studyActive ? activeFrameInterval : frameInterval;
+      if (now - quietLast < minimumFrameTime) {
         raf = requestAnimationFrame(frame);
         return;
       }
