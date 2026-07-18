@@ -35,6 +35,7 @@
     var pageVisible = document.visibilityState !== "hidden";
     var raf = 0;
     var last = performance.now();
+    var quietLast = 0;
     var transitionClock = 0.45 + Math.random() * 0.8;
     var moleculeClock = 1.4 + Math.random() * 1.7;
     var collisionClock = 0.72 + Math.random() * 1.1;
@@ -828,6 +829,15 @@
         raf = 0;
         return;
       }
+      // The fixed background yields visual and thermal priority while the
+      // dedicated WebGL study is on-screen. We still advance at ~14 fps so
+      // the transition back to the ambient field remains continuous.
+      if ((document.body.classList.contains("quantum-active") ||
+          document.body.classList.contains("failure-active")) && now - quietLast < 72) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+      quietLast = now;
       var dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       var time = now / 1000;
