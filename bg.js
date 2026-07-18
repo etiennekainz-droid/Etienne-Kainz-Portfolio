@@ -1,9 +1,8 @@
 /* ============================================================
    Ambient atom field
-   A deliberately restrained technical background: it suggests a
-   small quantum / molecular laboratory without competing with the
-   portfolio itself. Everything is canvas-only and capped for calm,
-   battery-friendly rendering.
+   A continuous technical field linking the portfolio's quantum, elastic and
+   fracture studies. Everything remains canvas-only, visibility-aware and
+   capped for battery-friendly rendering.
    ============================================================ */
 (function () {
   "use strict";
@@ -851,6 +850,25 @@
       pointer.x = clamp(event.clientX / Math.max(1, W), 0, 1);
       pointer.y = clamp(event.clientY / Math.max(1, H), 0, 1);
     }, { passive: true });
+
+    /* Scientific studies release a restrained screen-space echo into the
+       shared atmosphere without coupling their simulation coordinates. */
+    window.addEventListener("ek:field-event", function (event) {
+      if (reducedMotion || !W || !H) return;
+      var detail = event.detail || {};
+      var strength = clamp(Number(detail.intensity) || 0.7, 0.25, 1.2);
+      var eventX = detail.type === "touch" ? pointer.x * W : W * rand(0.28, 0.72);
+      var eventY = detail.type === "touch" ? pointer.y * H : H * rand(0.24, 0.68);
+      var colour = /gate|surge|measure|touch/.test(String(detail.type || "")) ? amber : cyan;
+      releaseEnergy(eventX, eventY, strength * 1.15, colour, strength > 0.82);
+      addPhoton(eventX, eventY, rand(-1, 1), rand(-0.7, 0.7), colour, strength);
+      pulse = {
+        index: atoms.length ? Math.floor(Math.random() * atoms.length) : 0,
+        age: 0,
+        life: rand(1.8, 2.8),
+        kind: colour === amber ? "amber" : "blue"
+      };
+    });
 
     window.addEventListener("resize", function () {
       clearTimeout(resizeTimer);
