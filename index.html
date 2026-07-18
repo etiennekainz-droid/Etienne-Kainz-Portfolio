@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=9" />
+<link rel="stylesheet" href="styles.css?v=13" />
 </head>
 <body>
 
@@ -60,19 +60,40 @@
     </div>
   </div>
 
-  <!-- ============ FIG. 0.1 — SCROLL-DRIVEN MANIPULATOR ============ -->
-  <div class="arm-band">
+  <!-- ============ FIG. 0.1 — AUTONOMOUS QUANTUM FEM ============ -->
+  <div class="quantum-band" id="quantumStudy">
     <div class="wrap">
-      <figure class="arm-figure" data-reveal aria-labelledby="armCaption">
-        <div class="arm-stage">
-          <canvas id="robotArmCanvas" aria-label="Three-dimensional six-axis robotic arm responding to page scroll"></canvas>
-          <div class="arm-hud" aria-hidden="true">
-            <span class="arm-hud__eyebrow">FIG. 0.1 · KINEMATIC STUDY</span>
-            <span class="arm-hud__value" id="armStatus">INITIALIZING KINEMATICS</span>
-            <span class="arm-hud__hint">SCROLL-COUPLED · SIX-AXIS PATH</span>
+      <figure class="quantum-figure" aria-labelledby="quantumCaption">
+        <div class="quantum-stage">
+          <canvas id="quantumFemCanvas" aria-label="Autonomous three-dimensional finite-element visualization of a quantum state tunnelling through a coupled quantum-dot potential; touch or point at the field to perturb it"></canvas>
+          <div class="quantum-hud" aria-hidden="true">
+            <span class="quantum-hud__eyebrow">FIG. 0.1 · QUANTUM FIELD ANALYSIS</span>
+            <span class="quantum-hud__value" id="quantumStatus">DOMAIN / DISCRETIZATION</span>
+            <span class="quantum-hud__equation">iℏMψ̇ = Hψ · H = (ℏ²/2m*)K + Vₕ</span>
+            <span class="quantum-hud__hint" id="quantumHint">LIVE REDUCED-ORDER MODEL INITIALIZING · TOUCH TO PERTURB</span>
           </div>
+          <dl class="quantum-metrics" aria-hidden="true">
+            <div><dt>MODEL</dt><dd>COUPLED QUANTUM DOT</dd></div>
+            <div><dt>MESH</dt><dd id="quantumMesh">P1 TETRAHEDRA</dd></div>
+            <div><dt>NORM</dt><dd id="quantumNorm">1.0000</dd></div>
+            <div><dt>P(ΩR)</dt><dd id="quantumRight">0.0%</dd></div>
+            <div><dt>SCHEME</dt><dd>REDUCED EIGENBASIS</dd></div>
+          </dl>
+          <div class="quantum-legend" aria-hidden="true">
+            <span><i class="quantum-legend__density"></i>|ψ|² DENSITY</span>
+            <span><i class="quantum-legend__mesh"></i>FE MESH</span>
+            <span><i class="quantum-legend__energy"></i>V(x) / ΔE</span>
+          </div>
+          <ol class="quantum-phases" aria-hidden="true">
+            <li class="active"><span>01</span>DOMAIN</li>
+            <li><span>02</span>ASSEMBLY</li>
+            <li><span>03</span>EIGENSTATES</li>
+            <li><span>04</span>TUNNELLING</li>
+            <li><span>05</span>VALIDATION</li>
+          </ol>
         </div>
-        <figcaption id="armCaption"><b>FIG. 0.1</b><span>MK-VI MULTI-AXIS MANIPULATOR — SCROLL-COUPLED KINEMATIC STUDY</span><span>J1–J6 · PATH</span></figcaption>
+        <figcaption id="quantumCaption"><b>FIG. 0.1</b><span>TIME-DEPENDENT SCHRÖDINGER EQUATION — COUPLED QUANTUM-DOT STATE</span><span>|ψ|² · PHASE · FLUX</span></figcaption>
+        <p class="quantum-context">A normalized reduced-order visualization of a coupled quantum state: P1 finite-element discretization, Hamiltonian assembly, reduced-eigenbasis propagation, coherent tunnelling, and a local h/2 refinement view. Blue encodes probability density and phase; amber is reserved for potential and energy transfer.</p>
       </figure>
     </div>
   </div>
@@ -132,12 +153,32 @@
     </div>
   </section>
 
-  <!-- ============ FIG 0.2 — STRESS-STRAIN ============ -->
-  <div class="fig-band">
+  <!-- ============ FIG 0.2 — 3-D MATERIAL FAILURE ============ -->
+  <div class="fig-band failure-band">
     <div class="wrap">
-      <figure class="fig" data-reveal>
-        <canvas id="stressCanvas" height="330"></canvas>
-        <figcaption><b>FIG. 0.2</b><span>TENSILE TEST — ENGINEERING STRESS–STRAIN, STRUCTURAL STEEL (SCHEMATIC)</span><span>σ–ε · LIVE</span></figcaption>
+      <figure class="failure-figure" aria-labelledby="failureCaption">
+        <div class="failure-stage" id="failureStudy">
+          <canvas id="stressCanvas" aria-label="Autonomous three-dimensional finite-element visualization of an S355 tensile coupon progressing from elastic loading through plastic localization and fracture; touch the coupon to perturb the field"></canvas>
+          <div class="failure-hud" aria-hidden="true">
+            <span class="failure-hud__eyebrow">FIG. 0.2 · NONLINEAR MATERIAL RESPONSE</span>
+            <span class="failure-hud__value" id="failureStatus">ELASTIC FIELD · J2 TRIAL STATE</span>
+            <span class="failure-hud__equation">S355 · J2 PLASTICITY · VOID-GROWTH DAMAGE</span>
+            <span class="failure-hud__hint">TOUCH COUPON · LOCAL IMPULSE</span>
+          </div>
+          <dl class="failure-metrics" aria-hidden="true">
+            <div><dt>LOAD</dt><dd id="failureLoad">0.0 kN</dd></div>
+            <div><dt>σENG</dt><dd id="failureStress">0 MPa</dd></div>
+            <div><dt>ε̄P</dt><dd id="failurePlastic">0.0%</dd></div>
+            <div><dt>DAMAGE</dt><dd id="failureDamage">0.00</dd></div>
+          </dl>
+          <div class="failure-legend" aria-hidden="true">
+            <span><i class="failure-legend__elastic"></i>ELASTIC FIELD</span>
+            <span><i class="failure-legend__plastic"></i>PLASTIC / CRACK FRONT</span>
+            <span><i class="failure-legend__mesh"></i>SURFACE FE MESH</span>
+          </div>
+          <span class="failure-disclaimer" aria-hidden="true">PHENOMENOLOGICAL FRACTURE · DEFORMATION AMPLIFIED · ILLUSTRATIVE</span>
+        </div>
+        <figcaption id="failureCaption"><b>FIG. 0.2</b><span>3-D TENSILE COUPON — J2 PLASTICITY, NECKING &amp; DUCTILE FRACTURE (ILLUSTRATIVE)</span><span>DAMAGE · LIVE</span></figcaption>
       </figure>
     </div>
   </div>
@@ -216,9 +257,10 @@
   <div class="lb-cap" id="lbCap"></div>
 </div>
 
-<script src="bg.js?v=9"></script>
+<script src="bg.js?v=11"></script>
 <script src="shared.js?v=7"></script>
-<script src="anim.js?v=9"></script>
-<script type="module" src="robot-arm.js?v=3"></script>
+<script src="anim.js?v=10"></script>
+<script type="module" src="quantum-fem.js?v=6"></script>
+<script type="module" src="failure-fem.js?v=3"></script>
 </body>
 </html>
