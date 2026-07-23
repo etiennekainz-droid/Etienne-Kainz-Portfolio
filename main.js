@@ -11,6 +11,7 @@
   var lenis = null;
   var lastFocused = null;
   var initialHash = window.location.hash;
+  var scrollAnimationsReady = false;
 
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
@@ -22,8 +23,8 @@
     return Math.min(max, Math.max(min, value));
   }
 
-  function customEase(t) {
-    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  function exitEase(t) {
+    return 1 - Math.pow(1 - t, 4.2);
   }
 
   function splitChars(node) {
@@ -71,11 +72,12 @@
     if (reduceMotion || !window.Lenis) return;
     try {
       lenis = new window.Lenis({
-        duration: 1.15,
         smoothWheel: true,
         syncTouch: false,
-        wheelMultiplier: 0.88,
-        easing: customEase
+        lerp: 0.18,
+        wheelMultiplier: 1.1,
+        touchMultiplier: 1,
+        overscroll: false
       });
       if (ScrollTrigger) lenis.on("scroll", ScrollTrigger.update);
       if (gsap) {
@@ -180,6 +182,7 @@
       }, reduceMotion ? 0 : 950);
     }
     playHero();
+    initScrollAnimations();
     positionInitialRoute();
   }
 
@@ -227,6 +230,7 @@
       body.classList.remove("is-loading");
       if (window.quantumField) window.quantumField.setIntroProgress(1);
       playHero();
+      initScrollAnimations();
       positionInitialRoute();
       return;
     }
@@ -307,6 +311,8 @@
   runLoader();
 
   function initScrollAnimations() {
+    if (scrollAnimationsReady) return;
+    scrollAnimationsReady = true;
     var revealNodes = qsa("[data-reveal]").filter(function (node) {
       return !node.closest(".hero") && !node.closest(".gallery-hero");
     });
@@ -328,14 +334,16 @@
       else if (type === "media") from = { clipPath: "inset(0 0 100% 0)", opacity: 1 };
       else if (type === "line") from = { y: 38, opacity: 0 };
       else from = { y: 32, opacity: 0 };
-      gsap.fromTo(node, from, Object.assign({}, to, {
-        clipPath: "inset(0 0% 0% 0)",
+      var finalState = {
         y: 0,
         opacity: 1,
         onStart: function () {
           qsa("[data-scramble]", node).forEach(function (label) { scramble(label); });
         }
-      }));
+      };
+      finalState.clipPath = type === "clip" || type === "media" ?
+        "inset(0 0% 0% 0)" : "none";
+      gsap.fromTo(node, from, Object.assign({}, to, finalState));
       var image = node.querySelector && node.querySelector("img");
       if (type === "media" && image) {
         gsap.fromTo(image, { scale: 1.14 }, {
@@ -375,29 +383,93 @@
 
     var hero = doc.querySelector(".hero");
     if (hero) {
-      gsap.to(".hero__wordmark", {
-        yPercent: 22,
-        ease: "none",
-        scrollTrigger: { trigger: hero, start: "top top", end: "bottom top", scrub: 0.6 }
+      var heroStage = hero.querySelector(".hero__stage") || hero;
+      var wordmark = hero.querySelector(".hero__wordmark");
+      var maxMaskRadius = Math.ceil(Math.hypot(window.innerWidth, window.innerHeight) * 0.92);
+      var openingTimeline = gsap.timeline({
+        defaults: { ease: "none" },
+        scrollTrigger: {
+          id: "opening-sequence",
+          trigger: hero,
+          start: "top top",
+          end: "bottom bottom",
+          scrub: true,
+          invalidateOnRefresh: true,
+          onUpdate: function (self) {
+            var progress = self.progress;
+            body.classList.toggle("is-field-solo", progress > 0.18 && progress < 0.88);
+            if (window.quantumField && window.quantumField.setOpeningProgress) {
+              window.quantumField.setOpeningProgress(progress);
+            }
+          },
+          onLeave: function () { body.classList.remove("is-field-solo"); },
+          onLeaveBack: function () { body.classList.remove("is-field-solo"); }
+        }
       });
-      gsap.to(".wordmark--trace", {
-        xPercent: 4,
-        yPercent: -8,
-        ease: "none",
-        scrollTrigger: { trigger: hero, start: "top top", end: "bottom top", scrub: 0.7 }
-      });
+      openingTimeline
+        .to(heroStage, { "--opening-clock": 1, duration: 1 }, 0)
+        .to(".hero__meta, .hero__subline, .hero__coordinates, .scroll-cue", {
+          yPercent: -42,
+          opacity: 0,
+          duration: 0.16,
+          stagger: 0.012,
+          ease: exitEase
+        }, 0.035)
+        .to(heroStage, {
+          "--wordmark-mask-radius": maxMaskRadius + "px",
+          "--wordmark-mask-x": "56%",
+          "--wordmark-mask-y": "42%",
+          duration: 0.28,
+          ease: "power4.inOut"
+        }, 0.035)
+        .to(".wordmark--fill .char", {
+          yPercent: -118,
+          rotate: function (index) { return (index % 2 ? 1 : -1) * (1.8 + index * 0.13); },
+          duration: 0.18,
+          stagger: { amount: 0.07, from: "center" },
+          ease: "power4.in"
+        }, 0.075)
+        .to(".wordmark--trace", {
+          xPercent: 7,
+          yPercent: -18,
+          opacity: 0,
+          duration: 0.2,
+          ease: "power3.in"
+        }, 0.075)
+        .to(wordmark, {
+          yPercent: -22,
+          scale: 0.94,
+          opacity: 0,
+          duration: 0.16,
+          ease: exitEase
+        }, 0.135)
+        .to(".hero__overture", {
+          y: 0,
+          opacity: 1,
+          duration: 0.1,
+          ease: "power4.out"
+        }, 0.25)
+        .to(".hero__overture i", {
+          scaleX: 1,
+          duration: 0.22,
+          ease: "power3.inOut"
+        }, 0.27)
+        .to(".hero__overture", {
+          yPercent: -35,
+          opacity: 0,
+          duration: 0.12,
+          ease: "power3.in"
+        }, 0.78);
     }
 
     qsa(".teaser-card__image img").forEach(function (image) {
       gsap.fromTo(image, { yPercent: -7 }, {
         yPercent: 7,
         ease: "none",
-        scrollTrigger: { trigger: image.parentElement, start: "top bottom", end: "bottom top", scrub: 0.8 }
+        scrollTrigger: { trigger: image.parentElement, start: "top bottom", end: "bottom top", scrub: 0.18 }
       });
     });
   }
-
-  window.setTimeout(initScrollAnimations, doc.getElementById("loader") ? 120 : 0);
 
   // Menu.
   var menuToggle = doc.getElementById("menuToggle");
