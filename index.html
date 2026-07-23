@@ -1,274 +1,420 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Etienne Kainz — Mechanical Engineering, TU Wien</title>
-<meta name="description" content="Engineering portfolio of Etienne Kainz — Mechanical Engineering, TU Wien. Machine design, structural verification, CFD, propulsion, and aerospace concept work." />
-<meta name="author" content="Etienne Kainz" />
-<!-- Open Graph (LinkedIn preview). After deploying, replace og:url/og:image with the absolute URL of your GitHub Pages site. -->
-<meta property="og:title" content="Etienne Kainz — Mechanical Engineering, TU Wien" />
-<meta property="og:description" content="Machine design, structural verification, CFD, propulsion, and aerospace concept work." />
-<meta property="og:type" content="website" />
-<link rel="icon" type="image/jpeg" href="assets/brand/k-logo.jpg" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=19" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Etienne Kainz — Mechanical Engineering at TU Wien. Design, CFD, propulsion, structures, and aerospace concept work.">
+  <meta name="author" content="Etienne Kainz">
+  <meta property="og:title" content="Etienne Kainz — Mechanical Engineering">
+  <meta property="og:description" content="Design / CFD / Propulsion / Structures">
+  <meta property="og:type" content="website">
+  <title>Etienne Kainz — Mechanical Engineering</title>
+  <link rel="icon" type="image/jpeg" href="assets/brand/k-logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=Space+Grotesk:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=1">
 </head>
-<body class="home-page">
+<body class="home-page is-loading">
+  <a class="skip-link" href="#main">Skip to content</a>
 
-<header>
-  <nav class="nav">
-    <a class="brand" href="index.html">
-      <img src="assets/brand/k-logo.jpg" alt="Kainz logo" />
-      <span class="t">ETIENNE KAINZ<small>MECHANICAL ENGINEERING</small></span>
-    </a>
-    <div class="nav-links" id="navLinks">
-      <a href="index.html" class="active" aria-current="page"><span class="n">01</span>Home</a>
-      <a href="projects.html"><span class="n">02</span>Projects</a>
-      <a href="drawings.html"><span class="n">03</span>Drawings</a>
-      <a href="aerial.html"><span class="n">04</span>Aerial Photography</a>
-      <a href="certifications.html"><span class="n">05</span>Certifications</a>
-    </div>
-    <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-controls="navLinks" aria-expanded="false">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-    </button>
-  </nav>
-</header>
+  <canvas id="quantumField" class="quantum-field" aria-hidden="true"></canvas>
+  <div class="field-vignette" aria-hidden="true"></div>
 
-<main>
-  <!-- ============ HERO ============ -->
-  <div class="hero">
-    <div class="hero-field" aria-hidden="true">
-      <span class="hero-field__axis hero-field__axis--x">x / DESIGN SPACE</span>
-      <span class="hero-field__axis hero-field__axis--y">ψ / STATE VECTOR</span>
-      <span class="hero-field__datum">48.2082° N · 16.3738° E</span>
+  <div class="loader" id="loader" role="status" aria-live="polite">
+    <div class="loader__field" id="loaderField" aria-hidden="true"></div>
+    <div class="loader__top micro">
+      <span>EK.QF / INITIAL CONDITION</span>
+      <span id="loaderCounter">000%</span>
     </div>
-    <div class="wrap hero-grid">
-      <div data-reveal>
-        <div class="kicker">Engineering Portfolio <b>// EK.FIELD.2026</b></div>
-        <h1><span>Etienne</span><span>Kainz</span></h1>
-        <p class="role">Mechanical Engineering — TU Wien · <em>Design / CFD / Propulsion / Structures</em></p>
-        <p class="intro">I'm a Mechanical Engineering student at TU Wien, building expertise in
-        mechanics, thermodynamics, and fluid mechanics, with hands-on experience in CAD
-        (PTC Creo, CATIA V5) and CFD applications.</p>
-        <div class="cta-row">
-          <a class="btn btn--solid" href="projects.html"><span>Enter project field</span><i aria-hidden="true">↗</i></a>
-          <a class="btn" href="mailto:pro.kainz@icloud.com"><span>Open channel</span><i aria-hidden="true">→</i></a>
-        </div>
-      </div>
-      <figure class="fig portrait portrait--hero" data-reveal>
-        <img class="fig-media" src="assets/headshot/etienne.jpg" alt="Etienne Kainz" />
-        <figcaption><b>E. KAINZ</b><span>VIENNA · 2026</span></figcaption>
-      </figure>
+    <div class="loader__core">
+      <p class="loader__label micro">ASSEMBLING PROBABILITY FIELD</p>
+      <div class="loader__mark" aria-label="Etienne Kainz">EK<span>.</span>QF</div>
+      <div class="loader__track"><i id="loaderProgress"></i></div>
+      <p class="loader__status micro" id="loaderStatus">SCATTERED STATE</p>
     </div>
-    <div class="hero-signal wrap" aria-hidden="true">
-      <span>MECHANICAL SYSTEMS</span><span>QUANTUM METHODS</span><span>NUMERICAL FIELDS</span><span class="hero-signal__live">LIVE PORTFOLIO NODE</span>
+    <div class="loader__bottom micro">
+      <span>ψ(x,t) / BINARY BASIS</span>
+      <span>VIENNA · 48.2082°N</span>
     </div>
   </div>
 
-  <!-- ============ FIG. 0.1 — AUTONOMOUS QUANTUM FEM ============ -->
-  <div class="quantum-band" id="quantumStudy">
-    <div class="wrap">
-      <figure class="quantum-figure" aria-labelledby="quantumCaption">
-        <div class="quantum-stage">
-          <canvas id="quantumFemCanvas" aria-label="Autonomous three-dimensional finite-element visualization of a quantum state tunnelling through a coupled quantum-dot potential; touch or point at the field to perturb it"></canvas>
-          <div class="quantum-hud" aria-hidden="true">
-            <span class="quantum-hud__eyebrow">FIG. 0.1 · QUANTUM FIELD ANALYSIS</span>
-            <span class="quantum-hud__value" id="quantumStatus">DOMAIN / DISCRETIZATION</span>
-            <span class="quantum-hud__equation">iℏMψ̇ = Hψ · H = (ℏ²/2m*)K + Vₕ</span>
-            <span class="quantum-hud__hint" id="quantumHint">LIVE REDUCED-ORDER MODEL INITIALIZING · TOUCH TO PERTURB</span>
-          </div>
-          <dl class="quantum-metrics" aria-hidden="true">
-            <div><dt>MODEL</dt><dd>COUPLED QUANTUM DOT</dd></div>
-            <div><dt>MESH</dt><dd id="quantumMesh">P1 TETRAHEDRA</dd></div>
-            <div><dt>NORM</dt><dd id="quantumNorm">1.0000</dd></div>
-            <div><dt>P(ΩR)</dt><dd id="quantumRight">0.0%</dd></div>
-            <div><dt>SCHEME</dt><dd>REDUCED EIGENBASIS</dd></div>
+  <div class="page-wipe" aria-hidden="true"><span>01</span><i></i></div>
+
+  <div class="cursor cursor--dot" aria-hidden="true"></div>
+  <div class="cursor cursor--ring" aria-hidden="true"><span>VIEW</span></div>
+
+  <button class="menu-toggle" id="menuToggle" type="button" aria-controls="menuOverlay" aria-expanded="false">
+    <span class="menu-toggle__glyph" aria-hidden="true"><i></i><i></i></span>
+    <span class="menu-toggle__label" data-scramble="MENU">MENU</span>
+  </button>
+
+  <aside class="section-rail" aria-label="Current section">
+    <span class="section-rail__current" id="railCurrent">00</span>
+    <i class="section-rail__line"><b id="railProgress"></b></i>
+    <span class="section-rail__name" id="railName">INDEX</span>
+  </aside>
+
+  <div class="menu-overlay" id="menuOverlay" aria-hidden="true">
+    <div class="menu-overlay__meta micro">
+      <span>ETIENNE KAINZ</span>
+      <span>MECHANICAL ENGINEERING / TU WIEN</span>
+    </div>
+    <nav class="menu-nav" aria-label="Primary">
+      <a href="#about" data-menu-link><span>01</span><b>About</b><i>Profile / Ethos</i></a>
+      <a href="#projects" data-menu-link><span>02</span><b>Projects</b><i>Design / Analysis / Simulation</i></a>
+      <a href="#figure" data-menu-link><span>03</span><b>Interactive figure</b><i>Material response</i></a>
+      <a href="drawings.html" data-transition-link data-menu-link><span>04</span><b>Drawings</b><i>12 figures</i></a>
+      <a href="aerial.html" data-transition-link data-menu-link><span>05</span><b>Aerial</b><i>21 photographs</i></a>
+      <a href="#certifications" data-menu-link><span>06</span><b>Certifications</b><i>4 credentials</i></a>
+      <a href="#contact" data-menu-link><span>07</span><b>Contact</b><i>Open channel</i></a>
+    </nav>
+    <div class="menu-overlay__footer micro">
+      <a href="mailto:pro.kainz@icloud.com">PRO.KAINZ@ICLOUD.COM</a>
+      <span>PORTFOLIO / REV. E / 2026</span>
+    </div>
+  </div>
+
+  <main id="main">
+    <section class="hero scene" id="home" data-field="0" data-section="00" data-title="Index">
+      <div class="hero__meta micro" data-reveal="clip">
+        <span data-scramble="ENGINEERING PORTFOLIO">ENGINEERING PORTFOLIO</span>
+        <span>QF—00 / OBSERVER FRAME</span>
+      </div>
+      <div class="hero__wordmark" aria-label="Etienne Kainz">
+        <h1 class="wordmark wordmark--fill split-chars">EtienneKainz</h1>
+        <div class="wordmark wordmark--trace" aria-hidden="true">EtienneKainz</div>
+      </div>
+      <div class="hero__subline" data-reveal="rise">
+        <p>Mechanical Engineering — TU Wien · Design / CFD / Propulsion / Structures</p>
+      </div>
+      <div class="hero__coordinates micro" data-reveal="clip">
+        <span>48.2082° N</span>
+        <span>16.3738° E</span>
+        <span>SCROLL TO OBSERVE</span>
+      </div>
+      <div class="scroll-cue" aria-hidden="true"><span>SCROLL</span><i></i></div>
+    </section>
+
+    <section class="section about scene" id="about" data-field="1" data-section="01" data-title="About">
+      <header class="section-heading">
+        <div class="section-heading__index">
+          <span class="section-number" data-count="1">00</span>
+          <span class="micro" data-scramble="SEC—01">SEC—01</span>
+        </div>
+        <h2 class="split-lines">About</h2>
+      </header>
+
+      <div class="about__lead">
+        <p class="statement split-lines">Mechanical Engineering student at TU Wien. Design, structural verification, CFD, propulsion, and aerospace concept work. Hands-on with PTC Creo, CATIA V5, Fusion 360, SOLIDWORKS, and Python.</p>
+      </div>
+
+      <div class="about__grid">
+        <figure class="headshot media-reveal" data-reveal="media">
+          <div class="image-shell"><img src="assets/headshot/etienne.jpg" alt="Etienne Kainz" loading="lazy"></div>
+          <figcaption class="micro"><span>FIG. 01-A</span><span>E. KAINZ / VIENNA</span></figcaption>
+        </figure>
+
+        <div class="ethos">
+          <div class="ethos__label micro" data-reveal="clip"><span>ETHOS / SPECIFICATION</span><span>REV. E</span></div>
+          <dl class="spec-table">
+            <div data-reveal="line"><dt>Discipline</dt><dd>Mechanical Engineering — TU Wien, B.Sc.</dd></div>
+            <div data-reveal="line"><dt>Core subjects</dt><dd>Mechanics · Thermodynamics · Fluid Mechanics</dd></div>
+            <div data-reveal="line"><dt>Tools</dt><dd>PTC Creo · CATIA V5 · Fusion 360 · SOLIDWORKS · Python</dd></div>
+            <div data-reveal="line"><dt>Methods</dt><dd>FKM verification · ISO tolerancing · Trade studies</dd></div>
+            <div data-reveal="line"><dt>Domains</dt><dd>Machine design · Propulsion · Aerospace concepts</dd></div>
           </dl>
-          <div class="quantum-legend" aria-hidden="true">
-            <span><i class="quantum-legend__density"></i>|ψ|² DENSITY</span>
-            <span><i class="quantum-legend__mesh"></i>FE MESH</span>
-            <span><i class="quantum-legend__energy"></i>V(x) / ΔE</span>
-          </div>
-          <ol class="quantum-phases" aria-hidden="true">
-            <li class="active"><span>01</span>DOMAIN</li>
-            <li><span>02</span>ASSEMBLY</li>
-            <li><span>03</span>EIGENSTATES</li>
-            <li><span>04</span>TUNNELLING</li>
-            <li><span>05</span>VALIDATION</li>
-          </ol>
         </div>
-        <figcaption id="quantumCaption"><b>FIG. 0.1</b><span>TIME-DEPENDENT SCHRÖDINGER EQUATION — COUPLED QUANTUM-DOT STATE</span><span>|ψ|² · PHASE · FLUX</span></figcaption>
-        <p class="quantum-context">A normalized reduced-order visualization of a coupled quantum state: P1 finite-element discretization, Hamiltonian assembly, reduced-eigenbasis propagation, coherent tunnelling, and a local h/2 refinement view. Blue encodes probability density and phase; amber is reserved for potential and energy transfer.</p>
+      </div>
+
+      <div class="ticker" aria-label="Capabilities">
+        <div class="ticker__track">
+          <span>MECHANICAL DESIGN</span><i>01</i><span>STRUCTURAL VERIFICATION</span><i>10</i><span>CFD</span><i>01</i><span>PROPULSION</span><i>10</i><span>FLIGHT DYNAMICS</span><i>01</i>
+          <span aria-hidden="true">MECHANICAL DESIGN</span><i aria-hidden="true">01</i><span aria-hidden="true">STRUCTURAL VERIFICATION</span><i aria-hidden="true">10</i><span aria-hidden="true">CFD</span><i aria-hidden="true">01</i><span aria-hidden="true">PROPULSION</span><i aria-hidden="true">10</i><span aria-hidden="true">FLIGHT DYNAMICS</span><i aria-hidden="true">01</i>
+        </div>
+      </div>
+    </section>
+
+    <section class="section projects scene" id="projects" data-field="2" data-section="02" data-title="Projects">
+      <header class="section-heading">
+        <div class="section-heading__index">
+          <span class="section-number" data-count="2">00</span>
+          <span class="micro" data-scramble="SEC—02">SEC—02</span>
+        </div>
+        <h2 class="split-lines">Projects</h2>
+      </header>
+
+      <div class="projects__intro">
+        <p class="statement split-lines">Six studies across design, analysis, and simulation — reduced to their essential engineering signal.</p>
+        <div class="filter-bar" role="group" aria-label="Filter projects" data-reveal="clip">
+          <button type="button" class="active" data-filter="all" aria-pressed="true">All <span>06</span></button>
+          <button type="button" data-filter="design" aria-pressed="false">Design <span>04</span></button>
+          <button type="button" data-filter="analysis" aria-pressed="false">Analysis <span>04</span></button>
+          <button type="button" data-filter="simulation" aria-pressed="false">Simulation <span>03</span></button>
+        </div>
+      </div>
+
+      <div class="project-index" id="projectIndex">
+        <article class="project-row" data-category="design analysis" data-preview="assets/projects/scissor-lift/sl-06.jpg" data-reveal="line">
+          <button class="project-trigger" type="button" data-project-open="scissor-lift">
+            <span class="project-row__no">2.1</span>
+            <span class="project-row__title">Scissor Lift Table</span>
+            <span class="project-row__desc">350 kg machine-design assembly with FKM structural verification.</span>
+            <span class="project-row__tags">DESIGN · ANALYSIS</span>
+            <span class="project-row__arrow" aria-hidden="true">↗</span>
+          </button>
+        </article>
+        <article class="project-row" data-category="design" data-preview="assets/projects/aerospace/photo.jpg" data-reveal="line">
+          <button class="project-trigger" type="button" data-project-open="aerospace-platform">
+            <span class="project-row__no">2.2</span>
+            <span class="project-row__title">High-Agility Aerospace Platform</span>
+            <span class="project-row__desc">Compact flight concept exploring high-authority aerodynamic braking.</span>
+            <span class="project-row__tags">DESIGN</span>
+            <span class="project-row__arrow" aria-hidden="true">↗</span>
+          </button>
+        </article>
+        <article class="project-row" data-category="analysis simulation" data-preview="assets/projects/vtol/uav-render.png" data-reveal="line">
+          <button class="project-trigger" type="button" data-project-open="vtol-study">
+            <span class="project-row__no">2.3</span>
+            <span class="project-row__title">VTOL Propulsion Trade Study</span>
+            <span class="project-row__desc">Quad-rotor and tilt-rotor architectures evaluated for a small ISR UAV.</span>
+            <span class="project-row__tags">ANALYSIS · SIMULATION</span>
+            <span class="project-row__arrow" aria-hidden="true">↗</span>
+          </button>
+        </article>
+        <article class="project-row" data-category="design simulation" data-preview="assets/projects/aim174b/model-photo.jpg" data-reveal="line">
+          <button class="project-trigger" type="button" data-project-open="aim174b">
+            <span class="project-row__no">2.4</span>
+            <span class="project-row__title">AIM-174B — CAD Reconstruction</span>
+            <span class="project-row__desc">Watertight airframe surface model, CFD mesh, and printed scale study.</span>
+            <span class="project-row__tags">DESIGN · SIMULATION</span>
+            <span class="project-row__arrow" aria-hidden="true">↗</span>
+          </button>
+        </article>
+        <article class="project-row" data-category="simulation analysis" data-preview="assets/projects/rocket-sim/results.png" data-reveal="line">
+          <button class="project-trigger" type="button" data-project-open="rocket-sim">
+            <span class="project-row__no">2.5</span>
+            <span class="project-row__title">Two-Stage Rocket Simulation</span>
+            <span class="project-row__desc">Python ascent model with drag, mass variation, staging, and q-gating.</span>
+            <span class="project-row__tags">SIMULATION · ANALYSIS</span>
+            <span class="project-row__arrow" aria-hidden="true">↗</span>
+          </button>
+        </article>
+        <article class="project-row" data-category="design analysis" data-preview="assets/projects/rocket-design/photo.jpg" data-reveal="line">
+          <button class="project-trigger" type="button" data-project-open="rocket-design">
+            <span class="project-row__no">2.6</span>
+            <span class="project-row__title">Introduction to Rocket Design</span>
+            <span class="project-row__desc">Thrust chamber geometry, nozzle sizing, and turbopump fundamentals.</span>
+            <span class="project-row__tags">DESIGN · ANALYSIS</span>
+            <span class="project-row__arrow" aria-hidden="true">↗</span>
+          </button>
+        </article>
+      </div>
+      <figure class="project-preview" id="projectPreview" aria-hidden="true">
+        <img src="assets/projects/scissor-lift/sl-06.jpg" alt="">
+        <figcaption class="micro">OPEN CASE / 01—06</figcaption>
       </figure>
-    </div>
-  </div>
+    </section>
 
-  <!-- ============ LATTICE — floating, frameless ============ -->
-  <div class="fig-band fig-band--float">
-    <div class="wrap" data-reveal>
-      <canvas id="latticeCanvas" height="340"></canvas>
-    </div>
-  </div>
-
-  <!-- ============ 1. OVERVIEW ============ -->
-  <section class="section overview-section" id="overview">
-    <div class="wrap">
-      <div class="section-head" data-reveal>
-        <span class="sec-no">SECTION 01</span>
-        <h2 class="section-title">Overview</h2>
-        <p class="section-lead">I'm driven by curiosity about how mechanical systems behave beyond
-        idealized models, exploring the interplay between design decisions, real-world performance
-        and manufacturability. This website showcases my student and independent projects, technical
-        drawings and concepts, certifications, and aerial photography. It documents my learning
-        process, hands-on work, and the development of practical engineering skills.</p>
-      </div>
-      <div class="two-col">
-        <table class="spec-table" data-reveal>
-          <tbody>
-            <tr><th>Discipline</th><td>Mechanical Engineering — TU Wien, B.Sc.</td></tr>
-            <tr><th>Core subjects</th><td>Mechanics · Thermodynamics · Fluid Mechanics</td></tr>
-            <tr><th>Tools</th><td>PTC Creo Parametric · CATIA V5 · Fusion 360 · SOLIDWORKS · CFD · Python</td></tr>
-            <tr><th>Methods</th><td>FKM structural verification · ISO tolerancing · Trade studies</td></tr>
-            <tr><th>Domains</th><td>Machine design · Propulsion · Aerospace concepts</td></tr>
-          </tbody>
-        </table>
-        <div class="cap-list" data-reveal>
-          <div class="cap-item">
-            <span class="ix">1.1</span>
-            <h3>Mechanical Design</h3>
-            <p>Parametric CAD assemblies with catalogue integration, ISO tolerancing, and production-ready detail &amp; assembly drawings.</p>
-          </div>
-          <div class="cap-item">
-            <span class="ix">1.2</span>
-            <h3>Structural Verification</h3>
-            <p>Hand-calculated strength, fatigue, shear, and surface-pressure checks per FKM guidelines and ISO standards.</p>
-          </div>
-          <div class="cap-item">
-            <span class="ix">1.3</span>
-            <h3>CFD &amp; Aerodynamics</h3>
-            <p>Flow simulation and aerodynamic studies informing propulsion and control-surface design decisions.</p>
-          </div>
-          <div class="cap-item">
-            <span class="ix">1.4</span>
-            <h3>Simulation &amp; Code</h3>
-            <p>Python flight-dynamics and trajectory modelling — multi-stage rockets, dynamic pressure, staging logic.</p>
-          </div>
+    <section class="section figure-section scene" id="figure" data-field="3" data-section="03" data-title="Interactive figure">
+      <header class="section-heading">
+        <div class="section-heading__index">
+          <span class="section-number" data-count="3">00</span>
+          <span class="micro" data-scramble="SEC—03">SEC—03</span>
         </div>
-      </div>
-    </div>
-  </section>
+        <h2 class="split-lines">Interactive figure</h2>
+      </header>
+      <p class="figure-section__lead statement split-lines">A projected crystal lattice carries coupled P- and S-wave packets with live bond strain. Move across the field to steer the view.</p>
 
-  <!-- ============ FIG 0.2 — 3-D MATERIAL FAILURE ============ -->
-  <div class="fig-band failure-band">
-    <div class="wrap">
-      <figure class="failure-figure" aria-labelledby="failureCaption">
-        <div class="failure-stage" id="failureStudy">
-          <canvas id="stressCanvas" aria-label="Autonomous three-dimensional finite-element visualization of an S355 tensile coupon progressing from elastic loading through plastic localization and fracture; touch the coupon to perturb the field"></canvas>
-          <div class="failure-hud" aria-hidden="true">
-            <span class="failure-hud__eyebrow">FIG. 0.2 · NONLINEAR MATERIAL RESPONSE</span>
-            <span class="failure-hud__value" id="failureStatus">ELASTIC FIELD · J2 TRIAL STATE</span>
-            <span class="failure-hud__equation">S355 · J2 PLASTICITY · VOID-GROWTH DAMAGE</span>
-            <span class="failure-hud__hint">TOUCH COUPON · LOCAL IMPULSE</span>
+      <figure class="wave-figure" aria-labelledby="waveCaption" data-reveal="media">
+        <div class="wave-stage" id="elasticWaveStudy">
+          <canvas id="latticeCanvas" tabindex="0" aria-label="Interactive three-dimensional crystal lattice carrying coupled longitudinal and transverse elastic waves. Move across the field to steer the view."></canvas>
+          <div class="wave-hud" aria-hidden="true">
+            <span>FIG. 0.2 · ELASTIC WAVE FIELD</span>
+            <strong id="waveStatus">COUPLED MODES / LIVE</strong>
+            <span>P-WAVE 5.9 km·s⁻¹ · S-WAVE 3.2 km·s⁻¹ · REFLECTION</span>
           </div>
-          <dl class="failure-metrics" aria-hidden="true">
-            <div><dt>LOAD</dt><dd id="failureLoad">0.0 kN</dd></div>
-            <div><dt>σENG</dt><dd id="failureStress">0 MPa</dd></div>
-            <div><dt>ε̄P</dt><dd id="failurePlastic">0.0%</dd></div>
-            <div><dt>DAMAGE</dt><dd id="failureDamage">0.00</dd></div>
+          <dl class="wave-metrics" aria-hidden="true">
+            <div><dt>εMAX</dt><dd id="waveStrain">0.0000</dd></div>
+            <div><dt>ΔU</dt><dd id="waveDisplacement">0.0 a.u.</dd></div>
+            <div><dt>ENERGY</dt><dd id="waveEnergy">00%</dd></div>
+            <div><dt>NODES</dt><dd id="waveNodes">000</dd></div>
           </dl>
-          <div class="failure-legend" aria-hidden="true">
-            <span><i class="failure-legend__elastic"></i>ELASTIC FIELD</span>
-            <span><i class="failure-legend__plastic"></i>PLASTIC / CRACK FRONT</span>
-            <span><i class="failure-legend__mesh"></i>SURFACE FE MESH</span>
+          <div class="wave-legend" aria-hidden="true">
+            <span><i></i>P MODE</span>
+            <span><i></i>S MODE</span>
+            <span><i></i>REFLECTED</span>
           </div>
-          <span class="failure-disclaimer" aria-hidden="true">PHENOMENOLOGICAL FRACTURE · DEFORMATION AMPLIFIED · ILLUSTRATIVE</span>
+          <button class="wave-control micro" type="button" id="wavePause" aria-pressed="false">PAUSE FIELD</button>
+          <span class="wave-hint" aria-hidden="true">POINTER / TOUCH · STEER VIEW · DISPLAY AMPLIFIED</span>
         </div>
-        <figcaption id="failureCaption"><b>FIG. 0.2</b><span>3-D TENSILE COUPON — J2 PLASTICITY, NECKING &amp; DUCTILE FRACTURE (ILLUSTRATIVE)</span><span>DAMAGE · LIVE</span></figcaption>
+        <figcaption id="waveCaption"><b>FIG. 0.2</b><span>3-D CRYSTAL LATTICE — COUPLED ELASTIC-WAVE PROPAGATION</span><span>P + S / LIVE</span></figcaption>
       </figure>
+    </section>
+
+    <section class="section archive-teaser drawings-teaser scene" id="drawings" data-field="4" data-section="04" data-title="Drawings">
+      <header class="section-heading">
+        <div class="section-heading__index">
+          <span class="section-number" data-count="4">00</span>
+          <span class="micro" data-scramble="SEC—04">SEC—04</span>
+        </div>
+        <h2 class="split-lines">Drawings</h2>
+      </header>
+      <a class="teaser-card" href="drawings.html" data-transition-link data-cursor="open" data-reveal="media">
+        <div class="teaser-card__image">
+          <img src="assets/drawings/dwg-01.jpg" alt="Spindle technical drawing" loading="lazy">
+        </div>
+        <div class="teaser-card__top micro"><span>DETAIL / ASSEMBLY / CONCEPT</span><span>12 FIGURES</span></div>
+        <div class="teaser-card__title"><span>Enter drawing register</span><i>↗</i></div>
+        <div class="teaser-card__index" aria-hidden="true">04</div>
+      </a>
+    </section>
+
+    <section class="section archive-teaser aerial-teaser scene" id="aerial" data-field="5" data-section="05" data-title="Aerial">
+      <header class="section-heading">
+        <div class="section-heading__index">
+          <span class="section-number" data-count="5">00</span>
+          <span class="micro" data-scramble="SEC—05">SEC—05</span>
+        </div>
+        <h2 class="split-lines">Aerial</h2>
+      </header>
+      <a class="teaser-card teaser-card--reverse" href="aerial.html" data-transition-link data-cursor="open" data-reveal="media">
+        <div class="teaser-card__image">
+          <img src="assets/aerial/aerial-01.jpg" alt="Aerial landscape photograph" loading="lazy">
+        </div>
+        <div class="teaser-card__top micro"><span>FIELD / TRAVEL RECORD</span><span>21 PHOTOGRAPHS</span></div>
+        <div class="teaser-card__title"><span>Open aerial archive</span><i>↗</i></div>
+        <div class="teaser-card__index" aria-hidden="true">05</div>
+      </a>
+    </section>
+
+    <section class="section certifications scene" id="certifications" data-field="6" data-section="06" data-title="Certifications">
+      <header class="section-heading">
+        <div class="section-heading__index">
+          <span class="section-number" data-count="6">00</span>
+          <span class="micro" data-scramble="SEC—06">SEC—06</span>
+        </div>
+        <h2 class="split-lines">Certifications</h2>
+      </header>
+      <div class="credential-list">
+        <article class="credential" data-reveal="line">
+          <button type="button" data-lightbox-group="cert-quantum">
+            <span class="credential__no">6.1</span>
+            <span class="credential__issuer">CU Boulder · Coursera</span>
+            <strong>Quantum Mechanics for Engineers — Specialization</strong>
+            <span class="credential__date">2026</span>
+            <i aria-hidden="true">+</i>
+          </button>
+          <div class="credential__media" aria-hidden="true">
+            <img src="assets/certs/cu-boulder.png" alt="">
+            <img src="assets/certs/fig-quantum.png" alt="">
+          </div>
+        </article>
+        <article class="credential" data-reveal="line">
+          <button type="button" data-lightbox-group="cert-solidworks">
+            <span class="credential__no">6.2</span>
+            <span class="credential__issuer">Dassault Systèmes</span>
+            <strong>SOLIDWORKS Foundations: Sketching and Extrusion</strong>
+            <span class="credential__date">AUG 2025</span>
+            <i aria-hidden="true">+</i>
+          </button>
+          <div class="credential__media" aria-hidden="true">
+            <img src="assets/certs/solidworks.png" alt="">
+            <img src="assets/certs/fig-solidworks.png" alt="">
+          </div>
+        </article>
+        <article class="credential" data-reveal="line">
+          <button type="button" data-lightbox-group="cert-math">
+            <span class="credential__no">6.3</span>
+            <span class="credential__issuer">HKUST</span>
+            <strong>Mathematics for Engineers</strong>
+            <span class="credential__date">JUN 2025</span>
+            <i aria-hidden="true">+</i>
+          </button>
+          <div class="credential__media" aria-hidden="true">
+            <img src="assets/certs/hkust.jpg" alt="">
+            <img src="assets/certs/fig-math.jpg" alt="">
+          </div>
+        </article>
+        <article class="credential" data-reveal="line">
+          <button type="button" data-lightbox-group="cert-oilgas">
+            <span class="credential__no">6.4</span>
+            <span class="credential__issuer">Duke · Nicholas School</span>
+            <strong>Oil &amp; Gas Industry Operations and Markets</strong>
+            <span class="credential__date">MAR 2025</span>
+            <i aria-hidden="true">+</i>
+          </button>
+          <div class="credential__media" aria-hidden="true">
+            <img src="assets/certs/duke.jpg" alt="">
+            <img src="assets/certs/fig-oilgas.jpg" alt="">
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section contact scene" id="contact" data-field="7" data-section="07" data-title="Contact">
+      <header class="section-heading">
+        <div class="section-heading__index">
+          <span class="section-number" data-count="7">00</span>
+          <span class="micro" data-scramble="SEC—07">SEC—07</span>
+        </div>
+        <h2 class="split-lines">Contact</h2>
+      </header>
+      <p class="contact__prompt micro" data-scramble="OPEN CHANNEL / VIENNA">OPEN CHANNEL / VIENNA</p>
+      <a class="contact__mail split-lines" href="mailto:pro.kainz@icloud.com" data-cursor="open">pro.kainz@icloud.com</a>
+
+      <dl class="document-meta">
+        <div data-reveal="line"><dt>Name</dt><dd>Etienne Kainz</dd></div>
+        <div data-reveal="line"><dt>Affiliation</dt><dd>TU Wien — Mechanical Engineering</dd></div>
+        <div data-reveal="line"><dt>Document</dt><dd>Portfolio · Rev. E</dd></div>
+      </dl>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer__grid">
+      <div>
+        <span class="micro">SECTIONS</span>
+        <a href="#about">01 / About</a>
+        <a href="#projects">02 / Projects</a>
+        <a href="#figure">03 / Interactive figure</a>
+      </div>
+      <div>
+        <span class="micro">ARCHIVES</span>
+        <a href="drawings.html" data-transition-link>04 / Drawings</a>
+        <a href="aerial.html" data-transition-link>05 / Aerial</a>
+        <a href="#certifications">06 / Certifications</a>
+      </div>
+      <div>
+        <span class="micro">CONNECT</span>
+        <a href="mailto:pro.kainz@icloud.com">Email ↗</a>
+        <span>Vienna, Austria</span>
+        <span>© Etienne Kainz 2026</span>
+      </div>
     </div>
+    <div class="site-footer__wordmark" aria-hidden="true">EK<span>2026</span></div>
+  </footer>
+
+  <div class="project-overlay" id="projectOverlay" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="projectOverlayTitle">
+    <button class="overlay-close" type="button" id="projectOverlayClose"><span>CLOSE</span><i aria-hidden="true"></i></button>
+    <div class="project-overlay__counter micro"><span id="projectOverlayNo">2.1</span><span>PROJECT FILE</span></div>
+    <div class="project-overlay__content" id="projectOverlayContent"></div>
   </div>
 
-  <!-- ============ 2. CONTENTS ============ -->
-  <section class="section archive-section" id="archive">
-    <div class="wrap">
-      <div class="section-head" data-reveal>
-        <span class="sec-no">SECTION 02</span>
-        <h2 class="section-title">Contents</h2>
-      </div>
-      <div class="toc" data-reveal>
-        <a class="toc-row" href="projects.html">
-          <span class="no">02</span>
-          <img class="th" src="assets/projects/aerospace/photo.jpg" alt="" loading="lazy" />
-          <span class="ti">Projects<small>Design · Analysis · Simulation</small></span>
-          <span class="count">6 PROJECTS</span>
-          <span class="go">→</span>
-        </a>
-        <a class="toc-row" href="drawings.html">
-          <span class="no">03</span>
-          <img class="th" src="assets/drawings/dwg-01.jpg" alt="" loading="lazy" />
-          <span class="ti">Technical Drawings &amp; Concepts<small>Detail · Assembly · Sketches</small></span>
-          <span class="count">12 FIGURES</span>
-          <span class="go">→</span>
-        </a>
-        <a class="toc-row" href="aerial.html">
-          <span class="no">04</span>
-          <img class="th" src="assets/aerial/aerial-01.jpg" alt="" loading="lazy" />
-          <span class="ti">Aerial Photography<small>Field &amp; travel record</small></span>
-          <span class="count">21 PHOTOGRAPHS</span>
-          <span class="go">→</span>
-        </a>
-        <a class="toc-row" href="certifications.html">
-          <span class="no">05</span>
-          <img class="th" src="assets/certs/fig-quantum.png" alt="" loading="lazy" />
-          <span class="ti">Certifications<small>Coursework &amp; credentials</small></span>
-          <span class="count">4 CREDENTIALS</span>
-          <span class="go">→</span>
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============ 3. CONTACT ============ -->
-  <section class="section contact-section" id="contact">
-    <div class="wrap contact-block" data-reveal>
-      <span class="sec-no">SECTION 03</span>
-      <h2 class="section-title">Contact</h2>
-      <p class="section-lead">For project inquiries, collaboration, or references.</p>
-      <a class="mail" href="mailto:pro.kainz@icloud.com">pro.kainz@icloud.com</a>
-    </div>
-  </section>
-</main>
-
-<footer>
-  <div class="wrap">
-    <div class="titleblock">
-      <div class="cell"><span class="lbl">Name</span><span class="val">ETIENNE KAINZ</span></div>
-      <div class="cell"><span class="lbl">Affiliation</span><span class="val">TU WIEN — MECH. ENG.</span></div>
-      <div class="cell"><span class="lbl">Document</span><span class="val">PORTFOLIO · REV. D</span></div>
-      <div class="cell"><span class="lbl">Contact</span><span class="val"><a href="mailto:pro.kainz@icloud.com">E-MAIL</a></span></div>
-    </div>
-    <div class="foot-note">
-      <span>© <span id="year"></span> ETIENNE KAINZ</span>
-      <span>DESIGN · CFD · PROPULSION · STRUCTURES</span>
-    </div>
+  <div class="lightbox" id="lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Image viewer">
+    <button class="lightbox__close" type="button" id="lightboxClose" aria-label="Close image viewer">CLOSE</button>
+    <button class="lightbox__nav lightbox__nav--prev" type="button" id="lightboxPrev" aria-label="Previous image">←</button>
+    <figure><img id="lightboxImage" src="" alt=""><figcaption id="lightboxCaption"></figcaption></figure>
+    <button class="lightbox__nav lightbox__nav--next" type="button" id="lightboxNext" aria-label="Next image">→</button>
   </div>
-</footer>
 
-<div class="lightbox" id="lightbox" aria-hidden="true">
-  <button class="lb-close" id="lbClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-  <button class="lb-nav prev" id="lbPrev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M15 5l-7 7 7 7"/></svg></button>
-  <img class="lb-img" id="lbImg" src="" alt="" />
-  <button class="lb-nav next" id="lbNext" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 5l7 7-7 7"/></svg></button>
-  <div class="lb-cap" id="lbCap"></div>
-</div>
-
-<script src="bg.js?v=13"></script>
-<script src="shared.js?v=8"></script>
-<script src="anim.js?v=12"></script>
-<script type="module" src="quantum-fem.js?v=8"></script>
-<script type="module" src="failure-fem.js?v=3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
+  <script src="project-data.js?v=1"></script>
+  <script src="quantum-field.js?v=1"></script>
+  <script src="main.js?v=1"></script>
+  <script src="elastic-wave.js?v=1"></script>
 </body>
 </html>
