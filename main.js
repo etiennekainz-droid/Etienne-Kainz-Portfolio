@@ -74,8 +74,8 @@
       lenis = new window.Lenis({
         smoothWheel: true,
         syncTouch: false,
-        lerp: 0.18,
-        wheelMultiplier: 1.1,
+        lerp: 0.16,
+        wheelMultiplier: 1,
         touchMultiplier: 1,
         overscroll: false
       });
@@ -386,6 +386,7 @@
       var heroStage = hero.querySelector(".hero__stage") || hero;
       var wordmark = hero.querySelector(".hero__wordmark");
       var maxMaskRadius = Math.ceil(Math.hypot(window.innerWidth, window.innerHeight) * 0.92);
+      gsap.set(".wordmark--fill .char-clip", { yPercent: 0, rotate: 0 });
       var openingTimeline = gsap.timeline({
         defaults: { ease: "none" },
         scrollTrigger: {
@@ -397,7 +398,7 @@
           invalidateOnRefresh: true,
           onUpdate: function (self) {
             var progress = self.progress;
-            body.classList.toggle("is-field-solo", progress > 0.18 && progress < 0.88);
+            body.classList.toggle("is-field-solo", progress > 0.2 && progress < 0.9);
             if (window.quantumField && window.quantumField.setOpeningProgress) {
               window.quantumField.setOpeningProgress(progress);
             }
@@ -419,30 +420,23 @@
           "--wordmark-mask-radius": maxMaskRadius + "px",
           "--wordmark-mask-x": "56%",
           "--wordmark-mask-y": "42%",
-          duration: 0.28,
+          duration: 0.34,
           ease: "power4.inOut"
         }, 0.035)
-        .to(".wordmark--fill .char", {
+        .to(".wordmark--fill .char-clip", {
           yPercent: -118,
           rotate: function (index) { return (index % 2 ? 1 : -1) * (1.8 + index * 0.13); },
-          duration: 0.18,
-          stagger: { amount: 0.07, from: "center" },
-          ease: "power4.in"
-        }, 0.075)
-        .to(".wordmark--trace", {
-          xPercent: 7,
-          yPercent: -18,
-          opacity: 0,
-          duration: 0.2,
-          ease: "power3.in"
-        }, 0.075)
+          duration: 0.24,
+          stagger: { amount: 0.08, from: "center" },
+          ease: "power3.inOut"
+        }, 0.08)
         .to(wordmark, {
-          yPercent: -22,
-          scale: 0.94,
+          yPercent: -16,
+          scale: 0.96,
           opacity: 0,
-          duration: 0.16,
-          ease: exitEase
-        }, 0.135)
+          duration: 0.23,
+          ease: "power3.inOut"
+        }, 0.12)
         .to(".hero__overture", {
           y: 0,
           opacity: 1,

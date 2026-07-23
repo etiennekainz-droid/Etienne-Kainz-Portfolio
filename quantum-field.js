@@ -91,37 +91,82 @@
     phase[seedIndex] = hash(seedIndex + 501) * Math.PI * 2;
   }
 
-  // 00 — a macroscopic four-lobed probability caustic with a living axial current.
-  formations.push(makeFormation(function (i, u, a, b, c) {
-    var lane = i % 16;
-    if (lane < 10) {
-      var side = i % 2 ? -1 : 1;
-      var polarity = Math.floor(i / 2) % 2 ? -1 : 1;
-      var reach = Math.pow(a, 0.52);
-      var envelope = Math.sin(Math.PI * reach);
+  // One semantic topology drives every opening pose. Wing, vein, body, head,
+  // and root particles retain their roles through the morph instead of
+  // crossing toward unrelated orbital targets.
+  function wingedFieldPoint(i, a, b, c, span, sweep, dihedral, camber, bodyFlex) {
+    var lane = i % 24;
+
+    // Four tapered probability wings: two membrane layers, one vein layer,
+    // and one outline layer. Quantised chord samples create readable ribs.
+    if (lane < 16) {
+      var wing = i % 4;
+      var side = wing % 2 ? 1 : -1;
+      var fore = wing < 2 ? -1 : 1;
+      var layer = Math.floor(lane / 4);
+      var reach = Math.pow(a, 0.62);
+      var envelope = Math.pow(Math.max(0, Math.sin(Math.PI * reach)), 0.72);
+      var centerline = fore * (0.08 + sweep * (0.34 * reach + 0.24 * envelope)) +
+        bodyFlex * Math.sin(reach * Math.PI) * 0.08;
+      var halfChord = (fore < 0 ? 0.48 : 0.36) * envelope * (0.84 + camber * 0.28);
+      var chord;
+
+      if (layer === 3) chord = b > 0.5 ? 1 : -1;
+      else if (layer === 2) chord = (Math.round(b * 5) / 5 * 2 - 1) * 0.92;
+      else chord = (b - 0.5) * 2;
+
       return [
-        side * (0.12 + 2.08 * reach),
-        polarity * (0.12 + 0.72 * envelope) - reach * 0.25 + (b - 0.5) * 0.22,
-        (c - 0.5) * 2 * (0.13 + 0.82 * envelope)
+        side * (0.1 + 2.06 * span * reach),
+        centerline + chord * halfChord,
+        side * dihedral * (0.04 + reach * 0.38) +
+          fore * camber * envelope * 0.11 +
+          (c - 0.5) * 0.08 * (0.2 + envelope)
       ];
     }
-    if (lane < 14) {
-      var axial = a * 2 - 1;
-      var axialTheta = axial * Math.PI * 9 + b * Math.PI * 2;
-      var axialRadius = 0.07 + c * 0.19;
+
+    // A segmented axial body with a denser thorax and head transition.
+    if (lane < 22) {
+      var axis = -1.52 + a * 3.04;
+      if (lane === 20) axis = -1.52 + Math.round(a * 16) / 16 * 3.04;
+      var thorax = Math.exp(-Math.pow((axis + 0.02) / 0.44, 2)) * 0.16;
+      var neck = Math.exp(-Math.pow((axis + 1.06) / 0.27, 2)) * 0.1;
+      var bodyRadius = 0.034 + thorax + neck;
+      if (lane === 21) bodyRadius *= 0.24;
+      var bodyTheta = b * Math.PI * 2 + lane * 0.63;
       return [
-        Math.cos(axialTheta) * axialRadius,
-        axial * 1.78,
-        Math.sin(axialTheta) * axialRadius
+        Math.cos(bodyTheta) * bodyRadius + Math.sin(axis * 2.35) * bodyFlex * 0.035,
+        axis,
+        Math.sin(bodyTheta) * bodyRadius * (0.92 + dihedral * 0.32)
       ];
     }
-    var orbitTheta = a * Math.PI * 4;
-    var orbitRadius = 1.1 + b * 0.58;
+
+    // Ellipsoidal head / observable core.
+    if (lane === 22) {
+      var headTheta = a * Math.PI * 2;
+      var headPhi = Math.acos(1 - 2 * b);
+      var headRadius = 0.15 * (0.82 + c * 0.18);
+      return [
+        Math.cos(headTheta) * Math.sin(headPhi) * headRadius,
+        -1.34 + Math.cos(headPhi) * headRadius * 0.82,
+        Math.sin(headTheta) * Math.sin(headPhi) * headRadius * 0.9
+      ];
+    }
+
+    // Sparse root rails lock each wing visually to the central thorax.
+    var rootWing = Math.floor(i / 24) % 4;
+    var rootSide = rootWing % 2 ? 1 : -1;
+    var rootFore = rootWing < 2 ? -1 : 1;
+    var rootReach = 0.12 + a * 0.48;
     return [
-      Math.cos(orbitTheta) * orbitRadius,
-      Math.sin(orbitTheta) * orbitRadius * 0.62,
-      Math.sin(orbitTheta * 0.5 + c * Math.PI) * 0.74
+      rootSide * (0.03 + rootReach * 1.05),
+      rootFore * (0.035 + sweep * rootReach * 0.22) + (b - 0.5) * 0.07,
+      rootSide * dihedral * rootReach * 0.22 + (c - 0.5) * 0.045
     ];
+  }
+
+  // 00 — an open, four-wing probability body with a persistent axial spine.
+  formations.push(makeFormation(function (i, u, a, b, c) {
+    return wingedFieldPoint(i, a, b, c, 0.96, 0.78, 0.12, 0.18, 0);
   }));
 
   // 01 — coupled wavefunctions / double helix.
@@ -248,52 +293,14 @@
     return [Math.cos(angle) * radius, Math.sin(angle) * radius, Math.sin(angle * 2 + b) * 0.23 * (ring / 4)];
   }));
 
-  // Opening A — a coherent gyroscope: three orbital planes around a coupled helix.
+  // Opening A — the same field expands and flexes without losing its anatomy.
   openingFormations.push(makeFormation(function (i, u, a, b, c) {
-    var group = i % 10;
-    if (group < 6) {
-      var plane = i % 3;
-      var shell = Math.floor(i / 3) % 3;
-      var ringTheta = a * Math.PI * 2;
-      var ringRadius = 0.72 + shell * 0.2 + (c - 0.5) * 0.055;
-      var ringX = Math.cos(ringTheta) * ringRadius;
-      var ringY = Math.sin(ringTheta) * ringRadius;
-      if (plane === 0) return [ringX * 1.42, ringY * 0.84, (b - 0.5) * 0.055];
-      if (plane === 1) return [ringX * 1.12, ringY * 0.38, Math.sin(ringTheta) * ringRadius * 0.92];
-      return [ringX * 0.48, ringY * 0.9, Math.sin(ringTheta) * ringRadius * 1.08];
-    }
-    if (group < 9) {
-      var helixY = -1.38 + a * 2.76;
-      var helixTheta = helixY * Math.PI * 3.1 + (i % 2) * Math.PI;
-      var helixRadius = 0.21 + b * 0.13;
-      return [
-        Math.cos(helixTheta) * helixRadius,
-        helixY,
-        Math.sin(helixTheta) * helixRadius
-      ];
-    }
-    var coreY = -1.45 + a * 2.9;
-    var coreTheta = coreY * 4.8 + b * Math.PI * 2;
-    var coreRadius = 0.025 + c * 0.065;
-    return [
-      Math.cos(coreTheta) * coreRadius,
-      coreY,
-      Math.sin(coreTheta) * coreRadius
-    ];
+    return wingedFieldPoint(i, a, b, c, 1.12, 0.94, 0.2, 0.28, 0.08);
   }));
 
-  // Opening B — a spherical caustic whose lobes expose interference nodes in depth.
+  // Opening B — a swept, deeper pose that remains bilaterally legible.
   openingFormations.push(makeFormation(function (i, u, a, b, c) {
-    var theta = a * Math.PI * 2;
-    var phi = Math.acos(1 - 2 * b);
-    var interference = 0.5 + Math.abs(Math.cos(theta * 3) * Math.sin(phi * 2)) * 0.78;
-    var radius = (0.42 + c * 1.03) * interference;
-    var sinPhi = Math.sin(phi);
-    return [
-      Math.cos(theta) * sinPhi * radius * 1.48,
-      Math.cos(phi) * radius * 1.08,
-      Math.sin(theta) * sinPhi * radius
-    ];
+    return wingedFieldPoint(i, a, b, c, 1, 0.58, 0.38, 0.2, -0.06);
   }));
 
   function makeGlyph(char, weight) {
@@ -361,7 +368,7 @@
     scrollState.global = clamp(window.scrollY / pageMax, 0, 1);
     if (hasOpening) {
       openingTarget = reducedMotion ? 1 : clamp((window.scrollY - openingStart) / openingTravel, 0, 1);
-      openingProgress += (openingTarget - openingProgress) * 0.24;
+      openingProgress += (openingTarget - openingProgress) * 0.1;
       if (openingProgress < 0.995) {
         scrollState.a = 0;
         scrollState.b = 0;
@@ -408,43 +415,43 @@
       return;
     }
     lastFrame = now;
-    scrollEnergy *= 0.968;
+    scrollEnergy *= 0.94;
     var renderStarted = performance.now();
 
     ctx.clearRect(0, 0, width, height);
 
     var time = reducedMotion ? 2.1 : now / 1000;
-    var motionTime = reducedMotion ? 2.1 : time * 0.64;
+    var motionTime = reducedMotion ? 2.1 : time * 0.46;
     var openingPhase = hasOpening ? openingProgress : 1;
-    var openingWindow = clamp((openingPhase - 0.14) / 0.68, 0, 1);
+    var openingWindow = clamp((openingPhase - 0.16) / 0.68, 0, 1);
     var openingEnergy = reducedMotion ? 0 :
-      Math.pow(Math.max(0, Math.sin(openingWindow * Math.PI)), 1.25);
-    var openingDrive = openingEnergy * 0.78 + scrollEnergy * 0.55;
-    var openingRamp = ease(clamp((openingPhase - 0.08) / 0.34, 0, 1));
-    var openingSettle = ease(clamp((openingPhase - 0.68) / 0.3, 0, 1));
-    var peakOpeningScale = compact ? 1.34 : medium ? 1.5 : 1.7;
+      Math.pow(Math.max(0, Math.sin(openingWindow * Math.PI)), 1.4);
+    var openingDrive = openingEnergy * 0.34 + scrollEnergy * 0.17;
+    var openingRamp = ease(clamp((openingPhase - 0.1) / 0.4, 0, 1));
+    var openingSettle = ease(clamp((openingPhase - 0.72) / 0.28, 0, 1));
+    var peakOpeningScale = compact ? 1.2 : medium ? 1.32 : 1.46;
     var openingScale = 1 + (peakOpeningScale - 1) * openingRamp * (1 - openingSettle);
     var targetOpacity = body.classList.contains("wave-active") ? 0.22 : 1;
     fieldOpacity += (targetOpacity - fieldOpacity) * 0.055;
     var centerX = width * (compact ? 0.54 : 0.51) +
       (reducedMotion ? 0 :
-        Math.sin(motionTime * 0.16 + scrollState.global * 4.2) * width * 0.018 +
-        Math.sin(openingPhase * Math.PI * 2.4) * width * 0.052 * openingEnergy);
+        Math.sin(motionTime * 0.14 + scrollState.global * 3.2) * width * 0.014 +
+        Math.sin(openingPhase * Math.PI * 2) * width * 0.022 * openingEnergy);
     var centerY = height * (0.4 + scrollState.global * 0.19 +
-      Math.sin(scrollState.global * Math.PI * 5) * 0.032) +
+      Math.sin(scrollState.global * Math.PI * 5) * 0.022) +
       (reducedMotion ? 0 :
-        Math.sin(motionTime * 0.11) * height * 0.014 +
-        height * 0.19 * ease(clamp((openingPhase - 0.18) / 0.32, 0, 1)) *
+        Math.sin(motionTime * 0.1) * height * 0.01 +
+        height * 0.1 * ease(clamp((openingPhase - 0.2) / 0.34, 0, 1)) *
         (1 - ease(clamp((openingPhase - 0.67) / 0.28, 0, 1))));
     var baseScale = Math.min(width, height) * (compact ? 0.43 : 0.405) *
       openingScale *
-      (reducedMotion ? 1 : 1 + Math.sin(motionTime * 0.42) * 0.025 + scrollEnergy * 0.05);
+      (reducedMotion ? 1 : 1 + Math.sin(motionTime * 0.38) * 0.018 + scrollEnergy * 0.018);
     var yaw = -0.25 + scrollState.global * 0.94 +
       (reducedMotion ? 0 :
-        Math.sin(motionTime * 0.19) * 0.1 + scrollEnergy * 0.11 +
-        openingEnergy * (0.72 + Math.sin(openingPhase * Math.PI * 2) * 0.18));
+        Math.sin(motionTime * 0.17) * 0.06 + scrollEnergy * 0.045 +
+        openingEnergy * (0.3 + Math.sin(openingPhase * Math.PI * 2) * 0.07));
     var pitch = 0.07 + (reducedMotion ? 0 :
-      Math.cos(motionTime * 0.15) * 0.06 + openingEnergy * (-0.18 + openingPhase * 0.29));
+      Math.cos(motionTime * 0.13) * 0.04 + openingEnergy * (-0.08 + openingPhase * 0.13));
     var cosYaw = Math.cos(yaw);
     var sinYaw = Math.sin(yaw);
     var cosPitch = Math.cos(pitch);
@@ -454,40 +461,41 @@
     var mix = scrollState.mix;
     var activeFormation = mix < 0.5 ? scrollState.a : scrollState.b;
     if (hasOpening && openingPhase < 0.999) {
-      if (openingPhase < 0.3) {
+      if (openingPhase < 0.38) {
         pointsA = formations[0];
         pointsB = openingFormations[0];
-        mix = ease(clamp((openingPhase - 0.08) / 0.22, 0, 1));
-      } else if (openingPhase < 0.68) {
+        mix = ease(clamp((openingPhase - 0.1) / 0.28, 0, 1));
+      } else if (openingPhase < 0.76) {
         pointsA = openingFormations[0];
         pointsB = openingFormations[1];
-        mix = ease(clamp((openingPhase - 0.3) / 0.38, 0, 1));
+        mix = ease(clamp((openingPhase - 0.38) / 0.38, 0, 1));
       } else {
         pointsA = openingFormations[1];
         pointsB = formations[1];
-        mix = ease(clamp((openingPhase - 0.68) / 0.31, 0, 1));
+        mix = ease(clamp((openingPhase - 0.76) / 0.24, 0, 1));
       }
       activeFormation = 0;
     }
     var morphEnergy = reducedMotion ? 0 : Math.sin(mix * Math.PI);
-    var formationSettle = 1 - morphEnergy * 0.68;
+    var formationSettle = 1 - morphEnergy * 0.34;
     var intro = ease(introProgress);
-    var tick = Math.floor(motionTime * 3.2);
+    var tick = Math.floor(motionTime * 2.2);
     var pointerAge = Math.max(0, time - pointer.moved);
     var proximityStrength = !reducedMotion && pointer.active ? Math.exp(-pointerAge * 1.55) : 0;
-    var eventPeriod = compact ? 11.2 : 9.6;
+    var eventPeriod = compact ? 14.5 : 13.2;
     var eventSerial = Math.floor(time / eventPeriod);
     var eventAge = time - eventSerial * eventPeriod;
     var eventLife = reducedMotion ? 0 :
       Math.sin(clamp(eventAge / 4.8, 0, 1) * Math.PI) * Math.exp(-Math.max(0, eventAge - 4.8) * 0.62);
+    eventLife *= 1 - openingEnergy * 0.82;
     var eventX = width * (0.18 + hash(eventSerial * 17 + 3) * 0.64);
     var eventY = height * (0.2 + hash(eventSerial * 29 + 7) * 0.58);
-    var eventFront = eventAge * Math.min(width, height) * (compact ? 0.095 : 0.12);
-    var packetCenterX = Math.sin(motionTime * 0.31 + scrollState.global * 5.2) * 0.72;
-    var packetCenterY = Math.cos(motionTime * 0.27 - scrollState.global * 3.4) * 0.56;
-    var packetCenterZ = Math.sin(motionTime * 0.22 + 1.4) * 0.48;
-    var openingShockProgress = clamp((openingPhase - 0.18) / 0.52, 0, 1);
-    var openingShockFront = 0.12 + openingShockProgress * 2.55;
+    var eventFront = eventAge * Math.min(width, height) * (compact ? 0.072 : 0.088);
+    var packetCenterX = Math.sin(motionTime * 0.25 + scrollState.global * 4.2) * 0.58;
+    var packetCenterY = Math.cos(motionTime * 0.22 - scrollState.global * 2.8) * 0.44;
+    var packetCenterZ = Math.sin(motionTime * 0.18 + 1.4) * 0.38;
+    var openingShockProgress = clamp((openingPhase - 0.2) / 0.58, 0, 1);
+    var openingShockFront = 0.12 + openingShockProgress * 2.4;
 
     var activeRipples = [];
     for (var rippleIndex = ripples.length - 1; rippleIndex >= 0; rippleIndex -= 1) {
@@ -521,14 +529,14 @@
           var lobeReach = Math.min(2.35, Math.abs(x));
           var axialRadius = Math.sqrt(y * y + z * z) + 0.08;
           var lobePhase = lobeReach * 4.1 -
-            motionTime * (0.92 + openingDrive * 1.35) -
-            signedScrollPhase * 1.12 + phase[i] * 0.045;
-          var circulation = (0.038 + openingDrive * 0.105) *
+            motionTime * (0.64 + openingDrive * 0.48) -
+            signedScrollPhase * 0.52 + phase[i] * 0.04;
+          var circulation = (0.024 + openingDrive * 0.04) *
             Math.sin(lobePhase) * Math.exp(-x * x * 0.07) * formationSettle;
           var oldY = y;
           y += -z / axialRadius * circulation;
           z += oldY / axialRadius * circulation;
-          x += Math.cos(lobePhase * 0.71) * (0.019 + openingDrive * 0.052) * formationSettle;
+          x += Math.cos(lobePhase * 0.71) * (0.012 + openingDrive * 0.02) * formationSettle;
         } else if (activeFormation === 1) {
           x += Math.cos(motionTime * 0.92 + y * 2.35 + phase[i] * 0.14) * 0.085 * formationSettle;
           z += Math.sin(motionTime * 0.92 + y * 2.35 + phase[i] * 0.14) * 0.085 * formationSettle;
@@ -565,37 +573,37 @@
 
         // Probability current: a phase-driven, divergence-free orbital drift.
         var currentRadius = Math.sqrt(x * x + y * y) + 0.16;
-        var currentPhase = phase[i] + motionTime * (0.66 + seedA[i] * 0.48) +
-          x * 1.85 - y * 1.2 + z * 0.94 + signedScrollPhase * 0.74;
-        var flow = (0.032 + seedC[i] * 0.062) *
-          (0.78 + morphEnergy * 0.52 + scrollEnergy * 0.48 + openingDrive * 0.85);
+        var currentPhase = phase[i] + motionTime * (0.5 + seedA[i] * 0.34) +
+          x * 1.72 - y * 1.08 + z * 0.82 + signedScrollPhase * 0.34;
+        var flow = (0.022 + seedC[i] * 0.042) *
+          (0.82 + morphEnergy * 0.24 + scrollEnergy * 0.18 + openingDrive * 0.3);
         var currentX = x;
         x += -y / currentRadius * flow * (0.56 + Math.sin(currentPhase) * 0.44);
         y += currentX / currentRadius * flow * (0.56 + Math.cos(currentPhase * 0.91) * 0.44);
-        z += Math.sin(currentPhase * 0.73) * flow * 1.12;
+        z += Math.sin(currentPhase * 0.73) * flow * 0.82;
 
         // During a scroll morph, the state briefly decoheres before settling.
         x += Math.sin(motionTime * 1.22 + phase[i] + y * 3.8) *
-          morphEnergy * (0.03 + seedA[i] * 0.045);
+          morphEnergy * (0.011 + seedA[i] * 0.016);
         y += Math.cos(motionTime * 1.02 + phase[i] * 1.17 + z * 3.2) *
-          morphEnergy * (0.028 + seedB[i] * 0.042);
+          morphEnergy * (0.01 + seedB[i] * 0.015);
         z += Math.sin(motionTime * 0.94 + phase[i] * 0.81 + x * 2.7) *
-          morphEnergy * (0.034 + seedC[i] * 0.05);
+          morphEnergy * (0.012 + seedC[i] * 0.018);
 
         // A reversible measurement front travels from the core to the outer
         // probability shell during the field-only scroll beat.
         if (openingEnergy > 0.002) {
           var openingRadius = Math.sqrt(x * x + y * y + z * z) + 0.001;
-          openingBand = Math.exp(-Math.pow((openingRadius - openingShockFront) / 0.16, 2)) *
+          openingBand = Math.exp(-Math.pow((openingRadius - openingShockFront) / 0.2, 2)) *
             openingEnergy;
-          var shockDisplacement = openingBand * (0.055 + scrollEnergy * 0.07);
+          var shockDisplacement = openingBand * (0.018 + scrollEnergy * 0.012);
           x += x / openingRadius * shockDisplacement;
           y += y / openingRadius * shockDisplacement;
-          z += z / openingRadius * shockDisplacement * 1.25;
+          z += z / openingRadius * shockDisplacement;
         }
       }
 
-      var drift = reducedMotion ? 0 : (0.022 + seedB[i] * 0.028) * (1 - openingEnergy * 0.46);
+      var drift = reducedMotion ? 0 : (0.014 + seedB[i] * 0.02) * (1 - openingEnergy * 0.58);
       x += Math.sin(motionTime * (0.61 + seedA[i] * 0.43) + phase[i]) * drift;
       y += Math.cos(motionTime * (0.52 + seedC[i] * 0.38) + phase[i] * 1.23) * drift;
       z += Math.sin(motionTime * 0.68 + phase[i] * 0.73) * drift * 1.52;
@@ -624,9 +632,9 @@
         if (distanceSquared < radius * radius && distanceSquared > 0.25) {
           var distance = Math.sqrt(distanceSquared);
           var influence = Math.pow(1 - distance / radius, 2) * proximityStrength;
-          var wave = Math.sin(distance * 0.105 - time * 6.4);
-          var radialPush = influence * (16 + wave * 10);
-          var phaseShear = influence * (10 + Math.cos(distance * 0.07 - time * 5.2) * 6);
+          var wave = Math.sin(distance * 0.105 - time * 5.2);
+          var radialPush = influence * (9 + wave * 5);
+          var phaseShear = influence * (6 + Math.cos(distance * 0.07 - time * 4.4) * 3);
           px += dx / distance * radialPush - dy / distance * phaseShear;
           py += dy / distance * radialPush + dx / distance * phaseShear;
         }
@@ -641,8 +649,8 @@
         var radial = Math.sqrt(radialSquared);
         var band = Math.exp(-Math.pow((radial - ripple.front) / 38, 2)) * ripple.decay;
         if (band > 0.005 && radial > 0.5) {
-          px += rdx / radial * band * 24;
-          py += rdy / radial * band * 24;
+          px += rdx / radial * band * 13;
+          py += rdy / radial * band * 13;
         }
       }
 
@@ -653,18 +661,18 @@
         var eventWidth = compact ? 30 : 44;
         autoBand = Math.exp(-Math.pow((eventDistance - eventFront) / eventWidth, 2)) * eventLife;
         if (autoBand > 0.004 && eventDistance > 0.5) {
-          var eventTurn = Math.sin(eventAge * 5.4 - eventDistance * 0.034) * autoBand;
-          px += edx / eventDistance * autoBand * (compact ? 15 : 26) -
-            edy / eventDistance * eventTurn * (compact ? 7 : 12);
-          py += edy / eventDistance * autoBand * (compact ? 15 : 26) +
-            edx / eventDistance * eventTurn * (compact ? 7 : 12);
+          var eventTurn = Math.sin(eventAge * 4.2 - eventDistance * 0.03) * autoBand;
+          px += edx / eventDistance * autoBand * (compact ? 8 : 14) -
+            edy / eventDistance * eventTurn * (compact ? 4 : 6);
+          py += edy / eventDistance * autoBand * (compact ? 8 : 14) +
+            edx / eventDistance * eventTurn * (compact ? 4 : 6);
         }
       }
 
       if (px < -24 || px > width + 24 || py < -24 || py > height + 24) continue;
 
       // |ψ|² from three coherent plane waves plus a moving Gaussian packet.
-      var phaseTime = motionTime * (1 + scrollEnergy * 0.38 + openingDrive * 0.48);
+      var phaseTime = motionTime * (1 + scrollEnergy * 0.16 + openingDrive * 0.22);
       var q1 = x * 3.72 + y * 1.34 - phaseTime * 1.28 +
         scrollState.global * 4.1 + signedScrollPhase * 0.86;
       var q2 = -x * 1.92 + z * 3.36 - phaseTime * 1.03 -
@@ -681,11 +689,13 @@
       var radialDensity = Math.exp(-(x * x + y * y) * 0.105);
       var probability = clamp(0.055 + Math.pow(psiSquared, 0.68) * 0.68 +
         packet * 0.34 + radialDensity * 0.16 + autoBand * 0.42 +
-        morphEnergy * 0.07 + scrollEnergy * 0.055 +
-        openingEnergy * 0.22 + openingBand * 0.52, 0, 1);
-      var structuralSample = hasOpening && openingPhase > 0.16 && openingPhase < 0.86 &&
-        (i % 4 === 0 || i % 17 === 0);
-      if (structuralSample) probability = Math.max(probability, 0.58 + openingEnergy * 0.2);
+        morphEnergy * 0.035 + scrollEnergy * 0.022 +
+        openingEnergy * 0.14 + openingBand * 0.24, 0, 1);
+      var topologyLane = i % 24;
+      var structuralSample = hasOpening && openingPhase > 0.12 && openingPhase < 0.9 &&
+        ((topologyLane >= 8 && topologyLane < 16) ||
+          topologyLane === 20 || topologyLane === 21 || topologyLane === 23);
+      if (structuralSample) probability = Math.max(probability, 0.52 + openingEnergy * 0.14);
       var sample = seedA[i] * 0.97 +
         fastHash(i * 19 + tick * 131 + Math.floor(motionTime * 0.82) * 17) * 0.03;
       if (!structuralSample && sample > probability + 0.08) continue;
@@ -703,15 +713,15 @@
       if (intro < 0.38) alpha *= intro / 0.38;
       if (alpha < 0.015) continue;
 
-      var flicker = psiReal + Math.sin(phase[i] + motionTime * 1.42) > 0 ? 1 : 0;
-      if (fastHash(i * 43 + tick * 97) > 0.982) flicker = 1 - flicker;
+      var flicker = psiReal + Math.sin(phase[i] + motionTime * 0.92) > 0 ? 1 : 0;
+      if (fastHash(i * 43 + tick * 97) > 0.992) flicker = 1 - flicker;
       var weight = depth > 0.66 ? 2 : 0;
 
       // Sparse path-amplitude echoes make depth and direction legible without
       // introducing any mark other than binary glyphs.
       if (!reducedMotion && !compact && detailEffects && i % 15 === 0) {
-        var trailLength = 3.5 + depth * 7.5 + morphEnergy * 4.5 +
-          scrollEnergy * 7.5 + openingDrive * 10;
+        var trailLength = 2.5 + depth * 5.5 + morphEnergy * 2 +
+          scrollEnergy * 3 + openingDrive * 4;
         var trailAngle = currentPhase * 0.46 + yaw;
         ctx.globalAlpha = alpha * 0.17;
         ctx.drawImage(
@@ -777,9 +787,9 @@
     var stamp = performance.now();
     var deltaTime = Math.max(8, stamp - lastScrollStamp);
     var scrollDelta = window.scrollY - lastScrollY;
-    var instantaneous = Math.min(1.6, Math.abs(scrollDelta) / deltaTime * 0.58);
-    scrollEnergy = Math.max(scrollEnergy * 0.68, instantaneous);
-    signedScrollPhase += clamp(scrollDelta / Math.max(1, height), -0.34, 0.34) * 5.5;
+    var instantaneous = Math.min(0.68, Math.abs(scrollDelta) / deltaTime * 0.22);
+    scrollEnergy = Math.max(scrollEnergy * 0.56, instantaneous);
+    signedScrollPhase += clamp(scrollDelta / Math.max(1, height), -0.28, 0.28) * 1.9;
     lastScrollY = window.scrollY;
     lastScrollStamp = stamp;
     requestFrame();
@@ -803,7 +813,6 @@
     },
     setOpeningProgress: function (value) {
       openingTarget = clamp(value, 0, 1);
-      if (Math.abs(openingTarget - openingProgress) > 0.5) openingProgress = openingTarget;
       requestFrame();
     },
     burst: function (x, y) {

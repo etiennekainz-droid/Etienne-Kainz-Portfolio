@@ -612,7 +612,7 @@ img {
 
 /* Hero */
 .hero {
-  min-height: 210svh;
+  min-height: 230svh;
   padding-top: 0;
   padding-bottom: 0;
   overflow: visible;
@@ -1492,6 +1492,17 @@ img {
   filter: grayscale(1);
 }
 
+.credential__media img.credential__logo,
+.lightbox img[src$="/solidworks.png"] {
+  padding: clamp(1rem, 2.4vw, 1.6rem);
+  background: var(--paper);
+  filter: grayscale(1) invert(1);
+}
+
+.lightbox img[src$="/solidworks.png"] {
+  padding: clamp(2rem, 8vw, 7rem);
+}
+
 /* Contact */
 .contact {
   display: flex;
@@ -2036,7 +2047,7 @@ img {
 /* Tablet */
 @media (max-width: 1024px) {
   .hero {
-    min-height: 200svh;
+    min-height: 220svh;
   }
 
   .scene {
@@ -2174,7 +2185,7 @@ img {
   }
 
   .hero {
-    min-height: 185svh;
+    min-height: 205svh;
     padding-top: 0;
     padding-bottom: 0;
   }
