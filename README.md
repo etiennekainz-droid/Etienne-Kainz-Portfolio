@@ -5,7 +5,7 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
 ## Structure
 
 - `index.html` — one-page portfolio with sections 01–07
-- `drawings.html` — 12-figure technical drawing register
+- `drawings.html` — 12-figure drawings and miscellaneous studies register
 - `aerial.html` — 21-photograph aerial archive
 - `quantum-field.js` — scroll-linked binary probability field
 - `elastic-wave.js` — interactive FIG. 0.2 coupled elastic-wave lattice

@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=Space+Grotesk:wght@400;500;600&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=1">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body class="home-page is-loading">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -65,7 +65,7 @@
       <a href="#about" data-menu-link><span>01</span><b>About</b><i>Profile / Ethos</i></a>
       <a href="#projects" data-menu-link><span>02</span><b>Projects</b><i>Design / Analysis / Simulation</i></a>
       <a href="#figure" data-menu-link><span>03</span><b>Interactive figure</b><i>Material response</i></a>
-      <a href="drawings.html" data-transition-link data-menu-link><span>04</span><b>Drawings</b><i>12 figures</i></a>
+      <a href="drawings.html" data-transition-link data-menu-link><span>04</span><b>Drawings + Misc.</b><i>12 figures</i></a>
       <a href="aerial.html" data-transition-link data-menu-link><span>05</span><b>Aerial</b><i>21 photographs</i></a>
       <a href="#certifications" data-menu-link><span>06</span><b>Certifications</b><i>4 credentials</i></a>
       <a href="#contact" data-menu-link><span>07</span><b>Contact</b><i>Open channel</i></a>
@@ -78,23 +78,30 @@
 
   <main id="main">
     <section class="hero scene" id="home" data-field="0" data-section="00" data-title="Index">
-      <div class="hero__meta micro" data-reveal="clip">
-        <span data-scramble="ENGINEERING PORTFOLIO">ENGINEERING PORTFOLIO</span>
-        <span>QF—00 / OBSERVER FRAME</span>
+      <div class="hero__stage">
+        <div class="hero__meta micro" data-reveal="clip">
+          <span data-scramble="ENGINEERING PORTFOLIO">ENGINEERING PORTFOLIO</span>
+          <span>QF—00 / OBSERVER FRAME</span>
+        </div>
+        <div class="hero__wordmark" aria-label="Etienne Kainz">
+          <h1 class="wordmark wordmark--fill split-chars">EtienneKainz</h1>
+          <div class="wordmark wordmark--trace" aria-hidden="true">EtienneKainz</div>
+        </div>
+        <div class="hero__subline" data-reveal="rise">
+          <p>Mechanical Engineering — TU Wien · Design / CFD / Propulsion / Structures</p>
+        </div>
+        <div class="hero__coordinates micro" data-reveal="clip">
+          <span>48.2082° N</span>
+          <span>16.3738° E</span>
+          <span>SCROLL TO OBSERVE</span>
+        </div>
+        <div class="hero__overture micro" aria-hidden="true">
+          <span>ψ / LIVE PROBABILITY CURRENT</span>
+          <i></i>
+          <span>SCROLL EXCITES FIELD</span>
+        </div>
+        <div class="scroll-cue" aria-hidden="true"><span>SCROLL</span><i></i></div>
       </div>
-      <div class="hero__wordmark" aria-label="Etienne Kainz">
-        <h1 class="wordmark wordmark--fill split-chars">EtienneKainz</h1>
-        <div class="wordmark wordmark--trace" aria-hidden="true">EtienneKainz</div>
-      </div>
-      <div class="hero__subline" data-reveal="rise">
-        <p>Mechanical Engineering — TU Wien · Design / CFD / Propulsion / Structures</p>
-      </div>
-      <div class="hero__coordinates micro" data-reveal="clip">
-        <span>48.2082° N</span>
-        <span>16.3738° E</span>
-        <span>SCROLL TO OBSERVE</span>
-      </div>
-      <div class="scroll-cue" aria-hidden="true"><span>SCROLL</span><i></i></div>
     </section>
 
     <section class="section about scene" id="about" data-field="1" data-section="01" data-title="About">
@@ -253,20 +260,20 @@
       </figure>
     </section>
 
-    <section class="section archive-teaser drawings-teaser scene" id="drawings" data-field="4" data-section="04" data-title="Drawings">
+    <section class="section archive-teaser drawings-teaser scene" id="drawings" data-field="4" data-section="04" data-title="Drawings + Misc.">
       <header class="section-heading">
         <div class="section-heading__index">
           <span class="section-number" data-count="4">00</span>
           <span class="micro" data-scramble="SEC—04">SEC—04</span>
         </div>
-        <h2 class="split-lines">Drawings</h2>
+        <h2 class="split-lines">Drawings + Misc.</h2>
       </header>
       <a class="teaser-card" href="drawings.html" data-transition-link data-cursor="open" data-reveal="media">
         <div class="teaser-card__image">
           <img src="assets/drawings/dwg-01.jpg" alt="Spindle technical drawing" loading="lazy">
         </div>
         <div class="teaser-card__top micro"><span>DETAIL / ASSEMBLY / CONCEPT</span><span>12 FIGURES</span></div>
-        <div class="teaser-card__title"><span>Enter drawing register</span><i>↗</i></div>
+        <div class="teaser-card__title"><span>Enter drawings + misc.</span><i>↗</i></div>
         <div class="teaser-card__index" aria-hidden="true">04</div>
       </a>
     </section>
@@ -382,7 +389,7 @@
       </div>
       <div>
         <span class="micro">ARCHIVES</span>
-        <a href="drawings.html" data-transition-link>04 / Drawings</a>
+        <a href="drawings.html" data-transition-link>04 / Drawings + Misc.</a>
         <a href="aerial.html" data-transition-link>05 / Aerial</a>
         <a href="#certifications">06 / Certifications</a>
       </div>
@@ -413,8 +420,8 @@
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
   <script src="project-data.js?v=1"></script>
-  <script src="quantum-field.js?v=1"></script>
-  <script src="main.js?v=1"></script>
+  <script src="quantum-field.js?v=8"></script>
+  <script src="main.js?v=4"></script>
   <script src="elastic-wave.js?v=1"></script>
 </body>
 </html>
