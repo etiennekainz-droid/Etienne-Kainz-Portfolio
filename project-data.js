@@ -116,8 +116,8 @@
       ["assets/certs/fig-quantum.png", "Quantum Mechanics for Engineers — |ψ|² course figure"]
     ],
     "cert-solidworks": [
-      ["assets/certs/solidworks.png", "Dassault Systèmes"],
-      ["assets/certs/fig-solidworks.png", "SOLIDWORKS Foundations — assembly environment"]
+      ["assets/certs/fig-solidworks.png", "SOLIDWORKS Foundations — assembly environment"],
+      ["assets/certs/solidworks.png", "Dassault Systèmes"]
     ],
     "cert-math": [
       ["assets/certs/hkust.jpg", "The Hong Kong University of Science and Technology"],
