@@ -1498,15 +1498,9 @@ img {
   filter: grayscale(1);
 }
 
-.credential__media img.credential__logo,
-.lightbox img[src$="/solidworks.png"] {
+.credential__media img.credential__logo {
   padding: clamp(1rem, 2.4vw, 1.6rem);
   background: var(--paper);
-  filter: grayscale(1) invert(1);
-}
-
-.lightbox img[src$="/solidworks.png"] {
-  padding: clamp(2rem, 8vw, 7rem);
 }
 
 /* Contact */
@@ -1637,6 +1631,8 @@ img {
   inset: 0;
   z-index: 7200;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background: var(--paper);
   clip-path: inset(100% 0 0 0);
   visibility: hidden;
