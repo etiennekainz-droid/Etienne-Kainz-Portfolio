@@ -48,8 +48,7 @@
       line: "Candidate propulsion architectures compared for a small vertical-takeoff ISR platform.",
       docs: [
         ["assets/docs/vtol-propulsion-architecture.pdf", "VTOL propulsion architecture"],
-        ["assets/docs/vtol-isr-propulsion.pdf", "Propulsion architecture — VTOL ISR"],
-        ["assets/docs/vtol-trade-study-outline.pdf", "Trade-study outline"]
+        ["assets/docs/vtol-isr-propulsion.pdf", "Propulsion architecture — VTOL ISR"]
       ],
       images: [
         ["assets/projects/vtol/uav-render.png", "VTOL ISR UAV — reference configuration"],
@@ -76,8 +75,7 @@
         ["assets/projects/aim174b/mesh.png", "Surface mesh — full airframe"],
         ["assets/projects/aim174b/render-01.jpg", "Airframe render — side view"],
         ["assets/projects/aim174b/render-02.jpg", "Surface detail render"],
-        ["assets/projects/aim174b/render-03.jpg", "Fin detail render"],
-        ["assets/projects/aim174b/render-04.jpg", "Aft render — control surfaces"]
+        ["assets/projects/aim174b/render-03.jpg", "Fin detail render"]
       ]
     },
     "rocket-sim": {

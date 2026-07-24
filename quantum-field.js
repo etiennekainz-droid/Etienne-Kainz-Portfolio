@@ -45,8 +45,10 @@
   var hasOpening = body.classList.contains("home-page") && !!document.querySelector(".hero");
   var openingProgress = hasOpening && !reducedMotion ? 0 : 1;
   var openingTarget = openingProgress;
+  var openingExternallyDriven = false;
   var openingStart = 0;
   var openingTravel = 1;
+  var pageScrollMax = 1;
   var renderCostAverage = 6;
 
   // Staged quality governor: 2 = full detail, 1 = no echo effects,
@@ -490,6 +492,7 @@
       openingStart = openingBounds.top + window.scrollY;
       openingTravel = Math.max(1, openingBounds.height - height);
     }
+    pageScrollMax = Math.max(1, document.documentElement.scrollHeight - height);
     // The opening chain lands on formation 1, so the hero stop must agree —
     // otherwise the first scroll past the hero lerps abruptly back toward 0.
     if (hasOpening && !reducedMotion && sectionStops.length && sectionStops[0].index === 0) {
@@ -500,12 +503,13 @@
 
   function readScroll(dtSeconds) {
     var focus = window.scrollY + height * 0.52;
-    var pageMax = Math.max(1, document.documentElement.scrollHeight - height);
-    scrollState.global = clamp(window.scrollY / pageMax, 0, 1);
+    scrollState.global = clamp(window.scrollY / pageScrollMax, 0, 1);
     if (hasOpening) {
-      openingTarget = reducedMotion ? 1 : clamp((window.scrollY - openingStart) / openingTravel, 0, 1);
-      openingProgress += (openingTarget - openingProgress) *
-        (1 - Math.exp(-dtSeconds * 7.2));
+      if (!openingExternallyDriven) {
+        openingTarget = reducedMotion ? 1 : clamp((window.scrollY - openingStart) / openingTravel, 0, 1);
+        openingProgress += (openingTarget - openingProgress) *
+          (1 - Math.exp(-dtSeconds * 7.2));
+      }
       if (openingProgress < 0.995) {
         scrollState.a = 0;
         scrollState.b = 0;
@@ -572,6 +576,12 @@
     var openingSettle = ease(clamp((openingPhase - 0.72) / 0.28, 0, 1));
     var peakOpeningScale = compact ? 1.2 : medium ? 1.32 : 1.46;
     var openingScale = 1 + (peakOpeningScale - 1) * openingRamp * (1 - openingSettle);
+    // During the visible K handoff, both the DOM mark and the sampled particle
+    // mark share one pose. The lock releases gradually as the K decoheres.
+    var kHandoffLock = hasOpening && kFormation && !reducedMotion ?
+      ease(clamp((openingPhase - 0.18) / 0.12, 0, 1)) *
+      (1 - ease(clamp((openingPhase - 0.48) / 0.18, 0, 1))) : 0;
+    var kHandoffDrift = Math.sin(clamp((openingPhase - 0.3) / 0.3, 0, 1) * Math.PI * 0.5);
     var targetOpacity = body.classList.contains("wave-active") ? 0.22 : 1;
     fieldOpacity += (targetOpacity - fieldOpacity) * (1 - Math.exp(-dtSeconds * 3.6));
     var centerX = width * (compact ? 0.54 : 0.51) +
@@ -587,6 +597,15 @@
     var baseScale = Math.min(width, height) * (compact ? 0.43 : 0.405) *
       openingScale *
       (reducedMotion ? 1 : 1 + Math.sin(motionTime * 0.38) * 0.018 + scrollEnergy * 0.022);
+    if (kHandoffLock > 0.001) {
+      var targetKHeight = Math.min(height * 0.55, width * 0.54);
+      var targetKScale = targetKHeight / (1.2 * (2.85 / 3.1));
+      var lockedCenterX = width * 0.51;
+      var lockedCenterY = height * 0.45 - kHandoffDrift * 30;
+      centerX += (lockedCenterX - centerX) * kHandoffLock;
+      centerY += (lockedCenterY - centerY) * kHandoffLock;
+      baseScale += (targetKScale - baseScale) * kHandoffLock;
+    }
     var yaw = -0.25 + scrollState.global * 0.94 +
       (reducedMotion ? 0 :
         Math.sin(motionTime * 0.17) * 0.085 + scrollEnergy * 0.05 +
@@ -595,6 +614,9 @@
       Math.cos(motionTime * 0.13) * 0.048 + openingEnergy * (-0.08 + openingPhase * 0.13));
     // The whole projection banks slightly with scroll momentum.
     var roll = reducedMotion ? 0 : Math.sin(motionTime * 0.11) * 0.018 + scrollBias * 0.055;
+    yaw *= 1 - kHandoffLock;
+    pitch *= 1 - kHandoffLock;
+    roll *= 1 - kHandoffLock;
     var cosYaw = Math.cos(yaw);
     var sinYaw = Math.sin(yaw);
     var cosPitch = Math.cos(pitch);
@@ -1086,6 +1108,7 @@
   }
 
   window.addEventListener("pointermove", function (event) {
+    if (event.pointerType === "touch") return;
     var stamp = performance.now() / 1000;
     var dt = Math.max(0.004, stamp - pointer.moved);
     if (pointer.active) {
@@ -1104,6 +1127,7 @@
   }, { passive: true });
 
   window.addEventListener("pointerdown", function (event) {
+    if (event.pointerType === "touch") return;
     addRipple(event.clientX, event.clientY, 1);
   }, { passive: true });
 
@@ -1153,7 +1177,9 @@
       requestFrame();
     },
     setOpeningProgress: function (value) {
-      openingTarget = clamp(value, 0, 1);
+      openingExternallyDriven = true;
+      openingProgress = clamp(value, 0, 1);
+      openingTarget = openingProgress;
       requestFrame();
     },
     burst: function (x, y) {
