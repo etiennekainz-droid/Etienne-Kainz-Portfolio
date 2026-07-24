@@ -411,6 +411,14 @@
       var applyKPose = null;
       var openingTimeline = gsap.timeline({
         defaults: { ease: "none" },
+        onUpdate: function () {
+          var progress = this.progress();
+          body.classList.toggle("is-field-solo", progress > 0.2 && progress < 0.9);
+          if (applyKPose) applyKPose();
+          if (window.quantumField && window.quantumField.setOpeningProgress) {
+            window.quantumField.setOpeningProgress(progress);
+          }
+        },
         scrollTrigger: {
           id: "opening-sequence",
           trigger: hero,
@@ -421,14 +429,6 @@
           // a glide. applyKPose runs from onUpdate, so the K stays in sync.
           scrub: 0.7,
           invalidateOnRefresh: true,
-          onUpdate: function (self) {
-            var progress = self.progress;
-            body.classList.toggle("is-field-solo", progress > 0.2 && progress < 0.9);
-            if (applyKPose) applyKPose();
-            if (window.quantumField && window.quantumField.setOpeningProgress) {
-              window.quantumField.setOpeningProgress(progress);
-            }
-          },
           onLeave: function () { body.classList.remove("is-field-solo"); },
           onLeaveBack: function () { body.classList.remove("is-field-solo"); }
         }
@@ -490,35 +490,56 @@
       if (kLogo && kInline) {
         var kFrames = kLogo.querySelectorAll("img");
         // offsetTop is 0 through the inline-block char chain, so it cannot
-        // locate the mark. getBoundingClientRect can — but the scrub may
-        // already have transformed the wordmark by the time GSAP evaluates
-        // these values, which is what threw the start pose off. So measure
-        // the live rect and mathematically undo the wordmark's transform.
-        // Position is never cached in a tween. Two proxies drive it and the
-        // pose is recomputed from the inline mark's LIVE rect every frame,
-        // so the overlay is guaranteed to sit exactly on the letter it
-        // replaces — whatever the scrub, a refresh, or a resize has done.
+        // locate the mark. Capture the live rect while the glide is at its
+        // start, then reuse the stable geometry through the scrub. This keeps
+        // the overlay exact without forcing layout reads on every frame.
         var kProxy = { glide: 0, drift: 0 };
         var kAnchor = null;
+        var kLogoWidth = 0;
+        var kLogoHeight = 0;
+        var kGeometryDirty = false;
+        window.addEventListener("resize", function () {
+          kGeometryDirty = true;
+        }, { passive: true });
         applyKPose = function () {
-          var stageBounds = heroStage.getBoundingClientRect();
           if (kProxy.glide <= 0.0005 || !kAnchor) {
+            var stageBounds = heroStage.getBoundingClientRect();
             var markBounds = kInline.getBoundingClientRect();
+            kLogoWidth = kLogo.offsetWidth;
+            kLogoHeight = kLogo.offsetHeight;
             kAnchor = {
               x: markBounds.left + markBounds.width / 2 - stageBounds.left,
               y: markBounds.top + markBounds.height / 2 - stageBounds.top,
-              scale: markBounds.height / Math.max(1, kLogo.offsetHeight)
+              scale: markBounds.height / Math.max(1, kLogoHeight),
+              stageLeft: stageBounds.left,
+              stageTop: stageBounds.top,
+              xRatio: (markBounds.left + markBounds.width / 2 - stageBounds.left) /
+                Math.max(1, stageBounds.width),
+              yRatio: (markBounds.top + markBounds.height / 2 - stageBounds.top) /
+                Math.max(1, stageBounds.height)
             };
+            kGeometryDirty = false;
+          } else if (kGeometryDirty) {
+            var refreshedStageBounds = heroStage.getBoundingClientRect();
+            kLogoWidth = kLogo.offsetWidth;
+            kLogoHeight = kLogo.offsetHeight;
+            kAnchor.x = kAnchor.xRatio * refreshedStageBounds.width;
+            kAnchor.y = kAnchor.yRatio * refreshedStageBounds.height;
+            kAnchor.stageLeft = refreshedStageBounds.left;
+            kAnchor.stageTop = refreshedStageBounds.top;
+            kGeometryDirty = false;
           }
-          var endScale = window.innerHeight * 0.55 / Math.max(1, kLogo.offsetHeight);
+          var targetHeight = Math.min(window.innerHeight * 0.55, window.innerWidth * 0.54);
+          var endScale = targetHeight / Math.max(1, kLogoHeight);
           var t = kProxy.glide;
-          var centreX = kAnchor.x + (window.innerWidth * 0.51 - stageBounds.left - kAnchor.x) * t;
-          var centreY = kAnchor.y + (window.innerHeight * 0.45 - stageBounds.top - kAnchor.y) * t;
+          var centreX = kAnchor.x + (window.innerWidth * 0.51 - kAnchor.stageLeft - kAnchor.x) * t;
+          var centreY = kAnchor.y + (window.innerHeight * 0.45 - kAnchor.stageTop - kAnchor.y) * t;
           var scale = kAnchor.scale + (endScale - kAnchor.scale) * t;
           gsap.set(kLogo, {
-            x: centreX - kLogo.offsetWidth / 2,
-            y: centreY - kLogo.offsetHeight / 2 - kProxy.drift * 30,
-            scale: scale + kProxy.drift * 0.06
+            x: centreX - kLogoWidth / 2,
+            y: centreY - kLogoHeight / 2 - kProxy.drift * 30,
+            scale: scale + kProxy.drift * 0.04,
+            force3D: true
           });
         };
         openingTimeline
@@ -535,39 +556,41 @@
           .to(kProxy, {
             glide: 1,
             duration: 0.24,
-            ease: "power2.inOut",
-            onUpdate: applyKPose
+            ease: "power2.inOut"
           }, 0.06)
           // The dust keeps drifting up as it converts into the live field.
           .to(kProxy, {
             drift: 1,
             duration: 0.3,
-            ease: "sine.out",
-            onUpdate: applyKPose
+            ease: "sine.out"
           }, 0.3);
         applyKPose();
 
-        // The mark converts to field notation through overlapping
-        // crossfades: every layer is already rising before the one beneath
-        // it has finished falling, so no single step is ever visible.
-        var kDissolveStart = 0.23;
-        var kStep = 0.062;
-        var kFade = kStep * 1.7;
-        for (var kIndex = 0; kIndex < kFrames.length; kIndex += 1) {
-          var enter = kDissolveStart + (kIndex - 1) * kStep;
-          var leave = kDissolveStart + kIndex * kStep;
-          if (kIndex > 0) {
-            openingTimeline.fromTo(kFrames[kIndex], { opacity: 0 }, {
-              opacity: 1,
-              duration: kFade,
-              ease: "sine.inOut"
-            }, enter);
-          }
+        // The erosion PNGs are deliberately sparse dust, not full-opacity
+        // replacements. Keep the solid silhouette present until the particle
+        // K is coherent, then fade it separately while the dust layers bloom
+        // additively over the live field.
+        var kDissolveStart = 0.31;
+        var kDustStep = 0.055;
+        var kDustIn = 0.06;
+        var kDustOut = 0.115;
+        openingTimeline.to(kFrames[0], {
+          opacity: 0,
+          duration: 0.17,
+          ease: "sine.inOut"
+        }, kDissolveStart);
+        for (var kIndex = 1; kIndex < kFrames.length; kIndex += 1) {
+          var dustStart = kDissolveStart + (kIndex - 1) * kDustStep;
+          openingTimeline.fromTo(kFrames[kIndex], { opacity: 0 }, {
+            opacity: 1,
+            duration: kDustIn,
+            ease: "sine.out"
+          }, dustStart);
           openingTimeline.to(kFrames[kIndex], {
             opacity: 0,
-            duration: kIndex === kFrames.length - 1 ? kFade * 1.5 : kFade,
-            ease: kIndex === kFrames.length - 1 ? "sine.in" : "sine.inOut"
-          }, leave);
+            duration: kDustOut,
+            ease: "sine.in"
+          }, dustStart + kDustIn);
         }
       }
     }
@@ -949,6 +972,33 @@
   }
 
   // Cross-page wipe.
+  var transitionSections = {
+    "#about": "01",
+    "#projects": "02",
+    "#figure": "03",
+    "#drawings": "04",
+    "#aerial": "05",
+    "#certifications": "06",
+    "#contact": "07"
+  };
+
+  function getTransitionSection(link, href) {
+    var explicit = link.getAttribute("data-transition-section");
+    if (explicit) return explicit;
+    try {
+      var destination = new URL(href, window.location.href);
+      var page = destination.pathname.split("/").pop().toLowerCase();
+      if (page === "drawings.html") return "04";
+      if (page === "aerial.html") return "05";
+      if (!page || page === "index.html") {
+        return transitionSections[destination.hash.toLowerCase()] || "00";
+      }
+    } catch (error) {
+      return "";
+    }
+    return "";
+  }
+
   qsa("[data-transition-link]").forEach(function (link) {
     link.addEventListener("click", function (event) {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target === "_blank") return;
@@ -957,6 +1007,9 @@
       event.preventDefault();
       setMenu(false);
       var wipe = doc.querySelector(".page-wipe");
+      var wipeNumber = wipe && wipe.querySelector("span");
+      var destinationSection = getTransitionSection(link, href);
+      if (wipeNumber && destinationSection) wipeNumber.textContent = destinationSection;
       if (!wipe || !gsap || reduceMotion) {
         window.location.href = href;
         return;
