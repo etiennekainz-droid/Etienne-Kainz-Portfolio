@@ -545,8 +545,18 @@
     var progress = clamp(window.scrollY / max, 0, 1);
     if (railProgress) railProgress.style.transform = "scaleY(" + progress.toFixed(4) + ")";
   }
-  window.addEventListener("scroll", updateRail, { passive: true });
-  window.addEventListener("resize", updateRail, { passive: true });
+  // Coalesce rail updates to one layout read per frame.
+  var railFrame = 0;
+  function scheduleRail() {
+    if (!railFrame) {
+      railFrame = requestAnimationFrame(function () {
+        railFrame = 0;
+        updateRail();
+      });
+    }
+  }
+  window.addEventListener("scroll", scheduleRail, { passive: true });
+  window.addEventListener("resize", scheduleRail, { passive: true });
   updateRail();
 
   // Project filter.

@@ -31,13 +31,13 @@
       line: "A compact flight platform and testbed for a high-authority, control-surface-based braking concept.",
       images: [
         ["assets/projects/aerospace/photo.jpg", "TMR-L concept — flight render"],
-        ["assets/projects/aerospace/collage.png", "Render set — flight and CAD views"],
-        ["assets/projects/aerospace/cad-01.png", "CAD model — working grid 01"],
-        ["assets/projects/aerospace/cad-02.png", "CAD model — working grid 02"],
-        ["assets/projects/aerospace/cad-03.png", "CAD model — working grid 03"],
-        ["assets/projects/aerospace/cad-04.png", "CAD model — aft configuration"],
-        ["assets/projects/aerospace/render-front.png", "Forward fuselage — detail render"],
-        ["assets/projects/aerospace/flight.png", "Flight render — powered phase"]
+        ["assets/projects/aerospace/collage.jpg", "Render set — flight and CAD views"],
+        ["assets/projects/aerospace/cad-01.jpg", "CAD model — working grid 01"],
+        ["assets/projects/aerospace/cad-02.jpg", "CAD model — working grid 02"],
+        ["assets/projects/aerospace/cad-03.jpg", "CAD model — working grid 03"],
+        ["assets/projects/aerospace/cad-04.jpg", "CAD model — aft configuration"],
+        ["assets/projects/aerospace/render-front.jpg", "Forward fuselage — detail render"],
+        ["assets/projects/aerospace/flight.jpg", "Flight render — powered phase"]
       ]
     },
     "vtol-study": {
@@ -68,16 +68,16 @@
       line: "A watertight airframe reconstruction from public dimensions, prepared for external-flow meshing and scale printing.",
       images: [
         ["assets/projects/aim174b/model-photo.jpg", "3-D printed scale model with reference notebook"],
-        ["assets/projects/aim174b/title-page.png", "Design study — title sheet"],
-        ["assets/projects/aim174b/aim-01.png", "Frontal view — fin arrangement"],
-        ["assets/projects/aim174b/aim-02.png", "Aft view — nozzle and control surfaces"],
-        ["assets/projects/aim174b/aim-03.png", "Isometric view — full airframe"],
-        ["assets/projects/aim174b/aim-04.png", "Strake detail"],
+        ["assets/projects/aim174b/title-page.jpg", "Design study — title sheet"],
+        ["assets/projects/aim174b/aim-01.jpg", "Frontal view — fin arrangement"],
+        ["assets/projects/aim174b/aim-02.jpg", "Aft view — nozzle and control surfaces"],
+        ["assets/projects/aim174b/aim-03.jpg", "Isometric view — full airframe"],
+        ["assets/projects/aim174b/aim-04.jpg", "Strake detail"],
         ["assets/projects/aim174b/mesh.png", "Surface mesh — full airframe"],
-        ["assets/projects/aim174b/render-01.png", "Airframe render — side view"],
-        ["assets/projects/aim174b/render-02.png", "Surface detail render"],
-        ["assets/projects/aim174b/render-03.png", "Fin detail render"],
-        ["assets/projects/aim174b/render-04.png", "Aft render — control surfaces"]
+        ["assets/projects/aim174b/render-01.jpg", "Airframe render — side view"],
+        ["assets/projects/aim174b/render-02.jpg", "Surface detail render"],
+        ["assets/projects/aim174b/render-03.jpg", "Fin detail render"],
+        ["assets/projects/aim174b/render-04.jpg", "Aft render — control surfaces"]
       ]
     },
     "rocket-sim": {
