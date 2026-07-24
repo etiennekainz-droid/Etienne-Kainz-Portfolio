@@ -68,6 +68,22 @@
   qsa(".split-chars").forEach(splitChars);
   qsa(".split-lines").forEach(splitWords);
 
+  // The brand mark replaces the K glyph inside the wordmark itself, in both
+  // the fill and the trace layer, so the name carries the logo from frame one.
+  (function installKMark() {
+    if (!body.classList.contains("home-page")) return;
+    var chars = qsa(".wordmark--fill .char");
+    if (chars.length < 12) return;
+    var kChar = chars[7];
+    kChar.classList.add("char--kmark");
+    kChar.innerHTML = '<img src="assets/brand/k-mark.png" alt="">';
+    if (kChar.parentNode) kChar.parentNode.classList.add("char-clip--kmark");
+    var trace = doc.querySelector(".wordmark--trace");
+    if (trace) {
+      trace.innerHTML = 'Etienne<img class="wordmark__kmark-trace" src="assets/brand/k-mark.png" alt="">ainz';
+    }
+  })();
+
   function initSmoothScroll() {
     if (reduceMotion || !window.Lenis) return;
     try {
@@ -423,7 +439,7 @@
           duration: 0.34,
           ease: "power4.inOut"
         }, 0.035)
-        .to(".wordmark--fill .char-clip", {
+        .to(".wordmark--fill .char-clip:not(.char-clip--kmark)", {
           yPercent: -118,
           rotate: function (index) { return (index % 2 ? 1 : -1) * (1.8 + index * 0.13); },
           duration: 0.24,
@@ -455,44 +471,49 @@
           ease: "power3.in"
         }, 0.78);
 
-      // The Kainz mark takes over from the wordmark's K: it appears on the
-      // letter as the name dissolves, glides to the field centre while
-      // growing, and hands off to the particle K the field assembles.
+      // The wordmark's brand-K stays behind while the letters scatter, then
+      // glides to the field centre and granularly disintegrates through
+      // baked erosion frames — crumbling into the very particle K the field
+      // assembles underneath it.
       var kLogo = hero.querySelector(".hero__klogo");
-      var kChar = hero.querySelectorAll(".wordmark--fill .char-clip")[7];
-      if (kLogo && kChar) {
+      var kInline = hero.querySelector(".char--kmark img");
+      if (kLogo && kInline) {
+        var kFrames = kLogo.querySelectorAll("img");
         var kStart = function () {
           var stageBounds = heroStage.getBoundingClientRect();
-          var charBounds = kChar.getBoundingClientRect();
+          var markBounds = kInline.getBoundingClientRect();
           return {
-            x: charBounds.left - stageBounds.left + charBounds.width / 2 - kLogo.offsetWidth / 2,
-            y: charBounds.top - stageBounds.top + charBounds.height / 2 - kLogo.offsetHeight / 2,
-            scale: charBounds.height * 1.08 / Math.max(1, kLogo.offsetHeight)
+            x: markBounds.left - stageBounds.left + markBounds.width / 2 - kLogo.offsetWidth / 2,
+            y: markBounds.top - stageBounds.top + markBounds.height / 2 - kLogo.offsetHeight / 2,
+            scale: markBounds.height / Math.max(1, kLogo.offsetHeight)
           };
         };
         openingTimeline
+          // Pixel-perfect takeover from the inline mark before letters move.
           .fromTo(kLogo, {
             x: function () { return kStart().x; },
             y: function () { return kStart().y; },
             scale: function () { return kStart().scale; },
-            opacity: 0,
-            filter: "blur(0px)"
-          }, { opacity: 1, duration: 0.05, ease: "none" }, 0.07)
+            opacity: 0
+          }, { opacity: 1, duration: 0.025, ease: "none" }, 0.05)
+          .to(".char-clip--kmark", { opacity: 0, duration: 0.015, ease: "none" }, 0.075)
           .to(kLogo, {
             x: function () { return window.innerWidth * 0.51 - kLogo.offsetWidth / 2; },
             y: function () { return window.innerHeight * 0.45 - kLogo.offsetHeight / 2; },
             scale: function () { return window.innerHeight * 0.55 / Math.max(1, kLogo.offsetHeight); },
-            duration: 0.21,
+            duration: 0.24,
             ease: "power2.inOut"
-          }, 0.115)
-          // Still moving while it decoheres — the mark melts into the same
-          // particles the field is assembling underneath it.
-          .to(kLogo, {
-            opacity: 0,
-            filter: "blur(9px)",
-            duration: 0.14,
-            ease: "power1.inOut"
-          }, 0.26);
+          }, 0.1)
+          // Granular disintegration: solid → coarse → sparse → dust.
+          .to(kFrames[0], { opacity: 0, duration: 0.05, ease: "none" }, 0.26)
+          .to(kFrames[1], { opacity: 1, duration: 0.045, ease: "none" }, 0.252)
+          .to(kFrames[1], { opacity: 0, duration: 0.05, ease: "none" }, 0.315)
+          .to(kFrames[2], { opacity: 1, duration: 0.045, ease: "none" }, 0.308)
+          .to(kFrames[2], { opacity: 0, duration: 0.05, ease: "none" }, 0.37)
+          .to(kFrames[3], { opacity: 1, duration: 0.045, ease: "none" }, 0.362)
+          .to(kFrames[3], { opacity: 0, duration: 0.075, ease: "power1.in" }, 0.425)
+          // The dust keeps drifting up and outward as it converts.
+          .to(kLogo, { y: "-=34", scale: "+=0.06", duration: 0.24, ease: "none" }, 0.26);
       }
     }
 

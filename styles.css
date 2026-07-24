@@ -754,6 +754,24 @@ img {
   height: auto;
 }
 
+/* Baked erosion stages stack on the base mark; GSAP crossfades them. */
+.hero__klogo img + img {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  will-change: opacity;
+}
+
+/* The brand mark replaces the K glyph inside the wordmark itself. */
+.char--kmark img,
+.wordmark__kmark-trace {
+  display: inline-block;
+  width: auto;
+  height: .9em;
+  margin: 0 .025em;
+  transform: translateY(.065em);
+}
+
 .hero__subline {
   position: absolute;
   right: var(--pad);
