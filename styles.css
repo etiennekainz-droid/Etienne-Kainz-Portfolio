@@ -610,9 +610,10 @@ img {
   will-change: transform;
 }
 
-/* Hero */
+/* Hero — tall on purpose: its height is the runway for the whole opening
+   sequence, so more height = slower, more legible scroll choreography. */
 .hero {
-  min-height: 230svh;
+  min-height: 320svh;
   padding-top: 0;
   padding-bottom: 0;
   overflow: visible;
@@ -731,6 +732,26 @@ img {
   );
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
+}
+
+/* The Kainz mark that takes over from the wordmark's K during the opening
+   scrub. GSAP positions it; it stays inert (and hidden) otherwise. */
+.hero__klogo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  width: 7.25rem;
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+}
+
+.hero__klogo img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .hero__subline {
@@ -2183,7 +2204,7 @@ img {
   }
 
   .hero {
-    min-height: 205svh;
+    min-height: 285svh;
     padding-top: 0;
     padding-bottom: 0;
   }

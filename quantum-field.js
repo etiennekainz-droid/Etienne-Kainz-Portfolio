@@ -323,6 +323,43 @@
     return [Math.cos(angle) * radius, Math.sin(angle) * radius, Math.sin(angle * 2 + b) * 0.23 * (ring / 4)];
   }));
 
+  // The Kainz mark, sampled from the logo artwork into field space. The
+  // opening chain assembles it out of the base state, holds it, then
+  // disperses it into the blooming orbital — the K embeds into the field.
+  var kFormation = null;
+  if (hasOpening && !reducedMotion) {
+    var kImage = new Image();
+    kImage.onload = function () {
+      var sampleH = 110;
+      var sampleW = Math.max(1, Math.round(sampleH * kImage.width / kImage.height));
+      var sampler = document.createElement("canvas");
+      sampler.width = sampleW;
+      sampler.height = sampleH;
+      var samplerContext = sampler.getContext("2d", { willReadFrequently: true });
+      samplerContext.drawImage(kImage, 0, 0, sampleW, sampleH);
+      var pixels = samplerContext.getImageData(0, 0, sampleW, sampleH).data;
+      var cells = [];
+      for (var sy = 0; sy < sampleH; sy += 1) {
+        for (var sx = 0; sx < sampleW; sx += 1) {
+          if (pixels[(sy * sampleW + sx) * 4 + 3] > 110) cells.push(sy * sampleW + sx);
+        }
+      }
+      if (!cells.length) return;
+      var unit = 1.2 / sampleH;
+      var points = new Float32Array(particleCount * 3);
+      for (var i = 0; i < particleCount; i += 1) {
+        var cell = cells[(seedA[i] * cells.length) | 0];
+        setPoint(points, i,
+          (cell % sampleW - sampleW / 2 + (seedB[i] - 0.5) * 0.65) * unit,
+          (Math.floor(cell / sampleW) - sampleH / 2 + (seedC[i] - 0.5) * 0.65) * unit,
+          (hash(i + 77) - 0.5) * 0.08);
+      }
+      kFormation = points;
+      requestFrame();
+    };
+    kImage.src = "assets/brand/k-mark.png";
+  }
+
   // Opening A — the state blooms: lobes stretch, orbits widen and tilt.
   openingFormations.push(makeFormation(function (i, u, a, b, c) {
     return orbitalFieldPoint(i, a, b, c, 1.68, 1.78, 1.32, 0.5, 2.6);
@@ -569,7 +606,26 @@
     var mix = scrollState.mix;
     var activeFormation = mix < 0.5 ? scrollState.a : scrollState.b;
     if (hasOpening && openingPhase < 0.999) {
-      if (openingPhase < 0.38) {
+      if (kFormation) {
+        // Base state → the Kainz mark → bloom → collapse → helix.
+        if (openingPhase < 0.36) {
+          pointsA = formations[0];
+          pointsB = kFormation;
+          mix = ease(clamp((openingPhase - 0.08) / 0.22, 0, 1));
+        } else if (openingPhase < 0.66) {
+          pointsA = kFormation;
+          pointsB = openingFormations[0];
+          mix = ease(clamp((openingPhase - 0.4) / 0.26, 0, 1));
+        } else if (openingPhase < 0.84) {
+          pointsA = openingFormations[0];
+          pointsB = openingFormations[1];
+          mix = ease(clamp((openingPhase - 0.66) / 0.18, 0, 1));
+        } else {
+          pointsA = openingFormations[1];
+          pointsB = formations[1];
+          mix = ease(clamp((openingPhase - 0.84) / 0.16, 0, 1));
+        }
+      } else if (openingPhase < 0.38) {
         pointsA = formations[0];
         pointsB = openingFormations[0];
         mix = ease(clamp((openingPhase - 0.1) / 0.28, 0, 1));
@@ -615,6 +671,14 @@
     var orbitSpin = -motionTime * 0.55 - signedScrollPhase * 0.4;
     var cosOrbit = Math.cos(orbitSpin);
     var sinOrbit = Math.sin(orbitSpin);
+    // While the field spells the Kainz mark, ambient motion quiets down so
+    // the glyph reads crisp, then releases as it disperses into the state.
+    var kWindow = 0;
+    if (hasOpening && kFormation && !reducedMotion && openingPhase < 0.999) {
+      kWindow = ease(clamp((openingPhase - 0.12) / 0.18, 0, 1)) *
+        (1 - ease(clamp((openingPhase - 0.42) / 0.2, 0, 1)));
+    }
+    var kCalm = 1 - kWindow;
     var particleStride = quality === 0 ? 2 : 1;
     var splatSpread = quality === 0 ? 0 : 1;
     var detailEffects = quality === 2;
@@ -684,25 +748,27 @@
           if (lane24 < 10) {
             // Cloverleaf lobes precess about the axis and breathe.
             var precessX = x * cosPrecess - z * sinPrecess;
-            z = x * sinPrecess + z * cosPrecess;
-            x = precessX;
+            var precessZ = x * sinPrecess + z * cosPrecess;
+            x = x * kWindow + precessX * kCalm;
+            z = z * kWindow + precessZ * kCalm;
             var pulse = 1 + Math.sin(motionTime * 1.15 + phase[i] * 0.6) *
-              (0.05 + openingDrive * 0.07) * formationSettle;
+              (0.05 + openingDrive * 0.07) * formationSettle * kCalm;
             x *= pulse;
             y *= pulse;
           } else if (lane24 < 14) {
             // Polar lobes pulse alternately, a Rabi-like beat.
             y *= 1 + Math.sin(motionTime * 0.95 + (y > 0 ? 0 : Math.PI)) *
-              (0.055 + openingDrive * 0.05) * formationSettle;
+              (0.055 + openingDrive * 0.05) * formationSettle * kCalm;
           } else if (lane24 < 20) {
             // Orbit dashes circulate against the precession.
             var orbitX = x * cosOrbit - z * sinOrbit;
-            z = x * sinOrbit + z * cosOrbit;
-            x = orbitX;
+            var orbitZ = x * sinOrbit + z * cosOrbit;
+            x = x * kWindow + orbitX * kCalm;
+            z = z * kWindow + orbitZ * kCalm;
           } else if (lane24 === 23) {
             // Standing wave along the quantization axis.
-            x += Math.sin(y * 5.2 - motionTime * 2.1) * 0.05 * formationSettle;
-            z += Math.cos(y * 4.4 - motionTime * 1.7) * 0.035 * formationSettle;
+            x += Math.sin(y * 5.2 - motionTime * 2.1) * 0.05 * formationSettle * kCalm;
+            z += Math.cos(y * 4.4 - motionTime * 1.7) * 0.035 * formationSettle * kCalm;
           }
         } else if (activeFormation === 1) {
           x += Math.cos(motionTime * 0.92 + y * 2.35 + phase[i] * 0.14) * 0.085 * formationSettle;
@@ -743,7 +809,8 @@
         var currentPhase = phase[i] + motionTime * (0.5 + seedA[i] * 0.34) +
           x * 1.72 - y * 1.08 + z * 0.82 + signedScrollPhase * 0.34;
         var flow = (0.024 + seedC[i] * 0.046) *
-          (0.82 + morphEnergy * 0.24 + scrollEnergy * 0.22 + openingDrive * 0.3);
+          (0.82 + morphEnergy * 0.24 + scrollEnergy * 0.22 + openingDrive * 0.3) *
+          (1 - kWindow * 0.72);
         var currentX = x;
         x += -y / currentRadius * flow * (0.56 + Math.sin(currentPhase) * 0.44);
         y += currentX / currentRadius * flow * (0.56 + Math.cos(currentPhase * 0.91) * 0.44);
@@ -770,7 +837,8 @@
         }
       }
 
-      var drift = reducedMotion ? 0 : (0.014 + seedB[i] * 0.02) * (1 - openingEnergy * 0.58);
+      var drift = reducedMotion ? 0 :
+        (0.014 + seedB[i] * 0.02) * (1 - openingEnergy * 0.58) * (1 - kWindow * 0.85);
       x += Math.sin(motionTime * (0.61 + seedA[i] * 0.43) + phase[i]) * drift;
       y += Math.cos(motionTime * (0.52 + seedC[i] * 0.38) + phase[i] * 1.23) * drift;
       z += Math.sin(motionTime * 0.68 + phase[i] * 0.73) * drift * 1.52;
@@ -868,7 +936,7 @@
       var probability = clamp(0.055 + Math.pow(psiSquared, 0.68) * 0.68 +
         packet * 0.34 + radialDensity * 0.16 + autoBand * 0.42 +
         localMorph * 0.035 + scrollEnergy * 0.022 +
-        openingEnergy * 0.14 + openingBand * 0.24, 0, 1);
+        openingEnergy * 0.14 + openingBand * 0.24 + kWindow * 0.3, 0, 1);
       // Orbit dashes, nucleus, and axis stay legible through the opening.
       var structuralSample = hasOpening && openingPhase > 0.12 && openingPhase < 0.9 &&
         ((lane24 >= 14 && lane24 < 22) || lane24 === 23);

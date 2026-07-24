@@ -74,7 +74,7 @@
       lenis = new window.Lenis({
         smoothWheel: true,
         syncTouch: false,
-        lerp: 0.16,
+        lerp: 0.12,
         wheelMultiplier: 1,
         touchMultiplier: 1,
         overscroll: false
@@ -454,6 +454,46 @@
           duration: 0.12,
           ease: "power3.in"
         }, 0.78);
+
+      // The Kainz mark takes over from the wordmark's K: it appears on the
+      // letter as the name dissolves, glides to the field centre while
+      // growing, and hands off to the particle K the field assembles.
+      var kLogo = hero.querySelector(".hero__klogo");
+      var kChar = hero.querySelectorAll(".wordmark--fill .char-clip")[7];
+      if (kLogo && kChar) {
+        var kStart = function () {
+          var stageBounds = heroStage.getBoundingClientRect();
+          var charBounds = kChar.getBoundingClientRect();
+          return {
+            x: charBounds.left - stageBounds.left + charBounds.width / 2 - kLogo.offsetWidth / 2,
+            y: charBounds.top - stageBounds.top + charBounds.height / 2 - kLogo.offsetHeight / 2,
+            scale: charBounds.height * 1.08 / Math.max(1, kLogo.offsetHeight)
+          };
+        };
+        openingTimeline
+          .fromTo(kLogo, {
+            x: function () { return kStart().x; },
+            y: function () { return kStart().y; },
+            scale: function () { return kStart().scale; },
+            opacity: 0,
+            filter: "blur(0px)"
+          }, { opacity: 1, duration: 0.05, ease: "none" }, 0.07)
+          .to(kLogo, {
+            x: function () { return window.innerWidth * 0.51 - kLogo.offsetWidth / 2; },
+            y: function () { return window.innerHeight * 0.45 - kLogo.offsetHeight / 2; },
+            scale: function () { return window.innerHeight * 0.55 / Math.max(1, kLogo.offsetHeight); },
+            duration: 0.21,
+            ease: "power2.inOut"
+          }, 0.115)
+          // Still moving while it decoheres — the mark melts into the same
+          // particles the field is assembling underneath it.
+          .to(kLogo, {
+            opacity: 0,
+            filter: "blur(9px)",
+            duration: 0.14,
+            ease: "power1.inOut"
+          }, 0.26);
+      }
     }
 
     qsa(".teaser-card__image img").forEach(function (image) {
