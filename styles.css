@@ -658,6 +658,11 @@ img {
   padding-top: .55rem;
 }
 
+/* Keep the frame label clear of the fixed menu toggle. */
+.hero__meta span:last-child {
+  margin-right: 8.7rem;
+}
+
 .hero__wordmark {
   position: relative;
   z-index: 2;
@@ -776,7 +781,8 @@ img {
 .scroll-cue {
   position: absolute;
   bottom: 6.1rem;
-  left: 50%;
+  /* Sits just left of the subline block instead of colliding with it. */
+  right: calc(var(--pad) + min(44rem, 59vw) + 2.8rem);
   z-index: 3;
   display: grid;
   justify-items: center;
