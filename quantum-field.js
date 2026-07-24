@@ -111,82 +111,92 @@
     prevScreenY[seedIndex] = -9999;
   }
 
-  // One semantic topology drives every opening pose. Wing, vein, body, head,
-  // and root particles retain their roles through the morph instead of
-  // crossing toward unrelated orbital targets.
-  function wingedFieldPoint(i, a, b, c, span, sweep, dihedral, camber, bodyFlex) {
+  // One semantic topology drives every opening pose: an abstract orbital
+  // superposition. Lobe, ring, core, halo, and axis particles retain their
+  // roles through the morph instead of crossing toward unrelated targets.
+  // Lanes (i % 24): 0–9 cloverleaf lobes, 10–13 polar lobes, 14–18 dashed
+  // equatorial orbit, 19 crossed orbit, 20–21 nucleus, 22 halo, 23 axis.
+  function orbitalFieldPoint(i, a, b, c, lobe, polar, ring, tilt, halo) {
     var lane = i % 24;
 
-    // Four tapered probability wings: two membrane layers, one vein layer,
-    // and one outline layer. Quantised chord samples create readable ribs.
-    if (lane < 16) {
-      var wing = i % 4;
-      var side = wing % 2 ? 1 : -1;
-      var fore = wing < 2 ? -1 : 1;
-      var layer = Math.floor(lane / 4);
+    // Four diagonal probability lobes in the screen plane (d-orbital).
+    if (lane < 10) {
+      var theta = (i & 3) * (Math.PI / 2) + Math.PI / 4;
       var reach = Math.pow(a, 0.62);
-      var envelope = Math.pow(Math.max(0, Math.sin(Math.PI * reach)), 0.72);
-      var centerline = fore * (0.08 + sweep * (0.34 * reach + 0.24 * envelope)) +
-        bodyFlex * Math.sin(reach * Math.PI) * 0.08;
-      var halfChord = (fore < 0 ? 0.48 : 0.36) * envelope * (0.84 + camber * 0.28);
-      var chord;
-
-      if (layer === 3) chord = b > 0.5 ? 1 : -1;
-      else if (layer === 2) chord = (Math.round(b * 5) / 5 * 2 - 1) * 0.92;
-      else chord = (b - 0.5) * 2;
-
+      var envelope = Math.pow(Math.max(0, Math.sin(Math.PI * reach)), 0.8);
+      var angle = theta + (b - 0.5) * (0.85 - reach * 0.35);
+      var radius = lobe * reach;
       return [
-        side * (0.1 + 2.06 * span * reach),
-        centerline + chord * halfChord,
-        side * dihedral * (0.04 + reach * 0.38) +
-          fore * camber * envelope * 0.11 +
-          (c - 0.5) * 0.08 * (0.2 + envelope)
+        Math.cos(angle) * radius,
+        Math.sin(angle) * radius,
+        (c - 0.5) * (0.12 + envelope * 0.3)
       ];
     }
 
-    // A segmented axial body with a denser thorax and head transition.
+    // Two polar lobes along the quantization axis (p-orbital).
+    if (lane < 14) {
+      var side = i & 1 ? 1 : -1;
+      var stretch = Math.pow(a, 0.7);
+      var waist = Math.sin(Math.PI * stretch) * (0.24 + polar * 0.14);
+      var around = b * Math.PI * 2;
+      return [
+        Math.cos(around) * waist,
+        side * polar * (0.12 + 0.88 * stretch),
+        Math.sin(around) * waist
+      ];
+    }
+
+    // Quantised orbit dashes: an equatorial ring plus one crossed ring.
+    if (lane < 20) {
+      var crossed = lane === 19;
+      var dashes = crossed ? 22 : 30;
+      var ringTilt = crossed ? tilt + 1.05 : tilt;
+      var dashAngle = Math.round(b * dashes) / dashes * Math.PI * 2 +
+        (a - 0.5) * 0.16 + (crossed ? 0.4 : 0);
+      var ringRadius = ring * (crossed ? 1.16 : 1) * (1 + (c - 0.5) * 0.05);
+      var flatX = Math.cos(dashAngle) * ringRadius;
+      var flatY = (c - 0.5) * 0.045;
+      var flatZ = Math.sin(dashAngle) * ringRadius;
+      var cosTilt = Math.cos(ringTilt);
+      var sinTilt = Math.sin(ringTilt);
+      return [flatX, flatY * cosTilt - flatZ * sinTilt, flatY * sinTilt + flatZ * cosTilt];
+    }
+
+    // Dense nucleus / observable core.
     if (lane < 22) {
-      var axis = -1.52 + a * 3.04;
-      if (lane === 20) axis = -1.52 + Math.round(a * 16) / 16 * 3.04;
-      var thorax = Math.exp(-Math.pow((axis + 0.02) / 0.44, 2)) * 0.16;
-      var neck = Math.exp(-Math.pow((axis + 1.06) / 0.27, 2)) * 0.1;
-      var bodyRadius = 0.034 + thorax + neck;
-      if (lane === 21) bodyRadius *= 0.24;
-      var bodyTheta = b * Math.PI * 2 + lane * 0.63;
+      var coreTheta = a * Math.PI * 2;
+      var corePhi = Math.acos(1 - 2 * b);
+      var coreRadius = 0.16 * (0.7 + c * 0.45);
       return [
-        Math.cos(bodyTheta) * bodyRadius + Math.sin(axis * 2.35) * bodyFlex * 0.035,
-        axis,
-        Math.sin(bodyTheta) * bodyRadius * (0.92 + dihedral * 0.32)
+        Math.cos(coreTheta) * Math.sin(corePhi) * coreRadius,
+        Math.cos(corePhi) * coreRadius,
+        Math.sin(coreTheta) * Math.sin(corePhi) * coreRadius * 0.95
       ];
     }
 
-    // Ellipsoidal head / observable core.
+    // Sparse probability halo.
     if (lane === 22) {
-      var headTheta = a * Math.PI * 2;
-      var headPhi = Math.acos(1 - 2 * b);
-      var headRadius = 0.15 * (0.82 + c * 0.18);
+      var haloTheta = a * Math.PI * 2;
+      var haloPhi = Math.acos(1 - 2 * b);
+      var haloRadius = halo * (0.35 + Math.pow(c, 1.6) * 0.65);
       return [
-        Math.cos(headTheta) * Math.sin(headPhi) * headRadius,
-        -1.34 + Math.cos(headPhi) * headRadius * 0.82,
-        Math.sin(headTheta) * Math.sin(headPhi) * headRadius * 0.9
+        Math.cos(haloTheta) * Math.sin(haloPhi) * haloRadius,
+        Math.cos(haloPhi) * haloRadius * 0.82,
+        Math.sin(haloTheta) * Math.sin(haloPhi) * haloRadius
       ];
     }
 
-    // Sparse root rails lock each wing visually to the central thorax.
-    var rootWing = Math.floor(i / 24) % 4;
-    var rootSide = rootWing % 2 ? 1 : -1;
-    var rootFore = rootWing < 2 ? -1 : 1;
-    var rootReach = 0.12 + a * 0.48;
+    // Quantization-axis filament threading the whole state.
     return [
-      rootSide * (0.03 + rootReach * 1.05),
-      rootFore * (0.035 + sweep * rootReach * 0.22) + (b - 0.5) * 0.07,
-      rootSide * dihedral * rootReach * 0.22 + (c - 0.5) * 0.045
+      (b - 0.5) * 0.05,
+      (a - 0.5) * 2 * polar * 1.12,
+      (c - 0.5) * 0.05
     ];
   }
 
-  // 00 — an open, four-wing probability body with a persistent axial spine.
+  // 00 — settled orbital superposition.
   formations.push(makeFormation(function (i, u, a, b, c) {
-    return wingedFieldPoint(i, a, b, c, 0.96, 0.78, 0.12, 0.18, 0);
+    return orbitalFieldPoint(i, a, b, c, 1.3, 1.5, 1.05, 0.16, 2.15);
   }));
 
   // 01 — coupled wavefunctions / double helix.
@@ -313,14 +323,14 @@
     return [Math.cos(angle) * radius, Math.sin(angle) * radius, Math.sin(angle * 2 + b) * 0.23 * (ring / 4)];
   }));
 
-  // Opening A — the same field expands and flexes without losing its anatomy.
+  // Opening A — the state blooms: lobes stretch, orbits widen and tilt.
   openingFormations.push(makeFormation(function (i, u, a, b, c) {
-    return wingedFieldPoint(i, a, b, c, 1.12, 0.94, 0.2, 0.28, 0.08);
+    return orbitalFieldPoint(i, a, b, c, 1.68, 1.78, 1.32, 0.5, 2.6);
   }));
 
-  // Opening B — a swept, deeper pose that remains bilaterally legible.
+  // Opening B — partial collapse: lobes draw in, the orbit swings upright.
   openingFormations.push(makeFormation(function (i, u, a, b, c) {
-    return wingedFieldPoint(i, a, b, c, 1, 0.58, 0.38, 0.2, -0.06);
+    return orbitalFieldPoint(i, a, b, c, 0.92, 1.12, 1.55, 1.02, 1.7);
   }));
 
   function makeGlyph(char, weight) {
@@ -433,6 +443,11 @@
       var openingBounds = openingNode.getBoundingClientRect();
       openingStart = openingBounds.top + window.scrollY;
       openingTravel = Math.max(1, openingBounds.height - height);
+    }
+    // The opening chain lands on formation 1, so the hero stop must agree —
+    // otherwise the first scroll past the hero lerps abruptly back toward 0.
+    if (hasOpening && !reducedMotion && sectionStops.length && sectionStops[0].index === 0) {
+      sectionStops[0].index = 1;
     }
     if (!sectionStops.length) sectionStops = [{ index: 0, center: height * 0.5 }];
   }
@@ -580,6 +595,13 @@
     var packetCenterZ = Math.sin(motionTime * 0.18 + 1.4) * 0.38;
     var openingShockProgress = clamp((openingPhase - 0.2) / 0.58, 0, 1);
     var openingShockFront = 0.12 + openingShockProgress * 2.4;
+    // Formation 0 internal motion, shared across its particles per frame.
+    var precession = motionTime * 0.32;
+    var cosPrecess = Math.cos(precession);
+    var sinPrecess = Math.sin(precession);
+    var orbitSpin = -motionTime * 0.55 - signedScrollPhase * 0.4;
+    var cosOrbit = Math.cos(orbitSpin);
+    var sinOrbit = Math.sin(orbitSpin);
     var particleStride = quality === 0 ? 2 : 1;
     var splatSpread = quality === 0 ? 0 : 1;
     var detailEffects = quality === 2;
@@ -639,21 +661,30 @@
 
         // Each settled section has its own continuously evolving quantum current.
         if (activeFormation === 0) {
-          var lobeReach = Math.min(2.35, Math.abs(x));
-          var axialRadius = Math.sqrt(y * y + z * z) + 0.08;
-          var lobePhase = lobeReach * 4.1 -
-            motionTime * (0.64 + openingDrive * 0.48) -
-            signedScrollPhase * 0.52 + phase[i] * 0.04;
-          var circulation = (0.024 + openingDrive * 0.04) *
-            Math.sin(lobePhase) * Math.exp(-x * x * 0.07) * formationSettle;
-          var oldY = y;
-          y += -z / axialRadius * circulation;
-          z += oldY / axialRadius * circulation;
-          x += Math.cos(lobePhase * 0.71) * (0.012 + openingDrive * 0.02) * formationSettle;
-          // Wing beat: a travelling flap runs root-to-tip through the span.
-          var flapPhase = motionTime * 1.9 - lobeReach * 1.15;
-          z += Math.sin(flapPhase) * lobeReach * (0.062 + openingDrive * 0.05) * formationSettle;
-          y += Math.cos(flapPhase) * lobeReach * 0.016 * formationSettle;
+          var lane24 = i % 24;
+          if (lane24 < 10) {
+            // Cloverleaf lobes precess about the axis and breathe.
+            var precessX = x * cosPrecess - z * sinPrecess;
+            z = x * sinPrecess + z * cosPrecess;
+            x = precessX;
+            var pulse = 1 + Math.sin(motionTime * 1.15 + phase[i] * 0.6) *
+              (0.05 + openingDrive * 0.07) * formationSettle;
+            x *= pulse;
+            y *= pulse;
+          } else if (lane24 < 14) {
+            // Polar lobes pulse alternately, a Rabi-like beat.
+            y *= 1 + Math.sin(motionTime * 0.95 + (y > 0 ? 0 : Math.PI)) *
+              (0.055 + openingDrive * 0.05) * formationSettle;
+          } else if (lane24 < 20) {
+            // Orbit dashes circulate against the precession.
+            var orbitX = x * cosOrbit - z * sinOrbit;
+            z = x * sinOrbit + z * cosOrbit;
+            x = orbitX;
+          } else if (lane24 === 23) {
+            // Standing wave along the quantization axis.
+            x += Math.sin(y * 5.2 - motionTime * 2.1) * 0.05 * formationSettle;
+            z += Math.cos(y * 4.4 - motionTime * 1.7) * 0.035 * formationSettle;
+          }
         } else if (activeFormation === 1) {
           x += Math.cos(motionTime * 0.92 + y * 2.35 + phase[i] * 0.14) * 0.085 * formationSettle;
           z += Math.sin(motionTime * 0.92 + y * 2.35 + phase[i] * 0.14) * 0.085 * formationSettle;
@@ -819,10 +850,10 @@
         packet * 0.34 + radialDensity * 0.16 + autoBand * 0.42 +
         localMorph * 0.035 + scrollEnergy * 0.022 +
         openingEnergy * 0.14 + openingBand * 0.24, 0, 1);
+      // Orbit dashes, nucleus, and axis stay legible through the opening.
       var topologyLane = i % 24;
       var structuralSample = hasOpening && openingPhase > 0.12 && openingPhase < 0.9 &&
-        ((topologyLane >= 8 && topologyLane < 16) ||
-          topologyLane === 20 || topologyLane === 21 || topologyLane === 23);
+        ((topologyLane >= 14 && topologyLane < 22) || topologyLane === 23);
       if (structuralSample) probability = Math.max(probability, 0.52 + openingEnergy * 0.14);
 
       var depth = clamp((perspective - 0.58) / 0.8, 0, 1);
