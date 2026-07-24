@@ -137,6 +137,7 @@
       }
       if (ScrollTrigger) ScrollTrigger.refresh();
       if (window.quantumField) window.quantumField.refresh();
+      remeasureRail();
     }, 60);
   }
 
@@ -657,19 +658,34 @@
   var railProgress = doc.getElementById("railProgress");
   var activeScene = null;
 
+  // Scene extents in document space, cached so the scroll handler does no
+  // layout reads. Eight getBoundingClientRect calls per frame forced a style
+  // recalc on every scroll tick, which is exactly the work that makes a
+  // smooth-scrolled page feel gritty.
+  var sceneBounds = [];
+  var scrollRange = 1;
+  function measureScenes() {
+    var offset = window.scrollY;
+    sceneBounds = scenes.map(function (scene) {
+      var bounds = scene.getBoundingClientRect();
+      return { node: scene, top: bounds.top + offset, bottom: bounds.bottom + offset };
+    });
+    scrollRange = Math.max(1, doc.documentElement.scrollHeight - window.innerHeight);
+  }
+
   function updateRail() {
-    var focus = window.innerHeight * 0.46;
+    var focus = window.scrollY + window.innerHeight * 0.46;
     var best = null;
     var distance = Infinity;
-    scenes.forEach(function (scene) {
-      var bounds = scene.getBoundingClientRect();
-      var inside = bounds.top <= focus && bounds.bottom >= focus;
-      var d = inside ? 0 : Math.min(Math.abs(bounds.top - focus), Math.abs(bounds.bottom - focus));
+    for (var i = 0; i < sceneBounds.length; i += 1) {
+      var entry = sceneBounds[i];
+      var inside = entry.top <= focus && entry.bottom >= focus;
+      var d = inside ? 0 : Math.min(Math.abs(entry.top - focus), Math.abs(entry.bottom - focus));
       if (d < distance) {
-        best = scene;
+        best = entry.node;
         distance = d;
       }
-    });
+    }
     if (best && best !== activeScene) {
       activeScene = best;
       if (railCurrent) railCurrent.textContent = best.getAttribute("data-section");
@@ -680,11 +696,10 @@
       }
       scenes.forEach(function (scene) { scene.classList.toggle("is-active-scene", scene === best); });
     }
-    var max = Math.max(1, doc.documentElement.scrollHeight - window.innerHeight);
-    var progress = clamp(window.scrollY / max, 0, 1);
+    var progress = clamp(window.scrollY / scrollRange, 0, 1);
     if (railProgress) railProgress.style.transform = "scaleY(" + progress.toFixed(4) + ")";
   }
-  // Coalesce rail updates to one layout read per frame.
+  // Coalesce rail updates to one frame.
   var railFrame = 0;
   function scheduleRail() {
     if (!railFrame) {
@@ -694,9 +709,13 @@
       });
     }
   }
+  function remeasureRail() {
+    measureScenes();
+    updateRail();
+  }
   window.addEventListener("scroll", scheduleRail, { passive: true });
-  window.addEventListener("resize", scheduleRail, { passive: true });
-  updateRail();
+  window.addEventListener("resize", remeasureRail, { passive: true });
+  remeasureRail();
 
   // Project filter.
   qsa("[data-filter]").forEach(function (button) {
@@ -717,6 +736,7 @@
               onComplete: function () {
                 if (ScrollTrigger) ScrollTrigger.refresh();
                 if (window.quantumField) window.quantumField.refresh();
+                remeasureRail();
               }
             });
           } else {
@@ -726,11 +746,13 @@
                 row.hidden = true;
                 if (ScrollTrigger) ScrollTrigger.refresh();
                 if (window.quantumField) window.quantumField.refresh();
+                remeasureRail();
               }
             });
           }
         } else {
           row.hidden = !show;
+          remeasureRail();
         }
       });
     });
@@ -951,74 +973,178 @@
     var ringX = 0;
     var ringY = 0;
     var cursorFrame = 0;
+    // The ring chases the dot with an exponential ease, so it only needs to
+    // run while it is actually catching up. Parking the loop once it has
+    // settled keeps an idle page off the main thread instead of burning a
+    // rAF callback every frame for a cursor nobody is moving.
     function drawCursor() {
-      cursorFrame = requestAnimationFrame(drawCursor);
       ringX += (cursorX - ringX) * 0.16;
       ringY += (cursorY - ringY) * 0.16;
       cursorDot.style.transform = "translate3d(" + cursorX + "px," + cursorY + "px,0)";
       cursorRing.style.transform = "translate3d(" + ringX + "px," + ringY + "px,0)";
+      if (Math.abs(cursorX - ringX) > 0.1 || Math.abs(cursorY - ringY) > 0.1) {
+        cursorFrame = requestAnimationFrame(drawCursor);
+      } else {
+        cursorFrame = 0;
+      }
+    }
+    function requestCursorFrame() {
+      if (!cursorFrame) cursorFrame = requestAnimationFrame(drawCursor);
     }
     window.addEventListener("pointermove", function (event) {
       cursorX = event.clientX;
       cursorY = event.clientY;
       body.classList.add("cursor-ready");
+      requestCursorFrame();
     }, { passive: true });
     doc.addEventListener("pointerover", function (event) {
       var target = event.target.closest("a, button, [role='button'], canvas");
       cursorRing.classList.toggle("is-active", !!target);
       cursorRing.classList.toggle("is-open", !!event.target.closest("[data-cursor='open'], [data-project-open], [data-gallery-group]"));
     });
-    cursorFrame = requestAnimationFrame(drawCursor);
   }
 
   // Cross-page wipe.
-  var transitionSections = {
-    "#about": "01",
-    "#projects": "02",
-    "#figure": "03",
-    "#drawings": "04",
-    "#aerial": "05",
-    "#certifications": "06",
-    "#contact": "07"
+  //
+  // One route table is the single source of truth for what the wipe announces.
+  // Every entry point — teaser card, footer, menu — resolves through it, so the
+  // same destination always shows the same number and name no matter where the
+  // click came from. Nothing is read back from the markup, which is what used
+  // to let a page's own hard-coded number leak into an unrelated transition.
+  var SECTION_ROUTES = {
+    "#about": ["01", "About"],
+    "#projects": ["02", "Projects"],
+    "#figure": ["03", "Interactive figure"],
+    "#drawings": ["04", "Drawings + Misc."],
+    "#aerial": ["05", "Aerial"],
+    "#certifications": ["06", "Certifications"],
+    "#contact": ["07", "Contact"]
   };
+  var PAGE_ROUTES = {
+    "drawings.html": ["04", "Drawings + Misc."],
+    "aerial.html": ["05", "Aerial"]
+  };
+  var INDEX_ROUTE = ["00", "Index"];
 
-  function getTransitionSection(link, href) {
-    var explicit = link.getAttribute("data-transition-section");
-    if (explicit) return explicit;
+  function resolveRoute(link, href) {
+    var explicit = link && link.getAttribute("data-transition-section");
+    var destination;
     try {
-      var destination = new URL(href, window.location.href);
-      var page = destination.pathname.split("/").pop().toLowerCase();
-      if (page === "drawings.html") return "04";
-      if (page === "aerial.html") return "05";
-      if (!page || page === "index.html") {
-        return transitionSections[destination.hash.toLowerCase()] || "00";
-      }
+      destination = new URL(href, window.location.href);
     } catch (error) {
-      return "";
+      return { no: explicit || INDEX_ROUTE[0], name: INDEX_ROUTE[1], hash: "", samePage: false };
     }
-    return "";
+    var page = destination.pathname.split("/").pop().toLowerCase();
+    var hash = destination.hash.toLowerCase();
+    var here = window.location.pathname.split("/").pop().toLowerCase();
+    // Hash first: a fragment always names a section, whereas the page name is
+    // only meaningful when no fragment is present. Resolving the page first
+    // meant a bare "#contact" on drawings.html answered "04 / Drawings",
+    // silently labelling the transition with the page it was leaving.
+    var route = (hash && SECTION_ROUTES[hash]) || PAGE_ROUTES[page] || INDEX_ROUTE;
+    return {
+      no: explicit || route[0],
+      name: route[1],
+      hash: PAGE_ROUTES[page] && !hash ? "" : hash,
+      // A hash on the page we are already on never needs a document load.
+      samePage: !!hash && !PAGE_ROUTES[page] &&
+        (page === here || ((!page || page === "index.html") && (!here || here === "index.html")))
+    };
   }
 
-  qsa("[data-transition-link]").forEach(function (link) {
+  function paintWipe(route) {
+    var wipe = doc.querySelector(".page-wipe");
+    if (!wipe) return null;
+    var number = wipe.querySelector(".page-wipe__no");
+    var name = wipe.querySelector(".page-wipe__name");
+    if (number) number.textContent = route.no;
+    if (name) name.textContent = route.name;
+    return wipe;
+  }
+
+  function scrollToHash(hash) {
+    var target = hash && doc.querySelector(hash);
+    if (!target) {
+      window.scrollTo(0, 0);
+      return;
+    }
+    if (lenis && lenis.scrollTo) lenis.scrollTo(target, { immediate: true, force: true });
+    else target.scrollIntoView({ block: "start" });
+    if (history.replaceState) history.replaceState(null, "", hash);
+  }
+
+  function runTransition(href, route) {
+    var wipe = paintWipe(route);
+    if (!wipe || !gsap || reduceMotion) {
+      if (route.samePage) scrollToHash(route.hash);
+      else window.location.href = href;
+      return;
+    }
+    wipe.classList.add("is-active");
+    gsap.killTweensOf(wipe);
+    gsap.fromTo(wipe, { clipPath: "inset(100% 0 0 0)" }, {
+      clipPath: "inset(0% 0 0 0)",
+      duration: route.samePage ? 0.62 : 0.75,
+      ease: "power4.inOut",
+      onComplete: function () {
+        if (!route.samePage) {
+          window.location.href = href;
+          return;
+        }
+        // In-page destinations reuse the identical treatment, then lift again
+        // so menu navigation reads the same whether or not a document loads.
+        scrollToHash(route.hash);
+        if (ScrollTrigger) ScrollTrigger.refresh();
+        if (window.quantumField) window.quantumField.refresh();
+        remeasureRail();
+        gsap.to(wipe, {
+          clipPath: "inset(0 0 100% 0)",
+          duration: 0.68,
+          ease: "power4.inOut",
+          delay: 0.12,
+          onComplete: function () {
+            wipe.classList.remove("is-active");
+            wipe.style.clipPath = "inset(100% 0 0 0)";
+          }
+        });
+      }
+    });
+  }
+
+  function bindTransition(link) {
+    if (link.dataset.transitionBound) return;
+    link.dataset.transitionBound = "true";
     link.addEventListener("click", function (event) {
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target === "_blank") return;
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey ||
+          event.shiftKey || event.altKey || link.target === "_blank") return;
       var href = link.getAttribute("href");
-      if (!href || href.charAt(0) === "#") return;
+      if (!href) return;
+      // Anything leaving the site keeps the browser's own behaviour.
+      if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.indexOf("//") === 0) return;
+      var route = resolveRoute(link, href);
+      if (!route.samePage && href.charAt(0) === "#") return;
       event.preventDefault();
       setMenu(false);
-      var wipe = doc.querySelector(".page-wipe");
-      var wipeNumber = wipe && wipe.querySelector("span");
-      var destinationSection = getTransitionSection(link, href);
-      if (wipeNumber && destinationSection) wipeNumber.textContent = destinationSection;
-      if (!wipe || !gsap || reduceMotion) {
-        window.location.href = href;
-        return;
-      }
-      wipe.classList.add("is-active");
-      gsap.fromTo(wipe, { clipPath: "inset(100% 0 0 0)" }, {
-        clipPath: "inset(0% 0 0 0)", duration: 0.75, ease: "power4.inOut",
-        onComplete: function () { window.location.href = href; }
-      });
+      runTransition(href, route);
+    });
+  }
+
+  qsa("[data-transition-link]").forEach(bindTransition);
+  // Menu entries that point at a section of the current page get the same
+  // treatment; previously they fell through to a raw anchor jump, which is why
+  // the menu felt like a different piece of software from the rest of the site.
+  if (menuOverlay) qsa("[data-menu-link]", menuOverlay).forEach(bindTransition);
+
+  // Footer section links stay lightweight — no wipe — but they route through
+  // Lenis so they glide instead of teleporting under the smooth-scroll layer.
+  qsa('.site-footer a[href^="#"]').forEach(function (link) {
+    link.addEventListener("click", function (event) {
+      var hash = link.getAttribute("href");
+      var target = hash && hash.length > 1 && doc.querySelector(hash);
+      if (!target || !lenis || !lenis.scrollTo || reduceMotion) return;
+      event.preventDefault();
+      lenis.scrollTo(target, { offset: 0 });
+      if (history.replaceState) history.replaceState(null, "", hash);
     });
   });
 
@@ -1035,6 +1161,6 @@
   window.addEventListener("load", function () {
     if (ScrollTrigger) ScrollTrigger.refresh();
     if (window.quantumField) window.quantumField.refresh();
-    updateRail();
+    remeasureRail();
   });
 })();
