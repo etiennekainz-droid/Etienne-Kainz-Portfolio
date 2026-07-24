@@ -14,7 +14,7 @@
   var medium = window.matchMedia("(min-width: 761px) and (max-width: 1180px)").matches;
   var particleCount = reducedMotion ?
     (compact ? 300 : medium ? 500 : 650) :
-    (compact ? 760 : medium ? 1400 : 2200);
+    (compact ? 820 : medium ? 1500 : 2300);
   var formationCount = 8;
   var formations = [];
   var openingFormations = [];
@@ -22,6 +22,8 @@
   var seedA = new Float32Array(particleCount);
   var seedB = new Float32Array(particleCount);
   var seedC = new Float32Array(particleCount);
+  var prevScreenX = new Float32Array(particleCount);
+  var prevScreenY = new Float32Array(particleCount);
   var sectionStops = [];
   var width = 1;
   var height = 1;
@@ -32,10 +34,11 @@
   var pageVisible = document.visibilityState !== "hidden";
   var fieldOpacity = 1;
   var scrollState = { a: 0, b: 0, mix: 0, global: 0 };
-  var pointer = { x: -9999, y: -9999, active: false, moved: 0 };
+  var pointer = { x: -9999, y: -9999, active: false, moved: 0, vx: 0, vy: 0, swirl: 0 };
   var ripples = [];
   var glyphs = [];
   var scrollEnergy = 0;
+  var scrollBias = 0;
   var signedScrollPhase = 0;
   var lastScrollY = window.scrollY;
   var lastScrollStamp = performance.now();
@@ -45,7 +48,22 @@
   var openingStart = 0;
   var openingTravel = 1;
   var renderCostAverage = 6;
-  var detailEffects = true;
+
+  // Staged quality governor: 2 = full detail, 1 = no echo effects,
+  // 0 = particle stride + single-cell splat. Hysteresis avoids flapping.
+  var quality = 2;
+
+  // The Dragonfly-inspired ASCII raster: projected probability density is
+  // accumulated on a fixed character grid every frame, then rendered as a
+  // brightness ramp of binary glyphs with flow-aligned direction marks.
+  var cellSize = compact ? 15 : 13;
+  var rasterCols = 0;
+  var rasterRows = 0;
+  var rasterDensity = null;
+  var rasterFlowX = null;
+  var rasterFlowY = null;
+  var rampSprites = [];
+  var directionSprites = [];
 
   function hash(n) {
     var x = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
@@ -89,6 +107,8 @@
     seedB[seedIndex] = hash(seedIndex + 1011);
     seedC[seedIndex] = hash(seedIndex + 9001);
     phase[seedIndex] = hash(seedIndex + 501) * Math.PI * 2;
+    prevScreenX[seedIndex] = -9999;
+    prevScreenY[seedIndex] = -9999;
   }
 
   // One semantic topology drives every opening pose. Wing, vein, body, head,
@@ -317,12 +337,60 @@
     return sprite;
   }
 
-  glyphs = [
-    makeGlyph("0", "400"),
-    makeGlyph("1", "400"),
-    makeGlyph("0", "500"),
-    makeGlyph("1", "500")
-  ];
+  // Scatter marks read as instrument samples, not code: crosses for the
+  // quiver body, a rare ψ observable drifting through the field.
+  var psiSprite;
+  function buildParticleSprites() {
+    glyphs = [
+      makeGlyph("+", "400"),
+      makeGlyph("×", "400"),
+      makeGlyph("+", "500"),
+      makeGlyph("×", "500")
+    ];
+    psiSprite = makeGlyph("ψ", "400");
+  }
+  buildParticleSprites();
+
+  function makeRasterGlyph(char, weight, scale) {
+    var device = Math.max(4, Math.round(cellSize * dpr));
+    var sprite = document.createElement("canvas");
+    sprite.width = device;
+    sprite.height = device;
+    var spriteContext = sprite.getContext("2d");
+    spriteContext.clearRect(0, 0, device, device);
+    spriteContext.fillStyle = "#000";
+    spriteContext.textAlign = "center";
+    spriteContext.textBaseline = "middle";
+    spriteContext.font = weight + " " + (device * scale).toFixed(1) +
+      "px 'IBM Plex Mono', ui-monospace, monospace";
+    spriteContext.fillText(char, device * 0.5, device * 0.54);
+    return sprite;
+  }
+
+  function buildRasterSprites() {
+    // Brightness ramp, faint to solid — mesh nodes and sample crosses first,
+    // then FEM/tolerance marks in the dense core, like a numerical field plot.
+    rampSprites = [
+      makeRasterGlyph("·", "400", 1.05),
+      makeRasterGlyph(":", "400", 0.92),
+      makeRasterGlyph("+", "400", 0.98),
+      makeRasterGlyph("×", "400", 0.98),
+      makeRasterGlyph("Δ", "500", 0.92),
+      makeRasterGlyph("±", "500", 0.98)
+    ];
+    // Flow-aligned marks, indexed by quantised velocity angle (8 sectors,
+    // opposite directions share slashes; horizontal keeps its sign).
+    directionSprites = [
+      makeRasterGlyph(">", "400", 0.94),
+      makeRasterGlyph("/", "400", 0.98),
+      makeRasterGlyph("|", "400", 0.98),
+      makeRasterGlyph("\\", "400", 0.98),
+      makeRasterGlyph("<", "400", 0.94),
+      makeRasterGlyph("/", "400", 0.98),
+      makeRasterGlyph("|", "400", 0.98),
+      makeRasterGlyph("\\", "400", 0.98)
+    ];
+  }
 
   function resize() {
     var bounds = canvas.getBoundingClientRect();
@@ -334,6 +402,13 @@
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    rasterCols = Math.max(1, Math.ceil(width / cellSize));
+    rasterRows = Math.max(1, Math.ceil(height / cellSize));
+    var cellCount = rasterCols * rasterRows;
+    rasterDensity = new Float32Array(cellCount);
+    rasterFlowX = new Float32Array(cellCount);
+    rasterFlowY = new Float32Array(cellCount);
+    buildRasterSprites();
     measureSections();
     if (reducedMotion && sectionStops.length) {
       scrollState.a = sectionStops[0].index;
@@ -362,13 +437,14 @@
     if (!sectionStops.length) sectionStops = [{ index: 0, center: height * 0.5 }];
   }
 
-  function readScroll() {
+  function readScroll(dtSeconds) {
     var focus = window.scrollY + height * 0.52;
     var pageMax = Math.max(1, document.documentElement.scrollHeight - height);
     scrollState.global = clamp(window.scrollY / pageMax, 0, 1);
     if (hasOpening) {
       openingTarget = reducedMotion ? 1 : clamp((window.scrollY - openingStart) / openingTravel, 0, 1);
-      openingProgress += (openingTarget - openingProgress) * 0.1;
+      openingProgress += (openingTarget - openingProgress) *
+        (1 - Math.exp(-dtSeconds * 7.2));
       if (openingProgress < 0.995) {
         scrollState.a = 0;
         scrollState.b = 0;
@@ -408,14 +484,14 @@
   function render(now) {
     frame = 0;
     if (!pageVisible) return;
-    if (!reducedMotion) readScroll();
 
-    if (!reducedMotion && now - lastFrame < (compact ? 15 : 14)) {
-      requestFrame();
-      return;
-    }
+    var dt = clamp(now - lastFrame, 1, 50);
     lastFrame = now;
-    scrollEnergy *= 0.94;
+    var dtSeconds = dt / 1000;
+    if (!reducedMotion) readScroll(dtSeconds);
+    scrollEnergy *= Math.exp(-dtSeconds * 4.1);
+    scrollBias *= Math.exp(-dtSeconds * 3.4);
+    pointer.swirl *= Math.exp(-dtSeconds * 2.6);
     var renderStarted = performance.now();
 
     ctx.clearRect(0, 0, width, height);
@@ -432,7 +508,7 @@
     var peakOpeningScale = compact ? 1.2 : medium ? 1.32 : 1.46;
     var openingScale = 1 + (peakOpeningScale - 1) * openingRamp * (1 - openingSettle);
     var targetOpacity = body.classList.contains("wave-active") ? 0.22 : 1;
-    fieldOpacity += (targetOpacity - fieldOpacity) * 0.055;
+    fieldOpacity += (targetOpacity - fieldOpacity) * (1 - Math.exp(-dtSeconds * 3.6));
     var centerX = width * (compact ? 0.54 : 0.51) +
       (reducedMotion ? 0 :
         Math.sin(motionTime * 0.14 + scrollState.global * 3.2) * width * 0.014 +
@@ -445,17 +521,21 @@
         (1 - ease(clamp((openingPhase - 0.67) / 0.28, 0, 1))));
     var baseScale = Math.min(width, height) * (compact ? 0.43 : 0.405) *
       openingScale *
-      (reducedMotion ? 1 : 1 + Math.sin(motionTime * 0.38) * 0.018 + scrollEnergy * 0.018);
+      (reducedMotion ? 1 : 1 + Math.sin(motionTime * 0.38) * 0.018 + scrollEnergy * 0.022);
     var yaw = -0.25 + scrollState.global * 0.94 +
       (reducedMotion ? 0 :
-        Math.sin(motionTime * 0.17) * 0.06 + scrollEnergy * 0.045 +
+        Math.sin(motionTime * 0.17) * 0.085 + scrollEnergy * 0.05 +
         openingEnergy * (0.3 + Math.sin(openingPhase * Math.PI * 2) * 0.07));
     var pitch = 0.07 + (reducedMotion ? 0 :
-      Math.cos(motionTime * 0.13) * 0.04 + openingEnergy * (-0.08 + openingPhase * 0.13));
+      Math.cos(motionTime * 0.13) * 0.048 + openingEnergy * (-0.08 + openingPhase * 0.13));
+    // The whole projection banks slightly with scroll momentum.
+    var roll = reducedMotion ? 0 : Math.sin(motionTime * 0.11) * 0.018 + scrollBias * 0.055;
     var cosYaw = Math.cos(yaw);
     var sinYaw = Math.sin(yaw);
     var cosPitch = Math.cos(pitch);
     var sinPitch = Math.sin(pitch);
+    var cosRoll = Math.cos(roll);
+    var sinRoll = Math.sin(roll);
     var pointsA = formations[scrollState.a];
     var pointsB = formations[scrollState.b];
     var mix = scrollState.mix;
@@ -477,11 +557,15 @@
       activeFormation = 0;
     }
     var morphEnergy = reducedMotion ? 0 : Math.sin(mix * Math.PI);
+    var morphStagger = 0.44;
+    var morphActive = mix > 0.0001 && mix < 0.9999;
     var formationSettle = 1 - morphEnergy * 0.34;
     var intro = ease(introProgress);
     var tick = Math.floor(motionTime * 2.2);
+    var rasterTick = reducedMotion ? 7 : Math.floor(time * 1.6);
     var pointerAge = Math.max(0, time - pointer.moved);
-    var proximityStrength = !reducedMotion && pointer.active ? Math.exp(-pointerAge * 1.55) : 0;
+    var proximityStrength = !reducedMotion && pointer.active ? Math.exp(-pointerAge * 1.35) : 0;
+    var pointerRadius = compact ? 112 : 172;
     var eventPeriod = compact ? 14.5 : 13.2;
     var eventSerial = Math.floor(time / eventPeriod);
     var eventAge = time - eventSerial * eventPeriod;
@@ -496,6 +580,12 @@
     var packetCenterZ = Math.sin(motionTime * 0.18 + 1.4) * 0.38;
     var openingShockProgress = clamp((openingPhase - 0.2) / 0.58, 0, 1);
     var openingShockFront = 0.12 + openingShockProgress * 2.4;
+    var particleStride = quality === 0 ? 2 : 1;
+    var splatSpread = quality === 0 ? 0 : 1;
+    var detailEffects = quality === 2;
+    // Density normalisation keeps the raster exposure stable when the
+    // governor halves the particle budget.
+    var densityGain = particleStride;
 
     var activeRipples = [];
     for (var rippleIndex = ripples.length - 1; rippleIndex >= 0; rippleIndex -= 1) {
@@ -503,7 +593,7 @@
       if (rippleAge > 1.65) {
         ripples.splice(rippleIndex, 1);
       } else if (!reducedMotion) {
-        var rippleFront = rippleAge * (compact ? 170 : 230);
+        var rippleFront = rippleAge * (compact ? 170 : 235);
         var rippleWidth = 38;
         activeRipples.push({
           x: ripples[rippleIndex].x,
@@ -516,14 +606,37 @@
       }
     }
 
-    for (var i = 0; i < particleCount; i += 1) {
+    rasterDensity.fill(0);
+    rasterFlowX.fill(0);
+    rasterFlowY.fill(0);
+
+    for (var i = 0; i < particleCount; i += particleStride) {
       var offset = i * 3;
-      var x = pointsA[offset] + (pointsB[offset] - pointsA[offset]) * mix;
-      var y = pointsA[offset + 1] + (pointsB[offset + 1] - pointsA[offset + 1]) * mix;
-      var z = pointsA[offset + 2] + (pointsB[offset + 2] - pointsA[offset + 2]) * mix;
+      var localMix = mix;
+      if (morphActive) {
+        // Each particle joins the morph on its own seeded delay, so
+        // formations reassemble as a travelling swarm wave.
+        localMix = ease(clamp((mix - seedB[i] * morphStagger) / (1 - morphStagger), 0, 1));
+      }
+      var x = pointsA[offset] + (pointsB[offset] - pointsA[offset]) * localMix;
+      var y = pointsA[offset + 1] + (pointsB[offset + 1] - pointsA[offset + 1]) * localMix;
+      var z = pointsA[offset + 2] + (pointsB[offset + 2] - pointsA[offset + 2]) * localMix;
+      var localMorph = morphActive ? Math.sin(localMix * Math.PI) : 0;
       var openingBand = 0;
 
       if (!reducedMotion) {
+        // Mid-morph the state decoheres through a seeded vortex before it
+        // settles into the next observable.
+        if (localMorph > 0.004) {
+          var swirlAngle = localMorph * (seedC[i] - 0.5) * 1.7;
+          var swirlCos = Math.cos(swirlAngle);
+          var swirlSin = Math.sin(swirlAngle);
+          var swirlX = x * swirlCos - y * swirlSin;
+          y = x * swirlSin + y * swirlCos;
+          x = swirlX;
+          z += localMorph * (seedA[i] - 0.5) * 0.3;
+        }
+
         // Each settled section has its own continuously evolving quantum current.
         if (activeFormation === 0) {
           var lobeReach = Math.min(2.35, Math.abs(x));
@@ -537,6 +650,10 @@
           y += -z / axialRadius * circulation;
           z += oldY / axialRadius * circulation;
           x += Math.cos(lobePhase * 0.71) * (0.012 + openingDrive * 0.02) * formationSettle;
+          // Wing beat: a travelling flap runs root-to-tip through the span.
+          var flapPhase = motionTime * 1.9 - lobeReach * 1.15;
+          z += Math.sin(flapPhase) * lobeReach * (0.062 + openingDrive * 0.05) * formationSettle;
+          y += Math.cos(flapPhase) * lobeReach * 0.016 * formationSettle;
         } else if (activeFormation === 1) {
           x += Math.cos(motionTime * 0.92 + y * 2.35 + phase[i] * 0.14) * 0.085 * formationSettle;
           z += Math.sin(motionTime * 0.92 + y * 2.35 + phase[i] * 0.14) * 0.085 * formationSettle;
@@ -575,8 +692,8 @@
         var currentRadius = Math.sqrt(x * x + y * y) + 0.16;
         var currentPhase = phase[i] + motionTime * (0.5 + seedA[i] * 0.34) +
           x * 1.72 - y * 1.08 + z * 0.82 + signedScrollPhase * 0.34;
-        var flow = (0.022 + seedC[i] * 0.042) *
-          (0.82 + morphEnergy * 0.24 + scrollEnergy * 0.18 + openingDrive * 0.3);
+        var flow = (0.024 + seedC[i] * 0.046) *
+          (0.82 + morphEnergy * 0.24 + scrollEnergy * 0.22 + openingDrive * 0.3);
         var currentX = x;
         x += -y / currentRadius * flow * (0.56 + Math.sin(currentPhase) * 0.44);
         y += currentX / currentRadius * flow * (0.56 + Math.cos(currentPhase * 0.91) * 0.44);
@@ -584,11 +701,11 @@
 
         // During a scroll morph, the state briefly decoheres before settling.
         x += Math.sin(motionTime * 1.22 + phase[i] + y * 3.8) *
-          morphEnergy * (0.011 + seedA[i] * 0.016);
+          localMorph * (0.011 + seedA[i] * 0.016);
         y += Math.cos(motionTime * 1.02 + phase[i] * 1.17 + z * 3.2) *
-          morphEnergy * (0.01 + seedB[i] * 0.015);
+          localMorph * (0.01 + seedB[i] * 0.015);
         z += Math.sin(motionTime * 0.94 + phase[i] * 0.81 + x * 2.7) *
-          morphEnergy * (0.012 + seedC[i] * 0.018);
+          localMorph * (0.012 + seedC[i] * 0.018);
 
         // A reversible measurement front travels from the core to the outer
         // probability shell during the field-only scroll beat.
@@ -619,6 +736,11 @@
       var rotatedZ = x * sinYaw + z * cosYaw;
       var rotatedY = y * cosPitch - rotatedZ * sinPitch;
       rotatedZ = y * sinPitch + rotatedZ * cosPitch;
+      if (roll) {
+        var rolledX = rotatedX * cosRoll - rotatedY * sinRoll;
+        rotatedY = rotatedX * sinRoll + rotatedY * cosRoll;
+        rotatedX = rolledX;
+      }
       var perspective = 2.85 / (3.1 + rotatedZ);
       var px = centerX + rotatedX * baseScale * perspective;
       var py = centerY + rotatedY * baseScale * perspective;
@@ -627,14 +749,16 @@
       if (proximityStrength > 0.015) {
         var dx = px - pointer.x;
         var dy = py - pointer.y;
-        var radius = compact ? 94 : 138;
         var distanceSquared = dx * dx + dy * dy;
-        if (distanceSquared < radius * radius && distanceSquared > 0.25) {
+        if (distanceSquared < pointerRadius * pointerRadius && distanceSquared > 0.25) {
           var distance = Math.sqrt(distanceSquared);
-          var influence = Math.pow(1 - distance / radius, 2) * proximityStrength;
+          var influence = Math.pow(1 - distance / pointerRadius, 2) * proximityStrength;
           var wave = Math.sin(distance * 0.105 - time * 5.2);
-          var radialPush = influence * (9 + wave * 5);
-          var phaseShear = influence * (6 + Math.cos(distance * 0.07 - time * 4.4) * 3);
+          var radialPush = influence * (10 + wave * 6);
+          // Pointer velocity feeds a decaying vortex: sweeping the field
+          // drags a visible swirl of probability behind the cursor.
+          var phaseShear = influence * (6 + Math.cos(distance * 0.07 - time * 4.4) * 3 +
+            pointer.swirl * 26);
           px += dx / distance * radialPush - dy / distance * phaseShear;
           py += dy / distance * radialPush + dx / distance * phaseShear;
         }
@@ -649,8 +773,8 @@
         var radial = Math.sqrt(radialSquared);
         var band = Math.exp(-Math.pow((radial - ripple.front) / 38, 2)) * ripple.decay;
         if (band > 0.005 && radial > 0.5) {
-          px += rdx / radial * band * 13;
-          py += rdy / radial * band * 13;
+          px += rdx / radial * band * 14;
+          py += rdy / radial * band * 14;
         }
       }
 
@@ -669,7 +793,11 @@
         }
       }
 
-      if (px < -24 || px > width + 24 || py < -24 || py > height + 24) continue;
+      if (px < -24 || px > width + 24 || py < -24 || py > height + 24) {
+        prevScreenX[i] = px;
+        prevScreenY[i] = py;
+        continue;
+      }
 
       // |ψ|² from three coherent plane waves plus a moving Gaussian packet.
       var phaseTime = motionTime * (1 + scrollEnergy * 0.16 + openingDrive * 0.22);
@@ -689,23 +817,52 @@
       var radialDensity = Math.exp(-(x * x + y * y) * 0.105);
       var probability = clamp(0.055 + Math.pow(psiSquared, 0.68) * 0.68 +
         packet * 0.34 + radialDensity * 0.16 + autoBand * 0.42 +
-        morphEnergy * 0.035 + scrollEnergy * 0.022 +
+        localMorph * 0.035 + scrollEnergy * 0.022 +
         openingEnergy * 0.14 + openingBand * 0.24, 0, 1);
       var topologyLane = i % 24;
       var structuralSample = hasOpening && openingPhase > 0.12 && openingPhase < 0.9 &&
         ((topologyLane >= 8 && topologyLane < 16) ||
           topologyLane === 20 || topologyLane === 21 || topologyLane === 23);
       if (structuralSample) probability = Math.max(probability, 0.52 + openingEnergy * 0.14);
+
+      var depth = clamp((perspective - 0.58) / 0.8, 0, 1);
+
+      // Splat probability density and screen velocity onto the ASCII raster.
+      var velocityX = px - prevScreenX[i];
+      var velocityY = py - prevScreenY[i];
+      prevScreenX[i] = px;
+      prevScreenY[i] = py;
+      if (velocityX * velocityX + velocityY * velocityY > 2600) {
+        // Teleporting samples (first frame, morph snaps) carry no flow.
+        velocityX = 0;
+        velocityY = 0;
+      }
+      var cellX = (px / cellSize) | 0;
+      var cellY = (py / cellSize) | 0;
+      if (cellX >= 0 && cellX < rasterCols && cellY >= 0 && cellY < rasterRows) {
+        var weight = probability * (0.32 + depth * 0.68) * 1.45 * densityGain;
+        var cellIndex = cellY * rasterCols + cellX;
+        rasterDensity[cellIndex] += weight;
+        rasterFlowX[cellIndex] += velocityX * weight;
+        rasterFlowY[cellIndex] += velocityY * weight;
+        if (splatSpread) {
+          var spill = weight * 0.32;
+          if (cellX > 0) rasterDensity[cellIndex - 1] += spill;
+          if (cellX < rasterCols - 1) rasterDensity[cellIndex + 1] += spill;
+          if (cellY > 0) rasterDensity[cellIndex - rasterCols] += spill;
+          if (cellY < rasterRows - 1) rasterDensity[cellIndex + rasterCols] += spill;
+        }
+      }
+
       var sample = seedA[i] * 0.97 +
         fastHash(i * 19 + tick * 131 + Math.floor(motionTime * 0.82) * 17) * 0.03;
       if (!structuralSample && sample > probability + 0.08) continue;
 
-      var depth = clamp((perspective - 0.58) / 0.8, 0, 1);
-      var size = ((compact ? 4.7 : 5.2) +
-        depth * (compact ? 4.8 : 8.25) + probability * 0.9) *
+      var size = ((compact ? 4.4 : 4.9) +
+        depth * (compact ? 4.5 : 7.7) + probability * 0.9) *
         (1 + openingEnergy * (compact ? 0.07 : 0.13));
       if (structuralSample) size *= 1.14;
-      var alpha = clamp((0.09 + probability * 0.72) * (0.3 + depth * 0.84) *
+      var alpha = clamp((0.09 + probability * 0.7) * (0.3 + depth * 0.84) *
         (1 + openingEnergy * 0.11) * intro * fieldOpacity, 0, 0.92);
       if (structuralSample) {
         alpha = Math.max(alpha, (0.25 + depth * 0.46) * intro * fieldOpacity);
@@ -715,17 +872,17 @@
 
       var flicker = psiReal + Math.sin(phase[i] + motionTime * 0.92) > 0 ? 1 : 0;
       if (fastHash(i * 43 + tick * 97) > 0.992) flicker = 1 - flicker;
-      var weight = depth > 0.66 ? 2 : 0;
+      var spriteWeight = depth > 0.66 ? 2 : 0;
 
       // Sparse path-amplitude echoes make depth and direction legible without
       // introducing any mark other than binary glyphs.
       if (!reducedMotion && !compact && detailEffects && i % 15 === 0) {
-        var trailLength = 2.5 + depth * 5.5 + morphEnergy * 2 +
+        var trailLength = 2.5 + depth * 5.5 + localMorph * 2 +
           scrollEnergy * 3 + openingDrive * 4;
         var trailAngle = currentPhase * 0.46 + yaw;
         ctx.globalAlpha = alpha * 0.17;
         ctx.drawImage(
-          glyphs[weight + (1 - flicker)],
+          glyphs[spriteWeight + (1 - flicker)],
           px - Math.cos(trailAngle) * trailLength - size * 0.34,
           py - Math.sin(trailAngle) * trailLength - size * 0.34,
           size * 0.68,
@@ -738,20 +895,66 @@
         if (pairWindow > 0.12) {
           var pairGap = 4 + pairWindow * (compact ? 5 : 8);
           ctx.globalAlpha = alpha * pairWindow * 0.32;
-          ctx.drawImage(glyphs[weight], px - pairGap - size * 0.42, py - size * 0.42, size * 0.84, size * 0.84);
-          ctx.drawImage(glyphs[weight + 1], px + pairGap - size * 0.42, py - size * 0.42, size * 0.84, size * 0.84);
+          ctx.drawImage(glyphs[spriteWeight], px - pairGap - size * 0.42, py - size * 0.42, size * 0.84, size * 0.84);
+          ctx.drawImage(glyphs[spriteWeight + 1], px + pairGap - size * 0.42, py - size * 0.42, size * 0.84, size * 0.84);
         }
       }
 
       ctx.globalAlpha = alpha;
-      ctx.drawImage(glyphs[weight + flicker], px - size * 0.5, py - size * 0.5, size, size);
+      if (i % 89 === 0) {
+        var psiSize = size * 1.3;
+        ctx.drawImage(psiSprite, px - psiSize * 0.5, py - psiSize * 0.5, psiSize, psiSize);
+      } else {
+        ctx.drawImage(glyphs[spriteWeight + flicker], px - size * 0.5, py - size * 0.5, size, size);
+      }
+    }
+
+    // ASCII raster pass — the Dragonfly-style body of the field. Cells sit
+    // on a fixed character grid; density picks the glyph, coherent flow
+    // replaces it with a direction mark, mid tones flicker between 0 and 1.
+    var rasterAlphaBase = intro * fieldOpacity * (compact ? 0.66 : 0.74);
+    if (rasterAlphaBase > 0.02) {
+      var flowThreshold2 = Math.pow(dt * 0.062, 2);
+      for (var cy = 0; cy < rasterRows; cy += 1) {
+        var rowOffset = cy * rasterCols;
+        var drawY = cy * cellSize;
+        for (var cx = 0; cx < rasterCols; cx += 1) {
+          var density = rasterDensity[rowOffset + cx];
+          if (density < 0.15) continue;
+          var cellAlpha = Math.min(0.8, 0.09 + density * 0.34) * rasterAlphaBase;
+          if (cellAlpha < 0.02) continue;
+          var sprite;
+          var flowX = rasterFlowX[rowOffset + cx];
+          var flowY = rasterFlowY[rowOffset + cx];
+          var flowScale = density > 0.001 ? 1 / density : 0;
+          var meanFlowX = flowX * flowScale;
+          var meanFlowY = flowY * flowScale;
+          var speed2 = meanFlowX * meanFlowX + meanFlowY * meanFlowY;
+          if (!reducedMotion && speed2 > flowThreshold2 && density > 0.55) {
+            var sector = Math.round(Math.atan2(meanFlowY, meanFlowX) * 4 / Math.PI);
+            sprite = directionSprites[(sector + 8) % 8];
+            cellAlpha = Math.min(0.82, cellAlpha * 1.35);
+          } else if (density < 0.45) {
+            sprite = rampSprites[0];
+          } else if (density < 0.8) {
+            sprite = rampSprites[1];
+          } else {
+            var bit = fastHash((rowOffset + cx) * 31 + rasterTick * 7) > 0.5 ? 1 : 0;
+            sprite = rampSprites[density < 2.05 ? 2 + bit : 4 + bit];
+          }
+          ctx.globalAlpha = cellAlpha;
+          ctx.drawImage(sprite, cx * cellSize, drawY, cellSize, cellSize);
+        }
+      }
     }
 
     ctx.globalAlpha = 1;
     var renderCost = performance.now() - renderStarted;
     renderCostAverage = renderCostAverage * 0.94 + renderCost * 0.06;
-    if (detailEffects && renderCostAverage > (compact ? 9.5 : 11.5)) detailEffects = false;
-    else if (!detailEffects && renderCostAverage < (compact ? 7.2 : 8.4)) detailEffects = true;
+    if (quality === 2 && renderCostAverage > (compact ? 9.5 : 11.5)) quality = 1;
+    else if (quality === 1 && renderCostAverage > (compact ? 12.5 : 14.5)) quality = 0;
+    else if (quality === 1 && renderCostAverage < (compact ? 7.2 : 8.4)) quality = 2;
+    else if (quality === 0 && renderCostAverage < (compact ? 9.8 : 11)) quality = 1;
     if (!reducedMotion) requestFrame();
   }
 
@@ -766,11 +969,20 @@
   }
 
   window.addEventListener("pointermove", function (event) {
+    var stamp = performance.now() / 1000;
+    var dt = Math.max(0.004, stamp - pointer.moved);
+    if (pointer.active) {
+      var speed = Math.sqrt(
+        Math.pow(event.clientX - pointer.x, 2) +
+        Math.pow(event.clientY - pointer.y, 2)
+      ) / dt;
+      pointer.swirl = clamp(pointer.swirl + speed * 0.00028, 0, 0.85);
+    }
     pointer.x = event.clientX;
     pointer.y = event.clientY;
     pointer.active = true;
-    pointer.moved = performance.now() / 1000;
-    if (hash(Math.floor(pointer.moved * 8)) > 0.83) addRipple(pointer.x, pointer.y, 0.45);
+    pointer.moved = stamp;
+    if (hash(Math.floor(stamp * 8)) > 0.83) addRipple(pointer.x, pointer.y, 0.45);
     requestFrame();
   }, { passive: true });
 
@@ -789,6 +1001,7 @@
     var scrollDelta = window.scrollY - lastScrollY;
     var instantaneous = Math.min(0.68, Math.abs(scrollDelta) / deltaTime * 0.22);
     scrollEnergy = Math.max(scrollEnergy * 0.56, instantaneous);
+    scrollBias = clamp(scrollBias + scrollDelta / deltaTime * 0.045, -1, 1);
     signedScrollPhase += clamp(scrollDelta / Math.max(1, height), -0.28, 0.28) * 1.9;
     lastScrollY = window.scrollY;
     lastScrollStamp = stamp;
@@ -803,7 +1016,10 @@
 
   document.addEventListener("visibilitychange", function () {
     pageVisible = document.visibilityState !== "hidden";
-    if (pageVisible) requestFrame();
+    if (pageVisible) {
+      lastFrame = performance.now();
+      requestFrame();
+    }
   });
 
   window.quantumField = {
@@ -823,6 +1039,16 @@
       requestFrame();
     }
   };
+
+  // Sprites are baked at startup; rebake once the webfont arrives so the
+  // marks render in IBM Plex Mono rather than the fallback monospace.
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () {
+      buildParticleSprites();
+      buildRasterSprites();
+      requestFrame();
+    });
+  }
 
   root.classList.add("quantum-field-ready");
   resize();

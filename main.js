@@ -160,7 +160,7 @@
     var count = window.innerWidth < 720 ? 90 : 180;
     for (var i = 0; i < count; i += 1) {
       var glyph = doc.createElement("i");
-      glyph.textContent = i % 3 ? "0" : "1";
+      glyph.textContent = i % 5 === 0 ? "ψ" : i % 3 ? "+" : "·";
       glyph.style.setProperty("--x", ((i * 47) % 101) + "%");
       glyph.style.setProperty("--y", ((i * 73 + 11) % 101) + "%");
       glyph.style.setProperty("--d", ((i % 17) * 0.018) + "s");
