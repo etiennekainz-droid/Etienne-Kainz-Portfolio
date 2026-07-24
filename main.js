@@ -406,6 +406,9 @@
       var wordmark = hero.querySelector(".hero__wordmark");
       var maxMaskRadius = Math.ceil(Math.hypot(window.innerWidth, window.innerHeight) * 0.92);
       gsap.set(".wordmark--fill .char-clip", { yPercent: 0, rotate: 0 });
+      // Assigned below once the mark exists; the scrub calls it every frame
+      // so the overlay tracks the inline mark's live position exactly.
+      var applyKPose = null;
       var openingTimeline = gsap.timeline({
         defaults: { ease: "none" },
         scrollTrigger: {
@@ -413,11 +416,15 @@
           trigger: hero,
           start: "top top",
           end: "bottom bottom",
-          scrub: true,
+          // Smoothed scrub: the sequence eases toward the scroll position
+          // instead of snapping to it, so a coarse wheel notch still reads as
+          // a glide. applyKPose runs from onUpdate, so the K stays in sync.
+          scrub: 0.7,
           invalidateOnRefresh: true,
           onUpdate: function (self) {
             var progress = self.progress;
             body.classList.toggle("is-field-solo", progress > 0.2 && progress < 0.9);
+            if (applyKPose) applyKPose();
             if (window.quantumField && window.quantumField.setOpeningProgress) {
               window.quantumField.setOpeningProgress(progress);
             }
@@ -482,35 +489,63 @@
       var kInline = hero.querySelector(".char--kmark img");
       if (kLogo && kInline) {
         var kFrames = kLogo.querySelectorAll("img");
-        var kStart = function () {
+        // offsetTop is 0 through the inline-block char chain, so it cannot
+        // locate the mark. getBoundingClientRect can — but the scrub may
+        // already have transformed the wordmark by the time GSAP evaluates
+        // these values, which is what threw the start pose off. So measure
+        // the live rect and mathematically undo the wordmark's transform.
+        // Position is never cached in a tween. Two proxies drive it and the
+        // pose is recomputed from the inline mark's LIVE rect every frame,
+        // so the overlay is guaranteed to sit exactly on the letter it
+        // replaces — whatever the scrub, a refresh, or a resize has done.
+        var kProxy = { glide: 0, drift: 0 };
+        var kAnchor = null;
+        applyKPose = function () {
           var stageBounds = heroStage.getBoundingClientRect();
-          var markBounds = kInline.getBoundingClientRect();
-          return {
-            x: markBounds.left - stageBounds.left + markBounds.width / 2 - kLogo.offsetWidth / 2,
-            y: markBounds.top - stageBounds.top + markBounds.height / 2 - kLogo.offsetHeight / 2,
-            scale: markBounds.height / Math.max(1, kLogo.offsetHeight)
-          };
+          if (kProxy.glide <= 0.0005 || !kAnchor) {
+            var markBounds = kInline.getBoundingClientRect();
+            kAnchor = {
+              x: markBounds.left + markBounds.width / 2 - stageBounds.left,
+              y: markBounds.top + markBounds.height / 2 - stageBounds.top,
+              scale: markBounds.height / Math.max(1, kLogo.offsetHeight)
+            };
+          }
+          var endScale = window.innerHeight * 0.55 / Math.max(1, kLogo.offsetHeight);
+          var t = kProxy.glide;
+          var centreX = kAnchor.x + (window.innerWidth * 0.51 - stageBounds.left - kAnchor.x) * t;
+          var centreY = kAnchor.y + (window.innerHeight * 0.45 - stageBounds.top - kAnchor.y) * t;
+          var scale = kAnchor.scale + (endScale - kAnchor.scale) * t;
+          gsap.set(kLogo, {
+            x: centreX - kLogo.offsetWidth / 2,
+            y: centreY - kLogo.offsetHeight / 2 - kProxy.drift * 30,
+            scale: scale + kProxy.drift * 0.06
+          });
         };
         openingTimeline
-          // Atomic takeover: the overlay replaces the inline mark in a
-          // single beat, before the mask or the letters begin to move —
-          // at no point are two Ks visible.
-          .fromTo(kLogo, {
-            x: function () { return kStart().x; },
-            y: function () { return kStart().y; },
-            scale: function () { return kStart().scale; },
-            opacity: 0
-          }, { opacity: 1, duration: 0.006, ease: "none" }, 0.018)
-          .to(".char-clip--kmark", { opacity: 0, duration: 0.006, ease: "none" }, 0.018)
-          .to(kLogo, {
-            x: function () { return window.innerWidth * 0.51 - kLogo.offsetWidth / 2; },
-            y: function () { return window.innerHeight * 0.45 - kLogo.offsetHeight / 2; },
-            scale: function () { return window.innerHeight * 0.55 / Math.max(1, kLogo.offsetHeight); },
-            duration: 0.26,
-            ease: "power2.inOut"
+          // Overlap handoff: the overlay rises to full opacity while the
+          // inline mark is still showing, both at identical position and
+          // size, so the swap is literally invisible — then the covered
+          // inline mark is switched off.
+          .fromTo(kLogo, { opacity: 0 }, {
+            opacity: 1,
+            duration: 0.03,
+            ease: "sine.inOut"
+          }, 0.005)
+          .to(".char-clip--kmark", { opacity: 0, duration: 0.004, ease: "none" }, 0.045)
+          .to(kProxy, {
+            glide: 1,
+            duration: 0.24,
+            ease: "power2.inOut",
+            onUpdate: applyKPose
           }, 0.06)
           // The dust keeps drifting up as it converts into the live field.
-          .to(kLogo, { y: "-=30", scale: "+=0.06", duration: 0.34, ease: "none" }, 0.23);
+          .to(kProxy, {
+            drift: 1,
+            duration: 0.3,
+            ease: "sine.out",
+            onUpdate: applyKPose
+          }, 0.3);
+        applyKPose();
 
         // The mark converts to field notation through overlapping
         // crossfades: every layer is already rising before the one beneath
