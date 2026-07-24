@@ -763,12 +763,15 @@ img {
 }
 
 /* The brand mark replaces the K glyph inside the wordmark itself. */
+/* The mark reads as the K of "Kainz": open space before it, tight to the
+   "a" that follows, so the name groups Etienne / Kainz. */
 .char--kmark img,
 .wordmark__kmark-trace {
   display: inline-block;
   width: auto;
   height: .9em;
-  margin: 0 .025em;
+  margin: 0 -.028em 0 .085em;
+  vertical-align: baseline;
   transform: translateY(.065em);
 }
 

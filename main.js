@@ -76,11 +76,14 @@
     if (chars.length < 12) return;
     var kChar = chars[7];
     kChar.classList.add("char--kmark");
-    kChar.innerHTML = '<img src="assets/brand/k-mark.png?v=3" alt="">';
+    // width/height are required: without an intrinsic ratio the browser
+    // reserves no space until the PNG decodes and the name visibly reflows.
+    kChar.innerHTML = '<img src="assets/brand/k-mark.png?v=3" alt="" width="407" height="900">';
     if (kChar.parentNode) kChar.parentNode.classList.add("char-clip--kmark");
     var trace = doc.querySelector(".wordmark--trace");
     if (trace) {
-      trace.innerHTML = 'Etienne<img class="wordmark__kmark-trace" src="assets/brand/k-mark.png?v=3" alt="">ainz';
+      trace.innerHTML = 'Etienne<img class="wordmark__kmark-trace" src="assets/brand/k-mark.png?v=3" ' +
+        'alt="" width="407" height="900">ainz';
     }
   })();
 
@@ -506,17 +509,31 @@
             duration: 0.26,
             ease: "power2.inOut"
           }, 0.06)
-          // The mark converts to field notation: each stage swaps more of
-          // the solid artwork for glyph dust, blending long and gently.
-          .to(kFrames[0], { opacity: 0, duration: 0.07, ease: "none" }, 0.24)
-          .to(kFrames[1], { opacity: 1, duration: 0.06, ease: "none" }, 0.235)
-          .to(kFrames[1], { opacity: 0, duration: 0.07, ease: "none" }, 0.305)
-          .to(kFrames[2], { opacity: 1, duration: 0.06, ease: "none" }, 0.3)
-          .to(kFrames[2], { opacity: 0, duration: 0.07, ease: "none" }, 0.37)
-          .to(kFrames[3], { opacity: 1, duration: 0.06, ease: "none" }, 0.365)
-          .to(kFrames[3], { opacity: 0, duration: 0.09, ease: "power1.in" }, 0.44)
           // The dust keeps drifting up as it converts into the live field.
-          .to(kLogo, { y: "-=28", scale: "+=0.05", duration: 0.27, ease: "none" }, 0.24);
+          .to(kLogo, { y: "-=30", scale: "+=0.06", duration: 0.34, ease: "none" }, 0.23);
+
+        // The mark converts to field notation through overlapping
+        // crossfades: every layer is already rising before the one beneath
+        // it has finished falling, so no single step is ever visible.
+        var kDissolveStart = 0.23;
+        var kStep = 0.062;
+        var kFade = kStep * 1.7;
+        for (var kIndex = 0; kIndex < kFrames.length; kIndex += 1) {
+          var enter = kDissolveStart + (kIndex - 1) * kStep;
+          var leave = kDissolveStart + kIndex * kStep;
+          if (kIndex > 0) {
+            openingTimeline.fromTo(kFrames[kIndex], { opacity: 0 }, {
+              opacity: 1,
+              duration: kFade,
+              ease: "sine.inOut"
+            }, enter);
+          }
+          openingTimeline.to(kFrames[kIndex], {
+            opacity: 0,
+            duration: kIndex === kFrames.length - 1 ? kFade * 1.5 : kFade,
+            ease: kIndex === kFrames.length - 1 ? "sine.in" : "sine.inOut"
+          }, leave);
+        }
       }
     }
 
