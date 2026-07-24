@@ -772,6 +772,13 @@ img {
   transform: translateY(.065em);
 }
 
+/* The trace ghost shows the name WITHOUT the K — the mark has departed.
+   Keeping the element preserves the letter spacing; hiding it prevents a
+   second K appearing behind the gliding one. */
+.wordmark__kmark-trace {
+  visibility: hidden;
+}
+
 .hero__subline {
   position: absolute;
   right: var(--pad);

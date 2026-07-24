@@ -76,11 +76,11 @@
     if (chars.length < 12) return;
     var kChar = chars[7];
     kChar.classList.add("char--kmark");
-    kChar.innerHTML = '<img src="assets/brand/k-mark.png" alt="">';
+    kChar.innerHTML = '<img src="assets/brand/k-mark.png?v=3" alt="">';
     if (kChar.parentNode) kChar.parentNode.classList.add("char-clip--kmark");
     var trace = doc.querySelector(".wordmark--trace");
     if (trace) {
-      trace.innerHTML = 'Etienne<img class="wordmark__kmark-trace" src="assets/brand/k-mark.png" alt="">ainz';
+      trace.innerHTML = 'Etienne<img class="wordmark__kmark-trace" src="assets/brand/k-mark.png?v=3" alt="">ainz';
     }
   })();
 
@@ -489,31 +489,34 @@
           };
         };
         openingTimeline
-          // Pixel-perfect takeover from the inline mark before letters move.
+          // Atomic takeover: the overlay replaces the inline mark in a
+          // single beat, before the mask or the letters begin to move —
+          // at no point are two Ks visible.
           .fromTo(kLogo, {
             x: function () { return kStart().x; },
             y: function () { return kStart().y; },
             scale: function () { return kStart().scale; },
             opacity: 0
-          }, { opacity: 1, duration: 0.025, ease: "none" }, 0.05)
-          .to(".char-clip--kmark", { opacity: 0, duration: 0.015, ease: "none" }, 0.075)
+          }, { opacity: 1, duration: 0.006, ease: "none" }, 0.018)
+          .to(".char-clip--kmark", { opacity: 0, duration: 0.006, ease: "none" }, 0.018)
           .to(kLogo, {
             x: function () { return window.innerWidth * 0.51 - kLogo.offsetWidth / 2; },
             y: function () { return window.innerHeight * 0.45 - kLogo.offsetHeight / 2; },
             scale: function () { return window.innerHeight * 0.55 / Math.max(1, kLogo.offsetHeight); },
-            duration: 0.24,
+            duration: 0.26,
             ease: "power2.inOut"
-          }, 0.1)
-          // Granular disintegration: solid → coarse → sparse → dust.
-          .to(kFrames[0], { opacity: 0, duration: 0.05, ease: "none" }, 0.26)
-          .to(kFrames[1], { opacity: 1, duration: 0.045, ease: "none" }, 0.252)
-          .to(kFrames[1], { opacity: 0, duration: 0.05, ease: "none" }, 0.315)
-          .to(kFrames[2], { opacity: 1, duration: 0.045, ease: "none" }, 0.308)
-          .to(kFrames[2], { opacity: 0, duration: 0.05, ease: "none" }, 0.37)
-          .to(kFrames[3], { opacity: 1, duration: 0.045, ease: "none" }, 0.362)
-          .to(kFrames[3], { opacity: 0, duration: 0.075, ease: "power1.in" }, 0.425)
-          // The dust keeps drifting up and outward as it converts.
-          .to(kLogo, { y: "-=34", scale: "+=0.06", duration: 0.24, ease: "none" }, 0.26);
+          }, 0.06)
+          // The mark converts to field notation: each stage swaps more of
+          // the solid artwork for glyph dust, blending long and gently.
+          .to(kFrames[0], { opacity: 0, duration: 0.07, ease: "none" }, 0.24)
+          .to(kFrames[1], { opacity: 1, duration: 0.06, ease: "none" }, 0.235)
+          .to(kFrames[1], { opacity: 0, duration: 0.07, ease: "none" }, 0.305)
+          .to(kFrames[2], { opacity: 1, duration: 0.06, ease: "none" }, 0.3)
+          .to(kFrames[2], { opacity: 0, duration: 0.07, ease: "none" }, 0.37)
+          .to(kFrames[3], { opacity: 1, duration: 0.06, ease: "none" }, 0.365)
+          .to(kFrames[3], { opacity: 0, duration: 0.09, ease: "power1.in" }, 0.44)
+          // The dust keeps drifting up as it converts into the live field.
+          .to(kLogo, { y: "-=28", scale: "+=0.05", duration: 0.27, ease: "none" }, 0.24);
       }
     }
 

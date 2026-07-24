@@ -357,7 +357,7 @@
       kFormation = points;
       requestFrame();
     };
-    kImage.src = "assets/brand/k-mark.png";
+    kImage.src = "assets/brand/k-mark.png?v=3";
   }
 
   // Opening A — the state blooms: lobes stretch, orbits widen and tilt.
