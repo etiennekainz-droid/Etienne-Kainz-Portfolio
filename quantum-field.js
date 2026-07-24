@@ -1037,7 +1037,7 @@
         var drawY = cy * cellSize;
         for (var cx = 0; cx < rasterCols; cx += 1) {
           var density = rasterDensity[rowOffset + cx];
-          if (density < 0.15) continue;
+          if (density < 0.17) continue;
           var cellAlpha = Math.min(0.8, 0.09 + density * 0.34) * rasterAlphaBase;
           if (cellAlpha < 0.02) continue;
           var sprite;
