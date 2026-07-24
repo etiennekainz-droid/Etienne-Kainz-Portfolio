@@ -4,7 +4,7 @@
   var canvas = document.getElementById("quantumField");
   if (!canvas) return;
 
-  var ctx = canvas.getContext("2d", { alpha: true });
+  var ctx = canvas.getContext("2d", { alpha: true, desynchronized: true });
   if (!ctx) return;
 
   var root = document.documentElement;
@@ -333,17 +333,19 @@
     return orbitalFieldPoint(i, a, b, c, 0.92, 1.12, 1.55, 1.02, 1.7);
   }));
 
+  // 32px sprites sit close to the largest drawn size, so downscaling stays
+  // in the sharp 1–2x range instead of blurring through a 4x reduction.
   function makeGlyph(char, weight) {
     var sprite = document.createElement("canvas");
-    sprite.width = 40;
-    sprite.height = 40;
+    sprite.width = 32;
+    sprite.height = 32;
     var spriteContext = sprite.getContext("2d");
-    spriteContext.clearRect(0, 0, 40, 40);
+    spriteContext.clearRect(0, 0, 32, 32);
     spriteContext.fillStyle = "#000";
     spriteContext.textAlign = "center";
     spriteContext.textBaseline = "middle";
-    spriteContext.font = weight + " 25px 'IBM Plex Mono', ui-monospace, monospace";
-    spriteContext.fillText(char, 20, 20);
+    spriteContext.font = weight + " 20px 'IBM Plex Mono', ui-monospace, monospace";
+    spriteContext.fillText(char, 16, 16);
     return sprite;
   }
 
@@ -402,12 +404,19 @@
     ];
   }
 
+  var lastViewportW = 0;
+  var lastViewportH = 0;
+
   function resize() {
+    lastViewportW = window.innerWidth;
+    lastViewportH = window.innerHeight;
     var bounds = canvas.getBoundingClientRect();
     width = Math.max(1, bounds.width);
     height = Math.max(1, bounds.height);
-    var requestedDpr = Math.min(window.devicePixelRatio || 1, compact ? 1.22 : medium ? 1.45 : 1.62);
-    var pixelBudget = compact ? 1250000 : medium ? 2400000 : 3600000;
+    // Render at native resolution where the pixel budget allows — the
+    // glyphs stay razor sharp on retina displays.
+    var requestedDpr = Math.min(window.devicePixelRatio || 1, compact ? 1.6 : medium ? 1.85 : 2);
+    var pixelBudget = compact ? 1900000 : medium ? 3500000 : 5600000;
     dpr = Math.max(0.78, Math.min(requestedDpr, Math.sqrt(pixelBudget / Math.max(1, width * height))));
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
@@ -497,6 +506,10 @@
   }
 
   function render(now) {
+    // render is invoked both by rAF and synchronously (resize/refresh);
+    // cancelling any pending frame prevents duplicate rAF chains from
+    // stacking up and multiplying the per-frame cost.
+    if (frame) cancelAnimationFrame(frame);
     frame = 0;
     if (!pageVisible) return;
 
@@ -605,8 +618,14 @@
     var particleStride = quality === 0 ? 2 : 1;
     var splatSpread = quality === 0 ? 0 : 1;
     var detailEffects = quality === 2;
-    // Density normalisation keeps the raster exposure stable when the
-    // governor halves the particle budget.
+    // While the field idles dimmed behind the elastic-wave figure, halve
+    // the work — both canvases would otherwise animate at full cost.
+    if (fieldOpacity < 0.3) {
+      particleStride *= 2;
+      detailEffects = false;
+    }
+    // Density normalisation keeps the raster exposure stable whenever the
+    // particle budget is reduced.
     var densityGain = particleStride;
 
     var activeRipples = [];
@@ -634,6 +653,7 @@
 
     for (var i = 0; i < particleCount; i += particleStride) {
       var offset = i * 3;
+      var lane24 = i % 24;
       var localMix = mix;
       if (morphActive) {
         // Each particle joins the morph on its own seeded delay, so
@@ -661,7 +681,6 @@
 
         // Each settled section has its own continuously evolving quantum current.
         if (activeFormation === 0) {
-          var lane24 = i % 24;
           if (lane24 < 10) {
             // Cloverleaf lobes precess about the axis and breathe.
             var precessX = x * cosPrecess - z * sinPrecess;
@@ -851,9 +870,8 @@
         localMorph * 0.035 + scrollEnergy * 0.022 +
         openingEnergy * 0.14 + openingBand * 0.24, 0, 1);
       // Orbit dashes, nucleus, and axis stay legible through the opening.
-      var topologyLane = i % 24;
       var structuralSample = hasOpening && openingPhase > 0.12 && openingPhase < 0.9 &&
-        ((topologyLane >= 14 && topologyLane < 22) || topologyLane === 23);
+        ((lane24 >= 14 && lane24 < 22) || lane24 === 23);
       if (structuralSample) probability = Math.max(probability, 0.52 + openingEnergy * 0.14);
 
       var depth = clamp((perspective - 0.58) / 0.8, 0, 1);
@@ -907,7 +925,7 @@
 
       // Sparse path-amplitude echoes make depth and direction legible without
       // introducing any mark other than binary glyphs.
-      if (!reducedMotion && !compact && detailEffects && i % 15 === 0) {
+      if (!reducedMotion && !compact && detailEffects && i % 15 === 0 && alpha > 0.12) {
         var trailLength = 2.5 + depth * 5.5 + localMorph * 2 +
           scrollEnergy * 3 + openingDrive * 4;
         var trailAngle = currentPhase * 0.46 + yaw;
@@ -943,7 +961,7 @@
     // ASCII raster pass — the Dragonfly-style body of the field. Cells sit
     // on a fixed character grid; density picks the glyph, coherent flow
     // replaces it with a direction mark, mid tones flicker between 0 and 1.
-    var rasterAlphaBase = intro * fieldOpacity * (compact ? 0.66 : 0.74);
+    var rasterAlphaBase = intro * fieldOpacity * (compact ? 0.7 : 0.78);
     if (rasterAlphaBase > 0.02) {
       var flowThreshold2 = Math.pow(dt * 0.062, 2);
       for (var cy = 0; cy < rasterRows; cy += 1) {
@@ -1039,7 +1057,15 @@
     requestFrame();
   }, { passive: true });
 
-  window.addEventListener("resize", resize, { passive: true });
+  // Debounced: the full rebuild (canvas realloc, sprite bake, re-measure)
+  // must not run on every mobile URL-bar show/hide tick.
+  var resizeDebounce = 0;
+  window.addEventListener("resize", function () {
+    var minor = window.innerWidth === lastViewportW &&
+      Math.abs(window.innerHeight - lastViewportH) < 140;
+    clearTimeout(resizeDebounce);
+    resizeDebounce = setTimeout(resize, minor ? 240 : 90);
+  }, { passive: true });
   window.addEventListener("load", function () {
     measureSections();
     requestFrame();
@@ -1067,7 +1093,7 @@
     },
     refresh: function () {
       measureSections();
-      requestFrame();
+      render(performance.now());
     }
   };
 

@@ -380,8 +380,7 @@ img {
   height: 2.45rem;
   padding: 0 .85rem;
   border: 1px solid var(--ink);
-  background: rgba(255, 255, 255, .9);
-  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, .96);
   font: 500 .62rem/1 var(--mono);
   letter-spacing: .12em;
   text-transform: uppercase;
@@ -603,11 +602,12 @@ img {
 .char,
 .word {
   display: inline-block;
-  will-change: transform;
 }
 
-[data-reveal]:not(.hero [data-reveal]) {
-  will-change: transform, opacity, clip-path;
+/* Only the hero chars stay promoted — they ride the scroll scrub. A blanket
+   will-change on every reveal target costs GPU memory and compositing time. */
+.hero .char {
+  will-change: transform;
 }
 
 /* Hero */
@@ -628,7 +628,10 @@ img {
   padding-top: var(--pad);
   padding-bottom: var(--pad);
   overflow: hidden;
-  --wordmark-mask-radius: clamp(5.5rem, 13vw, 14rem);
+  /* 1px = mask fully closed: the name renders solid on load. The opening
+     scrub grows this, dissolving the fill into the trace outline. A length
+     here must stay a plain px value so GSAP can interpolate it. */
+  --wordmark-mask-radius: 1px;
   --wordmark-mask-x: 50%;
   --wordmark-mask-y: 50%;
   --opening-clock: 0;
@@ -739,8 +742,7 @@ img {
   padding: .55rem 0 .7rem;
   border-top: 1px solid var(--ink);
   border-bottom: 1px solid var(--ink);
-  background: rgba(255, 255, 255, .67);
-  backdrop-filter: blur(7px);
+  background: rgba(255, 255, 255, .9);
 }
 
 .hero__subline p {
@@ -868,8 +870,7 @@ img {
 
 .ethos {
   margin-top: 7vw;
-  background: rgba(255, 255, 255, .86);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, .93);
 }
 
 .ethos__label {
@@ -992,8 +993,7 @@ img {
 
 .project-index {
   border-top: 1px solid var(--ink);
-  background: rgba(255, 255, 255, .72);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, .9);
 }
 
 .project-row {
@@ -1195,8 +1195,7 @@ img {
   padding: .62rem .7rem;
   border-right: 1px solid var(--ink);
   border-bottom: 1px solid var(--ink);
-  background: rgba(255, 255, 255, .66);
-  backdrop-filter: blur(6px);
+  background: rgba(255, 255, 255, .88);
 }
 
 .wave-metrics dt {
@@ -1249,8 +1248,7 @@ img {
   z-index: 4;
   padding: .58rem .7rem;
   border: 1px solid var(--ink);
-  background: rgba(255, 255, 255, .82);
-  backdrop-filter: blur(6px);
+  background: rgba(255, 255, 255, .92);
   transition: background .45s var(--ease-out), color .45s var(--ease-out);
 }
 
@@ -1396,8 +1394,7 @@ img {
 .credential-list {
   margin-top: clamp(4.5rem, 7vw, 7rem);
   border-top: 1px solid var(--ink);
-  background: rgba(255, 255, 255, .8);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, .92);
 }
 
 .credential {
@@ -1814,7 +1811,6 @@ img {
   background: rgba(255, 255, 255, .98);
   opacity: 0;
   visibility: hidden;
-  backdrop-filter: blur(16px);
 }
 
 .lightbox[aria-hidden="false"] {
@@ -2195,7 +2191,7 @@ img {
   .hero__stage {
     padding-top: 1rem;
     padding-bottom: 1rem;
-    --wordmark-mask-radius: clamp(3.4rem, 23vw, 7rem);
+    --wordmark-mask-radius: 1px;
   }
 
   .hero__stage::before {
