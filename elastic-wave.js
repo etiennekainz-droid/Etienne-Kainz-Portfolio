@@ -5,11 +5,14 @@
   var stage = document.getElementById("elasticWaveStudy");
   if (!canvas || !stage) return;
 
-  var ctx = canvas.getContext("2d");
+  // The stage is painted opaque white every frame, so an alpha-less buffer
+  // saves the compositor a per-pixel blend across the whole canvas.
+  var ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) return;
 
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var compact = window.matchMedia("(max-width: 760px)").matches;
+  var compactQuery = window.matchMedia("(max-width: 760px)");
+  var compact = compactQuery.matches;
   var statusNode = document.getElementById("waveStatus");
   var strainNode = document.getElementById("waveStrain");
   var displacementNode = document.getElementById("waveDisplacement");
@@ -31,17 +34,20 @@
   var pointerPulse = { x: 0, born: -10, strength: 0 };
   var targetView = { x: 0, y: 0 };
   var view = { x: 0, y: 0 };
+  // Scratch objects reused every frame — see displacement().
+  var displaced = { x: 0, y: 0, z: 0 };
+  var metrics = { strain: 0, displacement: 0, energy: 0 };
 
-  var NX = compact ? 11 : 15;
-  var NY = compact ? 5 : 6;
-  var NZ = compact ? 4 : 5;
-  var SPACING = compact ? 50 : 46;
+  var NX;
+  var NY;
+  var NZ;
+  var SPACING;
   var atoms = [];
   var bonds = [];
   var projections = [];
   var motions = [];
   var order = [];
-  var span = (NX - 1) * SPACING;
+  var span = 1;
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
@@ -51,6 +57,16 @@
     var i;
     var j;
     var k;
+    NX = compact ? 11 : 15;
+    NY = compact ? 5 : 6;
+    NZ = compact ? 4 : 5;
+    SPACING = compact ? 50 : 46;
+    span = (NX - 1) * SPACING;
+    atoms.length = 0;
+    bonds.length = 0;
+    projections.length = 0;
+    motions.length = 0;
+    order.length = 0;
     function index(x, y, z) {
       return (x * NY + y) * NZ + z;
     }
@@ -86,10 +102,22 @@
   if (nodeCountNode) nodeCountNode.textContent = String(atoms.length).padStart(3, "0");
 
   function resize() {
+    // Re-read the breakpoint: rotating a phone crosses it, and the lattice,
+    // camera, and resolution knobs all key off it. Previously this was sampled
+    // once at load, so a rotated device kept the wrong geometry for good.
+    var nowCompact = compactQuery.matches;
+    if (nowCompact !== compact) {
+      compact = nowCompact;
+      buildLattice();
+      if (nodeCountNode) nodeCountNode.textContent = String(atoms.length).padStart(3, "0");
+    }
     var bounds = canvas.getBoundingClientRect();
     width = Math.max(1, bounds.width);
     height = Math.max(1, bounds.height);
-    dpr = Math.min(window.devicePixelRatio || 1, compact ? 1.35 : 1.8);
+    // The stage is small and the drawing is vector-thin, so it can afford close
+    // to native density. The old 1.35 cap upscaled a third of the real pixels
+    // on a 3x phone, which is what made the lattice look soft.
+    dpr = Math.min(window.devicePixelRatio || 1, compact ? 2.5 : 2.25);
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -106,7 +134,10 @@
     return envelope * Math.sin(delta * frequency - time * speed * frequency * 0.46);
   }
 
-  function displacement(atom, time) {
+  // Writes into a pre-allocated slot rather than returning a fresh object.
+  // At one object per atom per frame this was the loop's only allocation, and
+  // the resulting GC churn showed up as periodic hitching on phones.
+  function displacement(atom, time, out) {
     var p = pulseAt(atom.x, time, 168, 0, 66, 0.052, 1);
     var s = pulseAt(atom.x, time, 111, 226, 84, 0.041, 1);
     var reflection = pulseAt(atom.x, time, 131, 420, 74, 0.048, -1);
@@ -121,13 +152,15 @@
         pointerPulse.strength * Math.exp(-age * 1.7);
     }
 
-    var dx = 12.5 * p - 5.4 * reflection + local * 8;
-    var dy = (6.9 * s + 2.2 * reflection) * transverse + local * 3.2;
-    var dz = 4.9 * s * Math.sin(atom.y * 0.055 + 0.8) - 2.5 * reflection;
-    var energy = Math.min(1, Math.abs(p) * 0.83 + Math.abs(s) * 0.58 +
+    out.x = 12.5 * p - 5.4 * reflection + local * 8;
+    out.y = (6.9 * s + 2.2 * reflection) * transverse + local * 3.2;
+    out.z = 4.9 * s * Math.sin(atom.y * 0.055 + 0.8) - 2.5 * reflection;
+    out.energy = Math.min(1, Math.abs(p) * 0.83 + Math.abs(s) * 0.58 +
       Math.abs(reflection) * 0.34 + Math.abs(local) * 0.5);
-
-    return { x: dx, y: dy, z: dz, energy: energy, p: p, s: s, r: reflection };
+    out.p = p;
+    out.s = s;
+    out.r = reflection;
+    return out;
   }
 
   function project(point, sinYaw, cosYaw, sinPitch, cosPitch, out) {
@@ -268,18 +301,18 @@
     var cosYaw = Math.cos(yaw);
     var sinPitch = Math.sin(pitch);
     var cosPitch = Math.cos(pitch);
-    var metrics = { strain: 0, displacement: 0, energy: 0 };
+    metrics.strain = 0;
+    metrics.displacement = 0;
+    metrics.energy = 0;
     var i;
 
     for (i = 0; i < atoms.length; i += 1) {
       var atom = atoms[i];
-      var motion = displacement(atom, time);
-      motions[i] = motion;
-      project({
-        x: atom.x + motion.x,
-        y: atom.y + motion.y,
-        z: atom.z + motion.z
-      }, sinYaw, cosYaw, sinPitch, cosPitch, projections[i]);
+      var motion = displacement(atom, time, motions[i]);
+      displaced.x = atom.x + motion.x;
+      displaced.y = atom.y + motion.y;
+      displaced.z = atom.z + motion.z;
+      project(displaced, sinYaw, cosYaw, sinPitch, cosPitch, projections[i]);
       metrics.energy += motion.energy;
       metrics.displacement = Math.max(metrics.displacement,
         Math.sqrt(motion.x * motion.x + motion.y * motion.y + motion.z * motion.z));
@@ -287,6 +320,8 @@
     metrics.energy /= atoms.length;
 
     ctx.save();
+    var dashed = false;
+    ctx.setLineDash([]);
     for (i = 0; i < bonds.length; i += 1) {
       var bond = bonds[i];
       var one = projections[bond.a];
@@ -305,7 +340,13 @@
       var near = clamp((1180 - (one.z + two.z) * 0.5) / 800, 0, 1);
       metrics.strain = Math.max(metrics.strain, strain);
 
-      ctx.setLineDash(signedStrain < -0.012 ? [2.5, 2.5] : []);
+      // setLineDash reallocates its pattern array on every call; only touch it
+      // when the compression state actually flips.
+      var wantDash = signedStrain < -0.012;
+      if (wantDash !== dashed) {
+        dashed = wantDash;
+        ctx.setLineDash(wantDash ? [2.5, 2.5] : []);
+      }
       ctx.strokeStyle = INK + clamp(0.035 + near * 0.23 + strain * 3.1, 0.04, 0.82) + ")";
       ctx.lineWidth = 0.55 + near * 0.65 + strain * 2.4;
       ctx.beginPath();

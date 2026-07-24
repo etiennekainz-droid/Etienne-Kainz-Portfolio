@@ -10,8 +10,10 @@
   var root = document.documentElement;
   var body = document.body;
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var compact = window.matchMedia("(max-width: 760px)").matches;
-  var medium = window.matchMedia("(min-width: 761px) and (max-width: 1180px)").matches;
+  var compactQuery = window.matchMedia("(max-width: 760px)");
+  var mediumQuery = window.matchMedia("(min-width: 761px) and (max-width: 1180px)");
+  var compact = compactQuery.matches;
+  var medium = mediumQuery.matches;
   var particleCount = reducedMotion ?
     (compact ? 300 : medium ? 500 : 650) :
     (compact ? 820 : medium ? 1500 : 2300);
@@ -372,19 +374,24 @@
     return orbitalFieldPoint(i, a, b, c, 0.92, 1.12, 1.55, 1.02, 1.7);
   }));
 
-  // 32px sprites sit close to the largest drawn size, so downscaling stays
-  // in the sharp 1–2x range instead of blurring through a 4x reduction.
+  // Baked in device pixels against the largest size a mark is ever drawn at
+  // (~23 CSS px for the ψ observable), so the sprite is always downscaled and
+  // never stretched. A fixed 32px buffer was fine at dpr 1.6 but goes soft
+  // once the field renders near native density on a retina phone.
+  var GLYPH_CSS_MAX = 24;
   function makeGlyph(char, weight) {
+    var device = Math.max(24, Math.min(96, Math.round(GLYPH_CSS_MAX * dpr)));
     var sprite = document.createElement("canvas");
-    sprite.width = 32;
-    sprite.height = 32;
+    sprite.width = device;
+    sprite.height = device;
     var spriteContext = sprite.getContext("2d");
-    spriteContext.clearRect(0, 0, 32, 32);
+    spriteContext.clearRect(0, 0, device, device);
     spriteContext.fillStyle = "#000";
     spriteContext.textAlign = "center";
     spriteContext.textBaseline = "middle";
-    spriteContext.font = weight + " 20px 'IBM Plex Mono', ui-monospace, monospace";
-    spriteContext.fillText(char, 16, 16);
+    spriteContext.font = weight + " " + (device * 0.625).toFixed(1) +
+      "px 'IBM Plex Mono', ui-monospace, monospace";
+    spriteContext.fillText(char, device * 0.5, device * 0.5);
     return sprite;
   }
 
@@ -449,14 +456,24 @@
   function resize() {
     lastViewportW = window.innerWidth;
     lastViewportH = window.innerHeight;
+    // Breakpoints are re-read here, not just at load: rotating a phone or
+    // resizing a window crosses them, and every quality knob below keys off
+    // them. Particle count stays put — reallocating the formation buffers
+    // mid-session would cost far more than the extra points are worth.
+    compact = compactQuery.matches;
+    medium = mediumQuery.matches;
+    cellSize = compact ? 15 : 13;
     var bounds = canvas.getBoundingClientRect();
     width = Math.max(1, bounds.width);
     height = Math.max(1, bounds.height);
     // Render at native resolution where the pixel budget allows — the
-    // glyphs stay razor sharp on retina displays.
-    var requestedDpr = Math.min(window.devicePixelRatio || 1, compact ? 1.6 : medium ? 1.85 : 2);
-    var pixelBudget = compact ? 1900000 : medium ? 3500000 : 5600000;
-    dpr = Math.max(0.78, Math.min(requestedDpr, Math.sqrt(pixelBudget / Math.max(1, width * height))));
+    // glyphs stay razor sharp on retina displays. The phone cap used to be
+    // 1.6, which on a 3x screen upscaled the field by nearly 2x and was the
+    // single biggest reason it read soft on mobile. The pixel budget below is
+    // the real cost governor, so the caps can sit near native density.
+    var requestedDpr = Math.min(window.devicePixelRatio || 1, compact ? 2.5 : medium ? 2.25 : 2);
+    var pixelBudget = compact ? 2600000 : medium ? 3500000 : 5600000;
+    dpr = Math.max(0.9, Math.min(requestedDpr, Math.sqrt(pixelBudget / Math.max(1, width * height))));
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -466,6 +483,7 @@
     rasterDensity = new Float32Array(cellCount);
     rasterFlowX = new Float32Array(cellCount);
     rasterFlowY = new Float32Array(cellCount);
+    buildParticleSprites();
     buildRasterSprites();
     measureSections();
     if (reducedMotion && sectionStops.length) {

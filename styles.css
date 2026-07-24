@@ -267,18 +267,31 @@ img {
 .page-wipe {
   position: fixed;
   inset: 0;
-  z-index: 8500;
+  /* Above the loader (9000): a transition fired during the intro must not be
+     painted underneath it. Stays below the cursor layer (9998). */
+  z-index: 9500;
   display: grid;
-  place-items: center;
+  place-content: center;
+  justify-items: center;
+  gap: 1.4rem;
   background: var(--ink);
   color: var(--paper);
   clip-path: inset(100% 0 0 0);
   pointer-events: none;
 }
 
-.page-wipe span {
+.page-wipe__no {
   font: 400 clamp(7rem, 24vw, 22rem)/.7 var(--grotesk);
   letter-spacing: -.08em;
+}
+
+.page-wipe__name {
+  border-top: 1px solid rgba(255, 255, 255, .38);
+  padding-top: .7rem;
+  min-width: 12rem;
+  text-align: center;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .82);
 }
 
 .page-wipe i {
