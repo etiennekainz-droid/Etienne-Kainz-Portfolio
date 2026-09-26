@@ -9,9 +9,12 @@
   var gsap = window.gsap;
   var ScrollTrigger = window.ScrollTrigger;
   var lenis = null;
-  var lastFocused = null;
+
   var initialHash = window.location.hash;
   var scrollAnimationsReady = false;
+  // Set by the inline <head> script when this page was reached through a site
+  // transition: the wipe is still closed and this page must lift it.
+  var arriving = root.classList.contains("is-arriving");
 
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
@@ -126,19 +129,50 @@
     }
   }
 
-  function positionInitialRoute() {
-    window.setTimeout(function () {
-      var target = initialHash && doc.querySelector(initialHash);
-      if (target) {
-        if (lenis && lenis.scrollTo) lenis.scrollTo(target, { immediate: true, force: true });
-        else target.scrollIntoView({ block: "start" });
-      } else if (!initialHash) {
-        window.scrollTo(0, 0);
-      }
-      if (ScrollTrigger) ScrollTrigger.refresh();
-      if (window.quantumField) window.quantumField.refresh();
-      remeasureRail();
-    }, 60);
+  // getElementById, not querySelector: a hash is not a CSS selector, and
+  // querySelector throws on shared links such as "#1", which used to abort the
+  // whole post-loader setup.
+  function hashTarget(hash) {
+    if (!hash || hash.length < 2) return null;
+    try {
+      return doc.getElementById(decodeURIComponent(hash.slice(1)));
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function jumpTo(target) {
+    if (!target) {
+      window.scrollTo(0, 0);
+      if (lenis && lenis.scrollTo) lenis.scrollTo(0, { immediate: true, force: true });
+      return;
+    }
+    if (lenis && lenis.scrollTo) lenis.scrollTo(target, { immediate: true, force: true });
+    else target.scrollIntoView({ block: "start" });
+  }
+
+  // Scrubbed timelines ease toward the scroll position over ~0.7s. After an
+  // instant jump that catch-up would fast-forward the whole opening sequence
+  // on screen, so complete every scrub tween at once.
+  function settleScrubs() {
+    if (!ScrollTrigger) return;
+    ScrollTrigger.update();
+    ScrollTrigger.getAll().forEach(function (trigger) {
+      var tween = trigger.getTween && trigger.getTween();
+      if (tween) tween.progress(1);
+    });
+  }
+
+  // Positions the page on its initial route. Runs while something still
+  // covers the page — the loader or the arrival wipe — so the reveal lands
+  // directly on the destination instead of flashing the hero first.
+  function placeInitialRoute() {
+    var target = hashTarget(initialHash);
+    if (target || !initialHash) jumpTo(target);
+    if (ScrollTrigger) ScrollTrigger.refresh();
+    settleScrubs();
+    if (window.quantumField) window.quantumField.refresh();
+    remeasureRail();
   }
 
   // Binary decode for micro labels. Text remains readable to assistive tech.
@@ -190,10 +224,31 @@
     field.appendChild(fragment);
   }
 
+  // Runs while the loader still covers the page: release the loading layout,
+  // build the scroll scenes and put the page on its route, so the loader lifts
+  // straight onto the destination. It used to position only after the lift,
+  // which flashed the hero before jumping to e.g. #contact.
+  var revealPrepared = false;
+  var preparedWidth = 0;
+  function prepareReveal() {
+    if (revealPrepared) return;
+    revealPrepared = true;
+    body.classList.remove("is-loading");
+    initScrollAnimations();
+    placeInitialRoute();
+    preparedWidth = root.clientWidth;
+  }
+
   function finishLoader() {
     var loader = doc.getElementById("loader");
-    body.classList.remove("is-loading");
+    prepareReveal();
     setScrollLocked(false);
+    // Where scrollbars take up space (Windows), unlocking narrows the page;
+    // re-measure so triggers match the final layout.
+    if (preparedWidth && root.clientWidth !== preparedWidth) {
+      if (ScrollTrigger) ScrollTrigger.refresh();
+      remeasureRail();
+    }
     if (window.quantumField) window.quantumField.setIntroProgress(1);
     if (loader) {
       loader.setAttribute("aria-hidden", "true");
@@ -202,8 +257,77 @@
       }, reduceMotion ? 0 : 950);
     }
     playHero();
-    initScrollAnimations();
-    positionInitialRoute();
+  }
+
+  // Arrival through a site transition. The intro loader is a first-visit
+  // overture, not a page transition, so it is skipped: the page settles under
+  // the still-closed wipe, then the wipe lifts — the second half of the motion
+  // that started on the previous page.
+  function arrive(loader) {
+    var fromLoader = !!loader;
+    if (loader && loader.parentNode) loader.parentNode.removeChild(loader);
+    body.classList.remove("is-loading");
+    // No scroll lock here: toggling overflow would change the page width on
+    // platforms with space-taking scrollbars right as the wipe lifts.
+    var started = false;
+    function settle() {
+      if (started) return;
+      started = true;
+      revealPrepared = true;
+      initScrollAnimations();
+      placeInitialRoute();
+      // Let the positioned page paint once under the wipe before lifting, so
+      // the reveal never uncovers a half-updated frame.
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { liftArrival(fromLoader); });
+      });
+    }
+    // Final fonts first, so nothing reflows mid-reveal — but never wait on a
+    // slow font server.
+    if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(settle, settle);
+    window.setTimeout(settle, 700);
+    if (!doc.fonts || !doc.fonts.ready) settle();
+  }
+
+  function resetWipe(wipe) {
+    wipe.classList.remove("is-active");
+    wipe.style.clipPath = "inset(100% 0 0 0)";
+  }
+
+  function liftArrival(fromLoader) {
+    var wipe = doc.querySelector(".page-wipe");
+    playHero();
+    if (window.quantumField) {
+      if (fromLoader && gsap) {
+        // The field normally assembles behind the loader; here it assembles
+        // as the wipe uncovers it.
+        var intro = { value: 0.35 };
+        gsap.to(intro, {
+          value: 1,
+          duration: 1.3,
+          ease: "power3.out",
+          onUpdate: function () { window.quantumField.setIntroProgress(intro.value); }
+        });
+      } else {
+        window.quantumField.setIntroProgress(1);
+      }
+    }
+    if (!wipe || !gsap) {
+      root.classList.remove("is-arriving");
+      if (wipe) resetWipe(wipe);
+      return;
+    }
+    // Hand the closed state from the class to an inline style, then drop the
+    // class (and its failsafe animation) before tweening.
+    wipe.style.clipPath = "inset(0% 0 0 0)";
+    wipe.classList.add("is-active");
+    root.classList.remove("is-arriving");
+    gsap.to(wipe, {
+      clipPath: "inset(0 0 100% 0)",
+      duration: 0.82,
+      ease: "power4.inOut",
+      onComplete: function () { resetWipe(wipe); }
+    });
   }
 
   function playHero() {
@@ -246,12 +370,17 @@
 
   function runLoader() {
     var loader = doc.getElementById("loader");
+    if (arriving) {
+      arrive(loader);
+      return;
+    }
     if (!loader) {
       body.classList.remove("is-loading");
       if (window.quantumField) window.quantumField.setIntroProgress(1);
       playHero();
+      revealPrepared = true;
       initScrollAnimations();
-      positionInitialRoute();
+      requestAnimationFrame(placeInitialRoute);
       return;
     }
     buildLoaderField();
@@ -321,6 +450,8 @@
         duration: 0.48,
         ease: "power3.in"
       }, 2.16)
+      // Still fully covered: settle the page onto its route before the lift.
+      .call(prepareReveal, null, 2.14)
       .to(loader, {
         clipPath: "inset(0 0 100% 0)",
         duration: 0.82,
@@ -405,7 +536,11 @@
     if (hero) {
       var heroStage = hero.querySelector(".hero__stage") || hero;
       var wordmark = hero.querySelector(".hero__wordmark");
-      var maxMaskRadius = Math.ceil(Math.hypot(window.innerWidth, window.innerHeight) * 0.92);
+      // A function, so invalidateOnRefresh re-reads the viewport: a fixed
+      // radius measured at load left the mask short after a rotation/resize.
+      var maxMaskRadius = function () {
+        return Math.ceil(Math.hypot(window.innerWidth, window.innerHeight) * 0.92) + "px";
+      };
       gsap.set(".wordmark--fill .char-clip", { yPercent: 0, rotate: 0 });
       // Assigned below once the mark exists; the scrub calls it every frame
       // so the overlay tracks the inline mark's live position exactly.
@@ -444,7 +579,7 @@
           ease: exitEase
         }, 0.035)
         .to(heroStage, {
-          "--wordmark-mask-radius": maxMaskRadius + "px",
+          "--wordmark-mask-radius": maxMaskRadius,
           "--wordmark-mask-x": "56%",
           "--wordmark-mask-y": "42%",
           duration: 0.34,
@@ -605,16 +740,49 @@
     });
   }
 
+  // Full-screen opaque layers (menu, project file, lightbox) hide both
+  // canvases completely. They listen for this and stop rendering, which frees
+  // the frame budget for the overlay's own animation.
+  var occluders = {};
+  function setOccluder(name, on) {
+    occluders[name] = !!on;
+    var occluded = Object.keys(occluders).some(function (key) { return occluders[key]; });
+    try {
+      doc.dispatchEvent(new CustomEvent("ek:occlusion", { detail: { occluded: occluded } }));
+    } catch (error) {}
+  }
+
+  // Each layer remembers what had focus when it opened and returns it on
+  // close. One shared slot let a lightbox overwrite the project's return
+  // target, so closing the project focused a detached node. preventScroll
+  // matters under Lenis: native focus scrolling jumps the page.
+  function restoreFocus(node) {
+    if (!node || !node.focus || !doc.contains(node)) return;
+    try {
+      node.focus({ preventScroll: true });
+    } catch (error) {
+      node.focus();
+    }
+  }
+
   // Menu.
   var menuToggle = doc.getElementById("menuToggle");
   var menuOverlay = doc.getElementById("menuOverlay");
+  var menuReturn = null;
+  var menuOcclusionTimer = 0;
   function setMenu(open) {
     if (!menuToggle || !menuOverlay) return;
+    var wasOpen = body.classList.contains("menu-open");
     body.classList.toggle("menu-open", open);
     menuToggle.setAttribute("aria-expanded", String(open));
     menuOverlay.setAttribute("aria-hidden", String(!open));
     setScrollLocked(open);
-    if (open) lastFocused = doc.activeElement;
+    if (open && !wasOpen) menuReturn = doc.activeElement;
+    // The overlay's clip-path opens over .85s; pause the canvases only once
+    // it fully covers them, resume the moment it starts to close.
+    window.clearTimeout(menuOcclusionTimer);
+    if (open) menuOcclusionTimer = window.setTimeout(function () { setOccluder("menu", true); }, 900);
+    else setOccluder("menu", false);
     if (gsap && !reduceMotion) {
       if (open) {
         gsap.fromTo(".menu-nav a", { yPercent: 110, opacity: 0 }, {
@@ -632,7 +800,7 @@
         });
       }
     }
-    if (!open && lastFocused && lastFocused.focus) lastFocused.focus();
+    if (!open && wasOpen) restoreFocus(menuReturn);
   }
   if (menuToggle && menuOverlay) {
     menuToggle.addEventListener("click", function () {
@@ -643,12 +811,13 @@
     });
   }
 
+  // Escape closes the topmost layer only. It used to close the lightbox and
+  // the project file underneath it in one keystroke.
   doc.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") {
-      if (body.classList.contains("menu-open")) setMenu(false);
-      closeProject();
-      closeLightbox();
-    }
+    if (event.key !== "Escape") return;
+    if (body.classList.contains("lightbox-open")) closeLightbox();
+    else if (body.classList.contains("project-open")) closeProject();
+    else if (body.classList.contains("menu-open")) setMenu(false);
   });
 
   // Sticky section observer and page progress.
@@ -714,10 +883,26 @@
     updateRail();
   }
   window.addEventListener("scroll", scheduleRail, { passive: true });
-  window.addEventListener("resize", remeasureRail, { passive: true });
+  // Debounced: a resize burst (window drag, mobile toolbar) re-measured every
+  // scene on every event.
+  var railResizeTimer = 0;
+  window.addEventListener("resize", function () {
+    window.clearTimeout(railResizeTimer);
+    railResizeTimer = window.setTimeout(remeasureRail, 150);
+  }, { passive: true });
   remeasureRail();
 
-  // Project filter.
+  function refreshLayout() {
+    if (ScrollTrigger) ScrollTrigger.refresh();
+    if (window.quantumField) window.quantumField.refresh();
+    remeasureRail();
+  }
+
+  // Project filter. Only rows whose visibility actually changes animate —
+  // rows that stayed visible used to collapse to zero and grow back, so the
+  // whole list flickered — and the layout refresh runs once after the last
+  // row settles instead of once per row (up to seven full refreshes a click).
+  var filterSettleTimer = 0;
   qsa("[data-filter]").forEach(function (button) {
     button.addEventListener("click", function () {
       var filter = button.getAttribute("data-filter");
@@ -726,35 +911,36 @@
         item.classList.toggle("active", active);
         item.setAttribute("aria-pressed", String(active));
       });
+      var changed = false;
       qsa(".project-row").forEach(function (row) {
         var show = filter === "all" || (row.getAttribute("data-category") || "").split(/\s+/).indexOf(filter) > -1;
+        var shown = row.getAttribute("data-filtered") !== "out";
+        if (show === shown) return;
+        changed = true;
+        row.setAttribute("data-filtered", show ? "in" : "out");
         if (gsap && !reduceMotion) {
+          gsap.killTweensOf(row);
           if (show) {
+            // Fully collapsed rows grow from zero; a row caught mid-collapse
+            // reverses from wherever it is.
+            var from = row.hidden ? { height: 0, opacity: 0, y: 20 } : {};
             row.hidden = false;
-            gsap.fromTo(row, { height: 0, opacity: 0, y: 20 }, {
-              height: "auto", opacity: 1, y: 0, duration: 0.62, ease: "power4.out",
-              onComplete: function () {
-                if (ScrollTrigger) ScrollTrigger.refresh();
-                if (window.quantumField) window.quantumField.refresh();
-                remeasureRail();
-              }
+            gsap.fromTo(row, from, {
+              height: "auto", opacity: 1, y: 0, duration: 0.62, ease: "power4.out", clearProps: "height"
             });
           } else {
             gsap.to(row, {
               height: 0, opacity: 0, y: -12, duration: 0.45, ease: "power3.inOut",
-              onComplete: function () {
-                row.hidden = true;
-                if (ScrollTrigger) ScrollTrigger.refresh();
-                if (window.quantumField) window.quantumField.refresh();
-                remeasureRail();
-              }
+              onComplete: function () { row.hidden = true; }
             });
           }
         } else {
           row.hidden = !show;
-          remeasureRail();
         }
       });
+      if (!changed) return;
+      window.clearTimeout(filterSettleTimer);
+      filterSettleTimer = window.setTimeout(refreshLayout, gsap && !reduceMotion ? 680 : 0);
     });
   });
 
@@ -762,13 +948,32 @@
   var preview = doc.getElementById("projectPreview");
   if (preview && finePointer) {
     var previewImage = preview.querySelector("img");
+    var previewCaption = preview.querySelector("figcaption");
+    var projectRows = qsa(".project-row");
+    var projectTotal = String(projectRows.length).padStart(2, "0");
     var moveX = gsap ? gsap.quickTo(preview, "x", { duration: 0.52, ease: "power3.out" }) : null;
     var moveY = gsap ? gsap.quickTo(preview, "y", { duration: 0.52, ease: "power3.out" }) : null;
-    qsa(".project-row").forEach(function (row, index) {
+    // Warm every preview the first time the pointer reaches the list, so a
+    // hovered row never shows the previous project's image while its own
+    // is still downloading.
+    var projectIndexNode = doc.getElementById("projectIndex");
+    if (projectIndexNode) {
+      projectIndexNode.addEventListener("pointerenter", function warmPreviews() {
+        projectIndexNode.removeEventListener("pointerenter", warmPreviews);
+        projectRows.forEach(function (row) {
+          var image = new Image();
+          image.decoding = "async";
+          image.src = row.getAttribute("data-preview");
+        });
+      });
+    }
+    projectRows.forEach(function (row, index) {
       row.addEventListener("mouseenter", function () {
-        if (previewImage) previewImage.src = row.getAttribute("data-preview");
-        var cap = preview.querySelector("figcaption");
-        if (cap) cap.textContent = "OPEN CASE / " + String(index + 1).padStart(2, "0") + "—06";
+        var src = row.getAttribute("data-preview");
+        if (previewImage && previewImage.getAttribute("src") !== src) previewImage.src = src;
+        if (previewCaption) {
+          previewCaption.textContent = "OPEN CASE / " + String(index + 1).padStart(2, "0") + "—" + projectTotal;
+        }
         preview.classList.add("is-visible");
       });
       row.addEventListener("mouseleave", function () { preview.classList.remove("is-visible"); });
@@ -788,6 +993,7 @@
   var projectContent = doc.getElementById("projectOverlayContent");
   var projectOverlayNo = doc.getElementById("projectOverlayNo");
   var projectClose = doc.getElementById("projectOverlayClose");
+  var projectReturn = null;
 
   function buildProject(project) {
     var docs = (project.docs || []).map(function (item) {
@@ -795,8 +1001,11 @@
     }).join("");
     var images = project.images.map(function (item, index) {
       var no = String(index + 1).padStart(2, "0");
+      // [src, caption, width, height] — the size lets the sheet lay out before
+      // the images arrive, so the gallery does not jump while it loads.
+      var size = item[2] && item[3] ? ' width="' + item[2] + '" height="' + item[3] + '"' : "";
       return '<figure class="project-sheet__figure" data-project-image="' + index + '" tabindex="0" role="button">' +
-        '<div><img src="' + item[0] + '" alt="' + item[1].replace(/"/g, "&quot;") + '" loading="' + (index < 2 ? "eager" : "lazy") + '" decoding="async"></div>' +
+        '<div><img src="' + item[0] + '"' + size + ' alt="' + item[1].replace(/"/g, "&quot;") + '" loading="' + (index < 2 ? "eager" : "lazy") + '" decoding="async"></div>' +
         '<figcaption><span>FIG. ' + project.no + "—" + no + '</span><span>' + item[1] + '</span></figcaption></figure>';
     }).join("");
     return '<article class="project-sheet">' +
@@ -810,7 +1019,7 @@
   function openProject(key) {
     var data = window.PORTFOLIO_PROJECTS && window.PORTFOLIO_PROJECTS[key];
     if (!data || !projectOverlay || !projectContent) return;
-    lastFocused = doc.activeElement;
+    projectReturn = doc.activeElement;
     projectContent.innerHTML = buildProject(data);
     if (projectOverlayNo) projectOverlayNo.textContent = data.no;
     projectOverlay.dataset.project = key;
@@ -829,26 +1038,33 @@
       });
     });
     if (gsap && !reduceMotion) {
+      gsap.killTweensOf(projectOverlay);
       gsap.fromTo(projectOverlay, { clipPath: "inset(100% 0 0 0)" }, {
-        clipPath: "inset(0% 0 0 0)", duration: 0.92, ease: "power4.inOut"
+        clipPath: "inset(0% 0 0 0)", duration: 0.92, ease: "power4.inOut",
+        onComplete: function () { setOccluder("project", true); }
       });
       gsap.fromTo(".project-sheet__header > *, .project-sheet__docs", { y: 55, opacity: 0 }, {
         y: 0, opacity: 1, duration: 0.9, stagger: 0.07, delay: 0.48, ease: "power4.out"
       });
+    } else {
+      setOccluder("project", true);
     }
-    if (projectClose) projectClose.focus();
+    if (projectClose) restoreFocus(projectClose);
   }
 
   function closeProject() {
     if (!projectOverlay || projectOverlay.getAttribute("aria-hidden") === "true") return;
+    // Resume the canvases now: the page shows through as the file slides away.
+    setOccluder("project", false);
     function finish() {
       projectOverlay.setAttribute("aria-hidden", "true");
       body.classList.remove("project-open");
       setScrollLocked(false);
       if (projectContent) projectContent.innerHTML = "";
-      if (lastFocused && lastFocused.focus) lastFocused.focus();
+      restoreFocus(projectReturn);
     }
     if (gsap && !reduceMotion) {
+      gsap.killTweensOf(projectOverlay);
       gsap.to(projectOverlay, {
         clipPath: "inset(0 0 100% 0)", duration: 0.72, ease: "power4.inOut", onComplete: finish
       });
@@ -870,6 +1086,7 @@
   var lightboxItems = [];
   var lightboxIndex = 0;
   var lightboxProjectWasOpen = false;
+  var lightboxReturn = null;
 
   function renderLightbox() {
     if (!lightboxItems.length || !lightboxImage) return;
@@ -883,7 +1100,7 @@
 
   function openLightbox(items, index) {
     if (!lightbox || !items || !items.length) return;
-    lastFocused = doc.activeElement;
+    lightboxReturn = doc.activeElement;
     lightboxItems = items;
     lightboxIndex = clamp(index || 0, 0, items.length - 1);
     lightboxProjectWasOpen = body.classList.contains("project-open");
@@ -892,24 +1109,33 @@
     body.classList.add("lightbox-open");
     setScrollLocked(true);
     if (gsap && !reduceMotion) {
-      gsap.fromTo(lightbox, { opacity: 0 }, { opacity: 1, duration: 0.42, ease: "power2.out" });
+      gsap.killTweensOf(lightbox);
+      gsap.fromTo(lightbox, { opacity: 0 }, {
+        opacity: 1, duration: 0.42, ease: "power2.out",
+        onComplete: function () { setOccluder("lightbox", true); }
+      });
       gsap.fromTo(lightboxImage, { clipPath: "inset(0 0 100% 0)", scale: 1.04 }, {
         clipPath: "inset(0 0 0% 0)", scale: 1, duration: 0.82, ease: "power4.inOut"
       });
+    } else {
+      setOccluder("lightbox", true);
     }
-    if (lightboxClose) lightboxClose.focus();
+    if (lightboxClose) restoreFocus(lightboxClose);
   }
 
   function closeLightbox() {
     if (!lightbox || lightbox.getAttribute("aria-hidden") === "true") return;
+    setOccluder("lightbox", false);
     function finish() {
       lightbox.setAttribute("aria-hidden", "true");
       body.classList.remove("lightbox-open");
       if (!lightboxProjectWasOpen) setScrollLocked(false);
-      if (lastFocused && lastFocused.focus) lastFocused.focus();
+      restoreFocus(lightboxReturn);
     }
-    if (gsap && !reduceMotion) gsap.to(lightbox, { opacity: 0, duration: 0.3, onComplete: finish });
-    else finish();
+    if (gsap && !reduceMotion) {
+      gsap.killTweensOf(lightbox);
+      gsap.to(lightbox, { opacity: 0, duration: 0.3, onComplete: finish });
+    } else finish();
   }
 
   function stepLightbox(direction) {
@@ -1062,21 +1288,30 @@
     return wipe;
   }
 
-  function scrollToHash(hash) {
-    var target = hash && doc.querySelector(hash);
-    if (!target) {
-      window.scrollTo(0, 0);
-      return;
-    }
-    if (lenis && lenis.scrollTo) lenis.scrollTo(target, { immediate: true, force: true });
-    else target.scrollIntoView({ block: "start" });
-    if (history.replaceState) history.replaceState(null, "", hash);
+  function goToHash(hash) {
+    jumpTo(hashTarget(hash));
+    if (hash && history.replaceState) history.replaceState(null, "", hash);
+  }
+
+  // Hands the wipe's label to the next page. The inline <head> script there
+  // reads it before first paint and keeps the wipe closed, so the motion
+  // continues across the page load instead of cutting to a blank frame.
+  function markArrival(href, route) {
+    try {
+      var destination = new URL(href, window.location.href);
+      window.sessionStorage.setItem("ek:wipe", JSON.stringify({
+        no: route.no,
+        name: route.name,
+        to: destination.pathname.replace(/index\.html$/, ""),
+        t: Date.now()
+      }));
+    } catch (error) {}
   }
 
   function runTransition(href, route) {
     var wipe = paintWipe(route);
     if (!wipe || !gsap || reduceMotion) {
-      if (route.samePage) scrollToHash(route.hash);
+      if (route.samePage) goToHash(route.hash);
       else window.location.href = href;
       return;
     }
@@ -1088,32 +1323,56 @@
       ease: "power4.inOut",
       onComplete: function () {
         if (!route.samePage) {
+          markArrival(href, route);
           window.location.href = href;
           return;
         }
         // In-page destinations reuse the identical treatment, then lift again
         // so menu navigation reads the same whether or not a document loads.
-        scrollToHash(route.hash);
-        if (ScrollTrigger) ScrollTrigger.refresh();
-        if (window.quantumField) window.quantumField.refresh();
-        remeasureRail();
+        // Layout has not changed, so no full refresh — just jump and settle
+        // the scrubbed scenes so nothing fast-forwards under the lifting wipe.
+        goToHash(route.hash);
+        settleScrubs();
+        updateRail();
         gsap.to(wipe, {
           clipPath: "inset(0 0 100% 0)",
           duration: 0.68,
           ease: "power4.inOut",
           delay: 0.12,
-          onComplete: function () {
-            wipe.classList.remove("is-active");
-            wipe.style.clipPath = "inset(100% 0 0 0)";
-          }
+          onComplete: function () { resetWipe(wipe); }
         });
       }
     });
   }
 
+  // Warm the next document on intent (hover, focus, touch) so the page behind
+  // the wipe is usually already in cache when the wipe closes.
+  var prefetched = {};
+  function prefetch(link) {
+    var href = link.getAttribute("href");
+    if (!href || href.charAt(0) === "#") return;
+    var url;
+    try {
+      url = new URL(href, window.location.href);
+    } catch (error) {
+      return;
+    }
+    if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
+    if (prefetched[url.pathname]) return;
+    prefetched[url.pathname] = true;
+    var hint = doc.createElement("link");
+    hint.rel = "prefetch";
+    hint.href = url.pathname;
+    doc.head.appendChild(hint);
+  }
+
   function bindTransition(link) {
     if (link.dataset.transitionBound) return;
     link.dataset.transitionBound = "true";
+    var warm = function () { prefetch(link); };
+    link.addEventListener("pointerenter", warm);
+    link.addEventListener("focus", warm);
+    link.addEventListener("touchstart", warm, { passive: true });
     link.addEventListener("click", function (event) {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey ||
           event.shiftKey || event.altKey || link.target === "_blank") return;
@@ -1124,7 +1383,10 @@
       var route = resolveRoute(link, href);
       if (!route.samePage && href.charAt(0) === "#") return;
       event.preventDefault();
-      setMenu(false);
+      // Only a menu that is actually open needs closing. Closing it
+      // unconditionally restored focus to whatever last had it, and the
+      // browser scrolled that element into view as the wipe began.
+      if (body.classList.contains("menu-open")) setMenu(false);
       runTransition(href, route);
     });
   }
@@ -1140,7 +1402,7 @@
   qsa('.site-footer a[href^="#"]').forEach(function (link) {
     link.addEventListener("click", function (event) {
       var hash = link.getAttribute("href");
-      var target = hash && hash.length > 1 && doc.querySelector(hash);
+      var target = hashTarget(hash);
       if (!target || !lenis || !lenis.scrollTo || reduceMotion) return;
       event.preventDefault();
       lenis.scrollTo(target, { offset: 0 });
@@ -1148,14 +1410,28 @@
     });
   });
 
-  window.addEventListener("pageshow", function () {
-    var wipe = doc.querySelector(".page-wipe");
-    if (wipe) {
-      wipe.classList.remove("is-active");
-      wipe.style.clipPath = "inset(100% 0 0 0)";
-    }
-    body.classList.remove("menu-open", "project-open", "lightbox-open");
+  // Back/forward cache restores the page exactly as it was left: with the
+  // departure wipe closed. Lift it like an arrival. Only for restores — on a
+  // normal load this handler used to unlock scrolling in the middle of the
+  // intro loader.
+  window.addEventListener("pageshow", function (event) {
+    if (!event.persisted) return;
+    if (body.classList.contains("menu-open")) setMenu(false);
+    body.classList.remove("project-open", "lightbox-open");
     setScrollLocked(false);
+    var wipe = doc.querySelector(".page-wipe");
+    if (!wipe) return;
+    if (gsap && !reduceMotion && wipe.classList.contains("is-active")) {
+      gsap.killTweensOf(wipe);
+      gsap.fromTo(wipe, { clipPath: "inset(0% 0 0 0)" }, {
+        clipPath: "inset(0 0 100% 0)",
+        duration: 0.7,
+        ease: "power4.inOut",
+        onComplete: function () { resetWipe(wipe); }
+      });
+    } else {
+      resetWipe(wipe);
+    }
   });
 
   window.addEventListener("load", function () {

@@ -5,7 +5,7 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
 ## Structure
 
 - `index.html` — one-page portfolio with sections 01–07
-- `drawings.html` — 12-figure drawings and miscellaneous studies register
+- `drawings.html` — 15-figure drawings and miscellaneous studies register
 - `aerial.html` — 21-photograph aerial archive
 - `quantum-field.js` — scroll-linked binary probability field
 - `elastic-wave.js` — interactive FIG. 0.2 coupled elastic-wave lattice
@@ -30,6 +30,5 @@ The repository has no build step. Publish from the repository root and keep
 `.nojekyll`. All local paths are relative, so the site works on a custom domain
 or a GitHub project-page subpath.
 
-The motion layer loads GSAP, ScrollTrigger, Lenis, and Three.js from pinned CDN
-versions. Native scrolling remains available if a CDN is unavailable.
+The motion layer loads GSAP, ScrollTrigger, and Lenis from pinned CDN versions. Native scrolling remains available if a CDN is unavailable.
 `prefers-reduced-motion` uses a static field and static elastic-wave state.

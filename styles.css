@@ -95,6 +95,9 @@ a {
 img {
   display: block;
   max-width: 100%;
+  /* Images carry width/height attributes so the browser reserves their box
+     before they load; height:auto keeps those attributes as a ratio only. */
+  height: auto;
 }
 
 ::selection {
@@ -307,6 +310,20 @@ img {
   0% { transform: translateX(-35vw) scaleX(.1); }
   50% { transform: translateX(0) scaleX(1); }
   100% { transform: translateX(35vw) scaleX(.1); }
+}
+
+/* Arrival through a site transition: the wipe that closed on the previous
+   page is still closed at this page's first paint, so the two halves read as
+   one motion instead of a cut to white. main.js lifts it once the page is
+   positioned. The delayed animation is a failsafe: if the scripts never run,
+   the page still uncovers itself. */
+html.is-arriving .page-wipe {
+  clip-path: inset(0);
+  animation: wipe-failsafe .7s var(--ease-inout) 4s forwards;
+}
+
+@keyframes wipe-failsafe {
+  to { clip-path: inset(0 0 100% 0); }
 }
 
 /* Cursor */
