@@ -10,7 +10,25 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=Space+Grotesk:wght@400;500;600&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=17">
+  <script>
+    // Arriving through a site transition: keep the wipe closed through first
+    // paint so it continues from the previous page instead of cutting to white.
+    (function (d, w) {
+      try {
+        var raw = w.sessionStorage.getItem("ek:wipe");
+        if (!raw) return;
+        w.sessionStorage.removeItem("ek:wipe");
+        var s = JSON.parse(raw);
+        var here = w.location.pathname.replace(/index\.html$/, "");
+        if (!s || Date.now() - s.t > 8000 || s.to !== here) return;
+        if (w.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        d.documentElement.className += " is-arriving";
+        d.documentElement.setAttribute("data-arrive-no", s.no);
+        d.documentElement.setAttribute("data-arrive-name", s.name);
+      } catch (e) {}
+    })(document, window);
+  </script>
+  <link rel="stylesheet" href="styles.css?v=18">
 </head>
 <body class="gallery-page aerial-page">
   <a class="skip-link" href="#galleryMain">Skip to content</a>
@@ -21,6 +39,14 @@
     <span class="page-wipe__name micro">Aerial</span>
     <i></i>
   </div>
+  <script>
+    (function (r) {
+      if (!/\bis-arriving\b/.test(r.className)) return;
+      var wipe = document.currentScript.previousElementSibling;
+      wipe.querySelector(".page-wipe__no").textContent = r.getAttribute("data-arrive-no");
+      wipe.querySelector(".page-wipe__name").textContent = r.getAttribute("data-arrive-name");
+    })(document.documentElement);
+  </script>
   <div class="cursor cursor--dot" aria-hidden="true"></div>
   <div class="cursor cursor--ring" aria-hidden="true"><span>VIEW</span></div>
 
@@ -40,7 +66,7 @@
       <a href="index.html#about" data-transition-link data-menu-link><span>01</span><b>About</b><i>Profile / Ethos</i></a>
       <a href="index.html#projects" data-transition-link data-menu-link><span>02</span><b>Projects</b><i>Design / Analysis / Simulation</i></a>
       <a href="index.html#figure" data-transition-link data-menu-link><span>03</span><b>Interactive figure</b><i>Material response</i></a>
-      <a href="drawings.html" data-transition-link data-menu-link><span>04</span><b>Drawings + Misc.</b><i>12 figures</i></a>
+      <a href="drawings.html" data-transition-link data-menu-link><span>04</span><b>Drawings + Misc.</b><i>15 figures</i></a>
       <a href="aerial.html" data-transition-link data-menu-link aria-current="page"><span>05</span><b>Aerial</b><i>21 photographs</i></a>
       <a href="index.html#certifications" data-transition-link data-menu-link><span>06</span><b>Certifications</b><i>4 credentials</i></a>
       <a href="index.html#contact" data-transition-link data-menu-link><span>07</span><b>Contact</b><i>Open channel</i></a>
@@ -67,27 +93,27 @@
         <span>21 / 21</span>
       </header>
       <div class="aerial-grid">
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 01/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-01.jpg" alt="Aerial photograph 01" loading="eager" decoding="async"></div><figcaption><span>FIG. 05.01</span><span>AERIAL / 01</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 02/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-02.jpg" alt="Aerial photograph 02" loading="eager" decoding="async"></div><figcaption><span>FIG. 05.02</span><span>AERIAL / 02</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 03/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-03.jpg" alt="Aerial photograph 03" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.03</span><span>AERIAL / 03</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 04/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-04.jpg" alt="Aerial photograph 04" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.04</span><span>AERIAL / 04</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 05/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-05.jpg" alt="Aerial photograph 05" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.05</span><span>AERIAL / 05</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 06/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-06.jpg" alt="Aerial photograph 06" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.06</span><span>AERIAL / 06</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 07/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-07.jpg" alt="Aerial photograph 07" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.07</span><span>AERIAL / 07</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 08/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-08.jpg" alt="Aerial photograph 08" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.08</span><span>AERIAL / 08</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 09/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-09.jpg" alt="Aerial photograph 09" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.09</span><span>AERIAL / 09</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 10/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-10.jpg" alt="Aerial photograph 10" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.10</span><span>AERIAL / 10</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 11/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-11.jpg" alt="Aerial photograph 11" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.11</span><span>AERIAL / 11</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 12/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-12.jpg" alt="Aerial photograph 12" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.12</span><span>AERIAL / 12</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 13/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-13.jpg" alt="Aerial photograph 13" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.13</span><span>AERIAL / 13</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 14/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-14.jpg" alt="Aerial photograph 14" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.14</span><span>AERIAL / 14</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 15/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-15.jpg" alt="Aerial photograph 15" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.15</span><span>AERIAL / 15</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 16/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-16.jpg" alt="Aerial photograph 16" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.16</span><span>AERIAL / 16</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 17/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-17.jpg" alt="Aerial photograph 17" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.17</span><span>AERIAL / 17</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 18/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-18.jpg" alt="Aerial photograph 18" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.18</span><span>AERIAL / 18</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 19/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-19.jpg" alt="Aerial photograph 19" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.19</span><span>AERIAL / 19</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 20/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-20.jpg" alt="Aerial photograph 20" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.20</span><span>AERIAL / 20</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 21/21" data-reveal="media"><div class="gallery-card__media"><img src="assets/aerial/aerial-21.jpg" alt="Aerial photograph 21" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.21</span><span>AERIAL / 21</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 01/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-01.jpg" alt="Aerial photograph 01" loading="eager" decoding="async"></div><figcaption><span>FIG. 05.01</span><span>AERIAL / 01</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 02/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-02.jpg" alt="Aerial photograph 02" loading="eager" decoding="async"></div><figcaption><span>FIG. 05.02</span><span>AERIAL / 02</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 03/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-03.jpg" alt="Aerial photograph 03" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.03</span><span>AERIAL / 03</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 04/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-04.jpg" alt="Aerial photograph 04" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.04</span><span>AERIAL / 04</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 05/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-05.jpg" alt="Aerial photograph 05" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.05</span><span>AERIAL / 05</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 06/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-06.jpg" alt="Aerial photograph 06" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.06</span><span>AERIAL / 06</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 07/21" data-reveal="media"><div class="gallery-card__media"><img width="1118" height="1118" src="assets/aerial/aerial-07.jpg" alt="Aerial photograph 07" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.07</span><span>AERIAL / 07</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 08/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-08.jpg" alt="Aerial photograph 08" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.08</span><span>AERIAL / 08</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 09/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-09.jpg" alt="Aerial photograph 09" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.09</span><span>AERIAL / 09</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 10/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-10.jpg" alt="Aerial photograph 10" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.10</span><span>AERIAL / 10</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 11/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-11.jpg" alt="Aerial photograph 11" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.11</span><span>AERIAL / 11</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 12/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-12.jpg" alt="Aerial photograph 12" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.12</span><span>AERIAL / 12</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 13/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-13.jpg" alt="Aerial photograph 13" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.13</span><span>AERIAL / 13</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 14/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-14.jpg" alt="Aerial photograph 14" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.14</span><span>AERIAL / 14</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 15/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-15.jpg" alt="Aerial photograph 15" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.15</span><span>AERIAL / 15</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 16/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-16.jpg" alt="Aerial photograph 16" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.16</span><span>AERIAL / 16</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 17/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-17.jpg" alt="Aerial photograph 17" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.17</span><span>AERIAL / 17</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 18/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-18.jpg" alt="Aerial photograph 18" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.18</span><span>AERIAL / 18</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 19/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-19.jpg" alt="Aerial photograph 19" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.19</span><span>AERIAL / 19</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 20/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-20.jpg" alt="Aerial photograph 20" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.20</span><span>AERIAL / 20</span></figcaption></figure>
+        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 21/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-21.jpg" alt="Aerial photograph 21" loading="lazy" decoding="async"></div><figcaption><span>FIG. 05.21</span><span>AERIAL / 21</span></figcaption></figure>
       </div>
     </section>
   </main>
@@ -95,7 +121,7 @@
   <footer class="site-footer">
     <div class="site-footer__grid">
       <div><span class="micro">RETURN</span><a href="index.html" data-transition-link>00 / Index</a><a href="index.html#projects" data-transition-link>02 / Projects</a></div>
-      <div><span class="micro">PREVIOUS ARCHIVE</span><a href="drawings.html" data-transition-link>04 / Drawings + Misc.</a><span>12 figures</span></div>
+      <div><span class="micro">PREVIOUS ARCHIVE</span><a href="drawings.html" data-transition-link>04 / Drawings + Misc.</a><span>15 figures</span></div>
       <div><span class="micro">CONNECT</span><a href="mailto:pro.kainz@icloud.com">Email ↗</a><span>© Etienne Kainz 2026</span></div>
     </div>
     <div class="site-footer__wordmark" aria-hidden="true">05<span>AERIAL REGISTER</span></div>
@@ -111,7 +137,7 @@
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
-  <script src="quantum-field.js?v=19"></script>
-  <script src="main.js?v=20"></script>
+  <script src="quantum-field.js?v=20"></script>
+  <script src="main.js?v=21"></script>
 </body>
 </html>

@@ -52,6 +52,11 @@
   var openingTravel = 1;
   var pageScrollMax = 1;
   var renderCostAverage = 6;
+  var occluded = false;
+  // Backing-store density: dprScale is lowered by the resolution governor
+  // (see governResolution); dprFloor is the density it may not go below.
+  var dprScale = 1;
+  var dprFloor = 1;
 
   // Staged quality governor: 2 = full detail, 1 = no echo effects,
   // 0 = particle stride + single-cell splat. Hysteresis avoids flapping.
@@ -473,7 +478,12 @@
     // the real cost governor, so the caps can sit near native density.
     var requestedDpr = Math.min(window.devicePixelRatio || 1, compact ? 2.5 : medium ? 2.25 : 2);
     var pixelBudget = compact ? 2600000 : medium ? 3500000 : 5600000;
-    dpr = Math.max(0.9, Math.min(requestedDpr, Math.sqrt(pixelBudget / Math.max(1, width * height))));
+    var baseDpr = Math.max(0.9, Math.min(requestedDpr, Math.sqrt(pixelBudget / Math.max(1, width * height))));
+    // The governor may trade density for frame rate, but never below the
+    // floor — on phones that is still sharper than the old fixed 1.6 cap.
+    dprFloor = Math.min(baseDpr, compact ? 1.5 : 1);
+    dpr = Math.max(dprFloor, baseDpr * dprScale);
+    resetGovernor(45);
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -564,16 +574,61 @@
     }
   }
 
+  // Resolution governor. The quality governor below reacts to script time,
+  // but on phones the cost that actually drops frames is often pixel fill,
+  // which script timing never sees. If the field sustains well under 60 fps
+  // while its own script cost is modest, the GPU is the bottleneck: step the
+  // backing-store density down (never below the floor) and rebuild once.
+  var gapSamples = [];
+  var governorQuietFrames = 0;
+  function resetGovernor(quietFrames) {
+    gapSamples.length = 0;
+    governorQuietFrames = quietFrames || 0;
+  }
+  function governResolution(gap) {
+    if (reducedMotion || introProgress < 1 || occluded) return;
+    if (governorQuietFrames > 0) {
+      governorQuietFrames -= 1;
+      return;
+    }
+    if (gap >= 50) return;            // a pause, not a frame
+    gapSamples.push(gap);
+    if (gapSamples.length < 90) return;
+    var sorted = gapSamples.slice().sort(function (a, b) { return a - b; });
+    var median = sorted[sorted.length >> 1];
+    resetGovernor();
+    if (median > 25 && renderCostAverage < median * 0.45 && dpr > dprFloor + 0.05) {
+      dprScale *= 0.82;
+      window.setTimeout(resize, 0);
+    }
+  }
+
+  // rAF entry point. On high-refresh displays the field renders at most every
+  // ~10.5 ms — every other vsync at 120 Hz — because its motion is slow and
+  // ambient; the halved cost goes to scrolling and the page's own animations.
+  var MIN_FRAME_GAP = 10.5;
+  function tick(now) {
+    frame = 0;
+    if (!pageVisible || occluded) return;
+    if (now - lastFrame < MIN_FRAME_GAP) {
+      frame = requestAnimationFrame(tick);
+      return;
+    }
+    render(now);
+  }
+
   function render(now) {
     // render is invoked both by rAF and synchronously (resize/refresh);
     // cancelling any pending frame prevents duplicate rAF chains from
     // stacking up and multiplying the per-frame cost.
     if (frame) cancelAnimationFrame(frame);
     frame = 0;
-    if (!pageVisible) return;
+    if (!pageVisible || occluded) return;
 
-    var dt = clamp(now - lastFrame, 1, 50);
+    var gap = now - lastFrame;
+    var dt = clamp(gap, 1, 50);
     lastFrame = now;
+    governResolution(gap);
     var dtSeconds = dt / 1000;
     if (!reducedMotion) readScroll(dtSeconds);
     scrollEnergy *= Math.exp(-dtSeconds * 4.1);
@@ -1116,8 +1171,24 @@
   }
 
   function requestFrame() {
-    if (!frame && pageVisible) frame = requestAnimationFrame(render);
+    if (!frame && pageVisible && !occluded) frame = requestAnimationFrame(tick);
   }
+
+  // A full-screen opaque layer (menu, project file, lightbox) hides the field
+  // completely; stop rendering until it starts to move away.
+  document.addEventListener("ek:occlusion", function (event) {
+    var next = !!(event.detail && event.detail.occluded);
+    if (next === occluded) return;
+    occluded = next;
+    resetGovernor(30);
+    if (occluded) {
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+    } else {
+      lastFrame = performance.now();
+      requestFrame();
+    }
+  });
 
   function addRipple(x, y, strength) {
     ripples.push({ x: x, y: y, born: performance.now() / 1000, strength: strength || 1 });
@@ -1183,6 +1254,7 @@
 
   document.addEventListener("visibilitychange", function () {
     pageVisible = document.visibilityState !== "hidden";
+    resetGovernor(30);
     if (pageVisible) {
       lastFrame = performance.now();
       requestFrame();
@@ -1190,6 +1262,16 @@
   });
 
   window.quantumField = {
+    // Read-only snapshot for diagnostics and automated tests.
+    stats: function () {
+      return {
+        dpr: Math.round(dpr * 100) / 100,
+        dprFloor: Math.round(dprFloor * 100) / 100,
+        quality: quality,
+        occluded: occluded,
+        renderCost: Math.round(renderCostAverage * 10) / 10
+      };
+    },
     setIntroProgress: function (value) {
       introProgress = clamp(value, 0, 1);
       requestFrame();

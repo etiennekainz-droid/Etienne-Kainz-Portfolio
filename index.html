@@ -17,7 +17,25 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=Space+Grotesk:wght@400;500;600&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=17">
+  <script>
+    // Arriving through a site transition: keep the wipe closed through first
+    // paint so it continues from the previous page instead of cutting to white.
+    (function (d, w) {
+      try {
+        var raw = w.sessionStorage.getItem("ek:wipe");
+        if (!raw) return;
+        w.sessionStorage.removeItem("ek:wipe");
+        var s = JSON.parse(raw);
+        var here = w.location.pathname.replace(/index\.html$/, "");
+        if (!s || Date.now() - s.t > 8000 || s.to !== here) return;
+        if (w.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        d.documentElement.className += " is-arriving";
+        d.documentElement.setAttribute("data-arrive-no", s.no);
+        d.documentElement.setAttribute("data-arrive-name", s.name);
+      } catch (e) {}
+    })(document, window);
+  </script>
+  <link rel="stylesheet" href="styles.css?v=18">
 </head>
 <body class="home-page is-loading">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -48,6 +66,14 @@
     <span class="page-wipe__name micro">Index</span>
     <i></i>
   </div>
+  <script>
+    (function (r) {
+      if (!/\bis-arriving\b/.test(r.className)) return;
+      var wipe = document.currentScript.previousElementSibling;
+      wipe.querySelector(".page-wipe__no").textContent = r.getAttribute("data-arrive-no");
+      wipe.querySelector(".page-wipe__name").textContent = r.getAttribute("data-arrive-name");
+    })(document.documentElement);
+  </script>
 
   <div class="cursor cursor--dot" aria-hidden="true"></div>
   <div class="cursor cursor--ring" aria-hidden="true"><span>VIEW</span></div>
@@ -72,7 +98,7 @@
       <a href="#about" data-menu-link><span>01</span><b>About</b><i>Profile / Ethos</i></a>
       <a href="#projects" data-menu-link><span>02</span><b>Projects</b><i>Design / Analysis / Simulation</i></a>
       <a href="#figure" data-menu-link><span>03</span><b>Interactive figure</b><i>Material response</i></a>
-      <a href="drawings.html" data-transition-link data-menu-link><span>04</span><b>Drawings + Misc.</b><i>12 figures</i></a>
+      <a href="drawings.html" data-transition-link data-menu-link><span>04</span><b>Drawings + Misc.</b><i>15 figures</i></a>
       <a href="aerial.html" data-transition-link data-menu-link><span>05</span><b>Aerial</b><i>21 photographs</i></a>
       <a href="#certifications" data-menu-link><span>06</span><b>Certifications</b><i>4 credentials</i></a>
       <a href="#contact" data-menu-link><span>07</span><b>Contact</b><i>Open channel</i></a>
@@ -134,7 +160,7 @@
 
       <div class="about__grid">
         <figure class="headshot media-reveal" data-reveal="media">
-          <div class="image-shell"><img src="assets/headshot/etienne.jpg?v=2" alt="Etienne Kainz" loading="lazy"></div>
+          <div class="image-shell"><img width="1170" height="1202" src="assets/headshot/etienne.jpg?v=2" alt="Etienne Kainz" loading="lazy"></div>
           <figcaption class="micro"><span>FIG. 01-A</span><span>E. KAINZ / VIENNA</span></figcaption>
         </figure>
 
@@ -168,11 +194,11 @@
       </header>
 
       <div class="projects__intro">
-        <p class="statement split-lines">Six studies across design, analysis, and simulation — reduced to their essential engineering signal.</p>
+        <p class="statement split-lines">Seven studies across design, analysis, and simulation — reduced to their essential engineering signal.</p>
         <div class="filter-bar" role="group" aria-label="Filter projects" data-reveal="clip">
-          <button type="button" class="active" data-filter="all" aria-pressed="true">All <span>06</span></button>
-          <button type="button" data-filter="design" aria-pressed="false">Design <span>04</span></button>
-          <button type="button" data-filter="analysis" aria-pressed="false">Analysis <span>04</span></button>
+          <button type="button" class="active" data-filter="all" aria-pressed="true">All <span>07</span></button>
+          <button type="button" data-filter="design" aria-pressed="false">Design <span>05</span></button>
+          <button type="button" data-filter="analysis" aria-pressed="false">Analysis <span>05</span></button>
           <button type="button" data-filter="simulation" aria-pressed="false">Simulation <span>03</span></button>
         </div>
       </div>
@@ -223,7 +249,7 @@
             <span class="project-row__arrow" aria-hidden="true">↗</span>
           </button>
         </article>
-        <article class="project-row" data-category="design analysis" data-preview="assets/projects/rocket-design/photo.jpg" data-reveal="line">
+        <article class="project-row" data-category="design analysis" data-preview="assets/projects/rocket-design/presentation.jpg" data-reveal="line">
           <button class="project-trigger" type="button" data-project-open="rocket-design">
             <span class="project-row__no">2.6</span>
             <span class="project-row__title">Introduction to Rocket Design</span>
@@ -232,10 +258,19 @@
             <span class="project-row__arrow" aria-hidden="true">↗</span>
           </button>
         </article>
+        <article class="project-row" data-category="design analysis" data-preview="assets/projects/rod-end/cad-iso.jpg" data-reveal="line">
+          <button class="project-trigger" type="button" data-project-open="rod-end">
+            <span class="project-row__no">2.7</span>
+            <span class="project-row__title">Rod End M14 — Reverse Engineering</span>
+            <span class="project-row__desc">Series part measured, sketched by hand, and rebuilt in Fusion 360 with a derived drawing.</span>
+            <span class="project-row__tags">DESIGN · ANALYSIS</span>
+            <span class="project-row__arrow" aria-hidden="true">↗</span>
+          </button>
+        </article>
       </div>
       <figure class="project-preview" id="projectPreview" aria-hidden="true">
         <img src="assets/projects/scissor-lift/sl-06.jpg" alt="">
-        <figcaption class="micro">OPEN CASE / 01—06</figcaption>
+        <figcaption class="micro">OPEN CASE / 01—07</figcaption>
       </figure>
     </section>
 
@@ -285,9 +320,9 @@
       </header>
       <a class="teaser-card" href="drawings.html" data-transition-link data-cursor="open" data-reveal="media">
         <div class="teaser-card__image">
-          <img src="assets/drawings/dwg-01.jpg" alt="Spindle technical drawing" loading="lazy">
+          <img width="1280" height="919" src="assets/drawings/dwg-01.jpg" alt="Spindle technical drawing" loading="lazy">
         </div>
-        <div class="teaser-card__top micro"><span>DETAIL / ASSEMBLY / CONCEPT</span><span>12 FIGURES</span></div>
+        <div class="teaser-card__top micro"><span>DETAIL / ASSEMBLY / CONCEPT</span><span>15 FIGURES</span></div>
         <div class="teaser-card__title"><span>Enter drawings + misc.</span><i>↗</i></div>
         <div class="teaser-card__index" aria-hidden="true">04</div>
       </a>
@@ -303,7 +338,7 @@
       </header>
       <a class="teaser-card teaser-card--reverse" href="aerial.html" data-transition-link data-cursor="open" data-reveal="media">
         <div class="teaser-card__image">
-          <img src="assets/aerial/aerial-01.jpg" alt="Aerial landscape photograph" loading="lazy">
+          <img width="1152" height="1152" src="assets/aerial/aerial-01.jpg" alt="Aerial landscape photograph" loading="lazy">
         </div>
         <div class="teaser-card__top micro"><span>FIELD / TRAVEL RECORD</span><span>21 PHOTOGRAPHS</span></div>
         <div class="teaser-card__title"><span>Open aerial archive</span><i>↗</i></div>
@@ -329,8 +364,8 @@
             <i aria-hidden="true">+</i>
           </button>
           <div class="credential__media" aria-hidden="true">
-            <img src="assets/certs/cu-boulder.png" alt="">
-            <img src="assets/certs/fig-quantum.png" alt="">
+            <img width="1000" height="202" src="assets/certs/cu-boulder.png" alt="">
+            <img width="600" height="600" src="assets/certs/fig-quantum.png" alt="">
           </div>
         </article>
         <article class="credential" data-reveal="line">
@@ -342,8 +377,8 @@
             <i aria-hidden="true">+</i>
           </button>
           <div class="credential__media" aria-hidden="true">
-            <img src="assets/certs/fig-solidworks.png" alt="">
-            <img class="credential__logo" src="assets/certs/solidworks.png" alt="">
+            <img width="1920" height="1080" src="assets/certs/fig-solidworks.png" alt="">
+            <img width="1024" height="288" class="credential__logo" src="assets/certs/solidworks.png" alt="">
           </div>
         </article>
         <article class="credential" data-reveal="line">
@@ -355,8 +390,8 @@
             <i aria-hidden="true">+</i>
           </button>
           <div class="credential__media" aria-hidden="true">
-            <img src="assets/certs/hkust.jpg" alt="">
-            <img src="assets/certs/fig-math.jpg" alt="">
+            <img width="640" height="360" src="assets/certs/hkust.jpg" alt="">
+            <img width="1024" height="843" src="assets/certs/fig-math.jpg" alt="">
           </div>
         </article>
         <article class="credential" data-reveal="line">
@@ -368,8 +403,8 @@
             <i aria-hidden="true">+</i>
           </button>
           <div class="credential__media" aria-hidden="true">
-            <img src="assets/certs/duke.jpg" alt="">
-            <img src="assets/certs/fig-oilgas.jpg" alt="">
+            <img width="1189" height="670" src="assets/certs/duke.jpg" alt="">
+            <img width="2000" height="1339" src="assets/certs/fig-oilgas.jpg" alt="">
           </div>
         </article>
       </div>
@@ -434,9 +469,9 @@
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
-  <script src="project-data.js?v=4"></script>
-  <script src="quantum-field.js?v=19"></script>
-  <script src="main.js?v=20"></script>
-  <script src="elastic-wave.js?v=2"></script>
+  <script src="project-data.js?v=5"></script>
+  <script src="quantum-field.js?v=20"></script>
+  <script src="main.js?v=21"></script>
+  <script src="elastic-wave.js?v=3"></script>
 </body>
 </html>

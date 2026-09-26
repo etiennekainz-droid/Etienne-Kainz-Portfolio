@@ -385,13 +385,28 @@
     updateHud(metrics, now || performance.now());
   }
 
+  // Full-screen overlays hide the figure, but IntersectionObserver still
+  // reports it on screen, so the page tells us explicitly (see main.js).
+  var occluded = false;
+
   function active() {
-    return onscreen && pageVisible && !userPaused && !reducedMotion;
+    return onscreen && pageVisible && !userPaused && !reducedMotion && !occluded;
   }
 
   function requestFrame() {
     if (!raf && active()) raf = requestAnimationFrame(loop);
   }
+
+  document.addEventListener("ek:occlusion", function (event) {
+    occluded = !!(event.detail && event.detail.occluded);
+    if (occluded && raf) {
+      cancelAnimationFrame(raf);
+      raf = 0;
+      lastFrame = 0;
+    } else if (!occluded) {
+      requestFrame();
+    }
+  });
 
   function loop(now) {
     raf = 0;
@@ -400,7 +415,9 @@
       return;
     }
 
-    if (compact && lastFrame && now - lastFrame < 28) {
+    // ~35 fps on phones; at most ~95 fps elsewhere, so a 120 Hz display
+    // draws the lattice every other vsync instead of every one.
+    if (lastFrame && now - lastFrame < (compact ? 28 : 10.5)) {
       requestFrame();
       return;
     }
