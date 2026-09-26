@@ -3,7 +3,7 @@
 
   window.PORTFOLIO_PROJECTS = {
     "scissor-lift": {
-      no: "2.1",
+      no: "2.2",
       title: "Scissor Lift Table",
       status: "Complete",
       meta: ["PTC Creo Parametric 12", "Machine design", "FKM verification"],
@@ -24,7 +24,7 @@
       ]
     },
     "aerospace-platform": {
-      no: "2.2",
+      no: "2.3",
       title: "Small High-Agility Aerospace Platform",
       status: "In progress",
       meta: ["Fusion 360", "Concept design", "Aerodynamic braking"],
@@ -41,7 +41,7 @@
       ]
     },
     "vtol-study": {
-      no: "2.3",
+      no: "2.4",
       title: "Propulsion Architecture Trade Study — Small VTOL ISR UAV",
       status: "Complete",
       meta: ["Trade study", "CFD", "Quad-rotor vs. tilt-rotor"],
@@ -60,7 +60,7 @@
       ]
     },
     "aim174b": {
-      no: "2.4",
+      no: "2.5",
       title: "AIM-174B Missile — CAD",
       status: "Complete",
       meta: ["SOLIDWORKS", "Surface modelling", "3-D printed scale model"],
@@ -79,7 +79,7 @@
       ]
     },
     "rocket-sim": {
-      no: "2.5",
+      no: "2.6",
       title: "Two-Stage Rocket Simulation",
       status: "Complete",
       meta: ["Python", "NumPy · Matplotlib", "Flight dynamics"],
@@ -94,7 +94,7 @@
       ]
     },
     "rocket-design": {
-      no: "2.6",
+      no: "2.7",
       title: "Introduction to Rocket Design",
       status: "Complete",
       meta: ["Presentation", "TU Wien", "Thrust chamber geometry"],
@@ -107,7 +107,7 @@
       ]
     },
     "rod-end": {
-      no: "2.7",
+      no: "2.1",
       title: "Rod End M14 — Reverse Engineering",
       status: "Complete",
       meta: ["Fusion 360", "Caliper measurement · DIN 862", "ISO 2768-mK drawing"],
