@@ -12,8 +12,11 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
   exploded shaft, terrain survey, gyroscope, ground-station dish, and a
   thrust chamber that ignites during the opening scroll) move like the real
   hardware; a Navier–Stokes smoke solver runs on the same grid with the
-  mechanisms as moving boundaries; a drafting layer adds chain-line axes,
-  live dimensions, leaders, balloons, and a sweeping section cut
+  mechanisms as moving boundaries; glyphs follow detected edges and fade
+  hidden lines through a per-cell depth buffer; a drafting layer adds
+  chain-line axes, live dimensions, leaders, balloons, a sweeping section
+  cut, and live engineering plots (Cp, chamber pressure, mesh stiffness,
+  beam pattern, terrain profile)
 - `main.js` — loading sequence, navigation, motion, filtering, overlays, and lightboxes
 - `project-data.js` — project case-file content and original media mapping
 - `styles.css` — site-wide black/white editorial design system
