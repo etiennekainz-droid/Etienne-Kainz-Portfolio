@@ -638,7 +638,7 @@ html.is-arriving .page-wipe {
 /* Hero — tall on purpose: its height is the runway for the whole opening
    sequence, so more height = slower, more legible scroll choreography. */
 .hero {
-  min-height: 320svh;
+  min-height: 360svh;
   padding-top: 0;
   padding-bottom: 0;
   overflow: visible;
@@ -1939,7 +1939,7 @@ html.is-arriving .page-wipe {
 /* Tablet */
 @media (max-width: 1024px) {
   .hero {
-    min-height: 220svh;
+    min-height: 260svh;
   }
 
   .scene {
@@ -2077,7 +2077,7 @@ html.is-arriving .page-wipe {
   }
 
   .hero {
-    min-height: 285svh;
+    min-height: 320svh;
     padding-top: 0;
     padding-bottom: 0;
   }
