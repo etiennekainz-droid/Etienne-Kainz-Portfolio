@@ -33,7 +33,7 @@
   // legible point cloud than the old static field did.
   var particleCount = reducedMotion ?
     (compact ? 460 : medium ? 760 : 980) :
-    (compact ? 1150 : medium ? 1950 : 2750);
+    (compact ? 1400 : medium ? 1950 : 2750);
   var phase = new Float32Array(particleCount);
   var seedA = new Float32Array(particleCount);
   var seedB = new Float32Array(particleCount);
@@ -57,7 +57,6 @@
   var ripples = [];
   var bursts = [];
   var glyphs = [];
-  var markSprite = null;
   var scrollEnergy = 0;
   var scrollBias = 0;
   var signedScrollPhase = 0;
@@ -68,27 +67,38 @@
   var openingProgress = hasOpening && !reducedMotion ? 0 : 1;
   var openingTarget = openingProgress;
   var openingExternallyDriven = false;
+  // Journey coordinate. 0..1 is the opening chain; beyond that, 1 + k + t
+  // sits between section stops k and k+1 (gallery pages start at 0). The
+  // field displays `stage`, which trails the scroll-derived target under
+  // per-phase speed limits — a fast flick can no longer skip the fan stage
+  // or the ignition; they play out, then the field catches up.
+  var stage = 0;
+  var stageSnap = true;
   var openingStart = 0;
   var openingTravel = 1;
   var pageScrollMax = 1;
   var renderCostAverage = 6;
   var occluded = false;
-  var lastEventSerial = -1;
   // Backing-store density: dprScale is lowered by the resolution governor
   // (see governResolution); dprFloor is the density it may not go below.
   var dprScale = 1;
   var dprFloor = 1;
 
-  // Staged quality governor: 2 = full detail, 1 = no echo effects and a
-  // lighter solver, 0 = particle stride + single-cell splat, bare solver.
+  // Staged quality governor: 2 = full detail, 1 = a lighter solver,
+  // 0 = particle stride + single-cell splat, bare solver.
   // Hysteresis avoids flapping.
   var quality = 2;
 
   // The glyph raster: projected mechanism density is accumulated on a fixed
   // character grid every frame and rendered as a brightness ramp of
   // drafting marks with motion-aligned strokes. The flow solver runs on the
-  // very same grid, so one cell is one glyph is one fluid cell.
-  var cellSize = compact ? 15 : 13;
+  // very same grid, so one cell is one glyph is one fluid cell. Phones get
+  // a finer grid: a mechanism a phone-width wide needs more than 25 glyphs
+  // across to read as hardware.
+  var cellSize = compact ? 10 : 13;
+  // Portrait phones lay tall mechanisms out vertically (engine firing
+  // downward, gear train and shaft stacked) instead of shrinking them.
+  var portraitMode = false;
   var rasterCols = 0;
   var rasterRows = 0;
   var rasterDensity = null;
@@ -189,6 +199,7 @@
     this.zoom = spec.zoom || 1;
     // Phones are portrait: wide mechanisms shrink to fit the narrow axis.
     this.compactZoom = spec.compactZoom || this.zoom;
+    this.portrait = !!spec.portrait;
     this.shift = spec.shift || 0;
     this.anchorY = spec.anchorY == null ? -1 : spec.anchorY;
     for (var i = 0; i < n; i += 1) spec.build(this, i, seedA[i], seedB[i], seedC[i], seedD[i]);
@@ -200,6 +211,18 @@
     f.b[i] = b;
     f.c[i] = c;
     f.h[i] = heat;
+  }
+
+  // Evaluates a formation's pose for one particle into OUT, turning it a
+  // quarter-turn for the portrait layout where the formation asks for it.
+  function evalMotion(f, i) {
+    OUT[5] = 0;
+    f.motion(f, i, env, OUT);
+    if (portraitMode && f.portrait) {
+      var t = OUT[0];
+      OUT[0] = -OUT[1];
+      OUT[1] = t;
+    }
   }
 
   function staticMotion(f, i, e, out) {
@@ -256,6 +279,7 @@
     yaw: -0.12,
     pitch: 0.05,
     zoom: 0.9,
+    compactZoom: 0.9,
     build: function (f, i, a, b, c, d) {
       var lane = i % 24;
       var angle;
@@ -377,7 +401,8 @@
     pitch: 0.1,
     zoom: 1,
     shift: -0.03,
-    compactZoom: 0.82,
+    compactZoom: 1.15,
+    portrait: true,
     build: function (f, i, a, b, c, d) {
       var lane = i % 24;
       var gi = lane < 11 ? 0 : lane < 17 ? 1 : 2;
@@ -633,7 +658,7 @@
     wind: 1,
     rake: 0,
     shift: -0.1,
-    compactZoom: 0.82,
+    compactZoom: 0.95,
     yaw: 0.14,
     pitch: 0.1,
     build: function (f, i, a, b, c, d) {
@@ -764,7 +789,8 @@
     yaw: 0.4,
     pitch: 0.26,
     zoom: 1.08,
-    compactZoom: 0.8,
+    compactZoom: 1.1,
+    portrait: true,
     build: function (f, i, a, b, c, d) {
       var lane = i % 24;
       var x;
@@ -1008,6 +1034,7 @@
     yaw: 0.2,
     pitch: 0.1,
     zoom: 0.95,
+    compactZoom: 1.1,
     build: function (f, i, a, b, c, d) {
       var lane = i % 24;
       if (lane < 5) {
@@ -1094,6 +1121,7 @@
     yaw: -0.08,
     pitch: 0.06,
     zoom: 0.96,
+    compactZoom: 1,
     build: function (f, i, a, b, c, d) {
       var lane = i % 24;
       var r;
@@ -1388,7 +1416,8 @@
     yaw: 0.34,
     pitch: 0.08,
     anchorY: 0.5,
-    compactZoom: 0.6,
+    compactZoom: 1.3,
+    portrait: true,
     build: buildEngine,
     motion: function (f, i, e, out) {
       if (f.part[i] === 3) {
@@ -1417,7 +1446,8 @@
     yaw: 0.34,
     pitch: 0.08,
     anchorY: 0.5,
-    compactZoom: 0.6,
+    compactZoom: 1.3,
+    portrait: true,
     build: buildEngine,
     motion: function (f, i, e, out) {
       if (f.part[i] !== 3) {
@@ -1504,12 +1534,10 @@
     kImage.src = "assets/brand/k-mark.png?v=3";
   }
 
-  // Baked in device pixels against the largest size a mark is ever drawn at
-  // (~23 CSS px for the Ø marker), so the sprite is always downscaled and
-  // never stretched.
-  var GLYPH_CSS_MAX = 24;
-  function makeGlyph(char, weight) {
-    var device = Math.max(24, Math.min(96, Math.round(GLYPH_CSS_MAX * dpr)));
+  // Baked at the exact device-pixel size each mark is drawn at, so particle
+  // glyphs are blitted 1:1 and stay razor sharp on any display density.
+  function makeGlyph(char, weight, cssSize) {
+    var device = Math.max(4, Math.round(cssSize * dpr));
     var sprite = document.createElement("canvas");
     sprite.width = device;
     sprite.height = device;
@@ -1525,15 +1553,18 @@
   }
 
   // Scatter marks read as measurement samples: crosses for the point cloud,
-  // a rare diameter mark drifting through the hardware.
+  // a rare diameter mark drifting through the hardware. Three depth sizes.
   function buildParticleSprites() {
-    glyphs = [
-      makeGlyph("+", "400"),
-      makeGlyph("×", "400"),
-      makeGlyph("+", "500"),
-      makeGlyph("×", "500")
-    ];
-    markSprite = makeGlyph("Ø", "400");
+    var sizes = compact ? [5.5, 7.5, 9.5] : [6.5, 9.5, 12.5];
+    glyphs = sizes.map(function (size) {
+      return [
+        makeGlyph("+", "400", size),
+        makeGlyph("×", "400", size),
+        makeGlyph("+", "500", size),
+        makeGlyph("×", "500", size),
+        makeGlyph("Ø", "400", size * 1.2)
+      ];
+    });
   }
   buildParticleSprites();
 
@@ -1692,8 +1723,8 @@
       }
     }
 
-    // Inflow column and the smoke rake: pulsed timelines, so streak spacing
-    // shows local speed the way a smoke-wire does in a real tunnel.
+    // Inflow column and the smoke rake: continuous streaklines, like a
+    // smoke-wire in a real tunnel.
     var rakeTop = params.rakeTop;
     var rakeBottom = params.rakeBottom;
     for (y = 0; y < rows; y += 1) {
@@ -1840,11 +1871,16 @@
   // ---------------------------------------------------------------------
   // Projection shared by particles and the drafting layer.
   var view = {
-    cx: 0, cy: 0, scale: 1,
+    cx: 0, cy: 0, scale: 1, rot90: false,
     cosYaw: 1, sinYaw: 0, cosPitch: 1, sinPitch: 0, cosRoll: 1, sinRoll: 0
   };
 
   function project(x, y, z, out) {
+    if (view.rot90) {
+      var q = x;
+      x = -y;
+      y = q;
+    }
     var rx = x * view.cosYaw - z * view.sinYaw;
     var rz = x * view.sinYaw + z * view.cosYaw;
     var ry = y * view.cosPitch - rz * view.sinPitch;
@@ -1868,7 +1904,7 @@
   // its extreme points so extension lines start on real geometry.
   var bbox = { valid: false, l: 0, r: 0, t: 0, b: 0, ly: 0, ry: 0, tx: 0, bx: 0 };
   var bboxRaw = { l: 0, r: 0, t: 0, b: 0, ly: 0, ry: 0, tx: 0, bx: 0 };
-  var fontPx = compact ? 8.5 : 10;
+  var fontPx = compact ? 8 : 10;
   var hasLetterSpacing = "letterSpacing" in ctx;
 
   function setFont(weight) {
@@ -2116,7 +2152,7 @@
     // circles, marching slowly along their length.
     ctx.globalAlpha = alpha * 0.4;
     ctx.setLineDash(compact ? [11, 3, 2, 3] : [16, 4, 2, 4]);
-    ctx.lineDashOffset = -time * 7;
+    ctx.lineDashOffset = -time * 3;
     ctx.beginPath();
     for (k = 0; k < guides.chain.length; k += 1) segment3(guides.chain[k], grow);
     for (k = 0; k < guides.circles.length; k += 1) circle3(guides.circles[k], grow);
@@ -2148,7 +2184,8 @@
       var railClear = compact ? 16 : 96;
       var lx = clamp(bbox.l, railClear, Math.max(railClear, width - labelWidth - 18));
       var ly = dimY > 0 ? dimY + 24 : bbox.t - 30;
-      ly = clamp(ly, 40, height - 30);
+      // Phones keep the label clear of the menu toggle.
+      ly = clamp(ly, compact ? 100 : 40, height - 30);
       ctx.globalAlpha = alpha * 0.6;
       ctx.fillRect(lx, ly - fontPx - 5, Math.min(labelWidth, 28) * grow, 1);
       knockoutText(guides.label, lx, ly, "left", alpha * 0.72 * grow);
@@ -2171,20 +2208,21 @@
     // mid-session would cost far more than the extra points are worth.
     compact = compactQuery.matches;
     medium = mediumQuery.matches;
-    cellSize = compact ? 15 : 13;
-    fontPx = compact ? 8.5 : 10;
+    cellSize = compact ? 10 : 13;
+    fontPx = compact ? 8 : 10;
+    portraitMode = compact && window.innerHeight > window.innerWidth * 1.15;
     var bounds = canvas.getBoundingClientRect();
     width = Math.max(1, bounds.width);
     height = Math.max(1, bounds.height);
     // Render at native resolution where the pixel budget allows — the
     // glyphs stay razor sharp on retina displays. The pixel budget is the
     // real cost governor, so the caps can sit near native density.
-    var requestedDpr = Math.min(window.devicePixelRatio || 1, compact ? 2.5 : medium ? 2.25 : 2);
-    var pixelBudget = compact ? 2600000 : medium ? 3500000 : 5600000;
+    var requestedDpr = Math.min(window.devicePixelRatio || 1, compact ? 3 : medium ? 2.25 : 2);
+    var pixelBudget = compact ? 3400000 : medium ? 3500000 : 5600000;
     var baseDpr = Math.max(0.9, Math.min(requestedDpr, Math.sqrt(pixelBudget / Math.max(1, width * height))));
     // The governor may trade density for frame rate, but never below the
-    // floor.
-    dprFloor = Math.min(baseDpr, compact ? 1.5 : 1);
+    // floor. On phones the floor is 2x: below that the glyphs go soft.
+    dprFloor = Math.min(baseDpr, compact ? 2 : 1);
     dpr = Math.max(dprFloor, baseDpr * dprScale);
     resetGovernor(45);
     canvas.width = Math.round(width * dpr);
@@ -2235,49 +2273,95 @@
     if (!sectionStops.length) sectionStops = [{ index: 0, center: height * 0.5 }];
   }
 
-  function readScroll(dtSeconds) {
-    var focus = window.scrollY + height * 0.52;
-    scrollState.global = clamp(window.scrollY / pageScrollMax, 0, 1);
+  function sectionCoordinate(focus) {
+    var count = sectionStops.length;
+    if (count < 2 || focus <= sectionStops[0].center) return 0;
+    if (focus >= sectionStops[count - 1].center) return count - 1;
+    for (var i = 0; i < count - 1; i += 1) {
+      var next = sectionStops[i + 1];
+      if (focus < next.center) {
+        var current = sectionStops[i];
+        return i + (focus - current.center) / Math.max(1, next.center - current.center);
+      }
+    }
+    return count - 1;
+  }
+
+  function stageTarget() {
     if (hasOpening) {
       if (!openingExternallyDriven) {
-        openingTarget = reducedMotion ? 1 : clamp((window.scrollY - openingStart) / openingTravel, 0, 1);
-        openingProgress += (openingTarget - openingProgress) *
-          (1 - Math.exp(-dtSeconds * 7.2));
+        openingTarget = clamp((window.scrollY - openingStart) / openingTravel, 0, 1);
       }
-      if (openingProgress < 0.995) {
-        scrollState.a = 0;
-        scrollState.b = 0;
-        scrollState.mix = 0;
-        return;
-      }
+      if (openingTarget < 0.999) return openingTarget;
     }
-    var first = sectionStops[0];
-    var last = sectionStops[sectionStops.length - 1];
-    if (focus <= first.center) {
-      scrollState.a = first.index;
-      scrollState.b = first.index;
+    return (hasOpening ? 1 : 0) + sectionCoordinate(window.scrollY + height * 0.52);
+  }
+
+  function stopFormation(k) {
+    return sectionStops[clamp(k, 0, sectionStops.length - 1)].index;
+  }
+
+  // Journey units per second, forward. Showcase moments crawl; plateaus
+  // where nothing changes on screen are crossed almost instantly.
+  function stageSpeed(j) {
+    if (hasOpening && j < 1) {
+      if (j < 0.16) return 0.15;          // fan stage spools up
+      if (j < 0.34) return 0.34;          // fan → K
+      if (j < 0.42) return 0.14;          // the Kainz mark holds
+      if (j < 0.6) return 0.34;           // K → thrust chamber
+      if (j < 0.67) return 0.06;          // chamber assembled, dimensioned
+      if (j < 0.74) return 0.2;           // ignition transient
+      if (j < 0.88) return 0.07;          // main stage, shock diamonds
+      return 0.3;                         // plume → gear train
+    }
+    var s = j - (hasOpening ? 1 : 0);
+    var k = Math.floor(s);
+    var t = s - k;
+    if (stopFormation(k) === stopFormation(k + 1)) return 6;
+    return t > 0.18 && t < 0.82 ? 0.62 : 0.5;
+  }
+
+  function readScroll(dtSeconds) {
+    scrollState.global = clamp(window.scrollY / pageScrollMax, 0, 1);
+    var target = stageTarget();
+    var gap = target - stage;
+    if (stageSnap) {
+      stage = target;
+      stageSnap = false;
+    } else if (Math.abs(gap) > 1e-5) {
+      var limit = stageSpeed(stage) * (gap > 0 ? 1 : 3) * dtSeconds;
+      // A long jump between sections catches up instead of touring every
+      // mechanism on the way. The opening never hurries: its moments are
+      // the point.
+      var sectionFloor = hasOpening ? 1 : 0;
+      if (stage >= sectionFloor && target >= sectionFloor && Math.abs(gap) > 1.4) {
+        limit *= 1 + (Math.abs(gap) - 1.4) * 3;
+      }
+      var step = gap * (1 - Math.exp(-dtSeconds * 5));
+      if (Math.abs(step) > limit) step = gap > 0 ? limit : -limit;
+      stage += step;
+    }
+    if (hasOpening && stage < 1) {
+      openingProgress = stage;
+      scrollState.a = 0;
+      scrollState.b = 0;
       scrollState.mix = 0;
       return;
     }
-    if (focus >= last.center) {
-      scrollState.a = last.index;
-      scrollState.b = last.index;
+    if (hasOpening) openingProgress = 1;
+    var s = stage - (hasOpening ? 1 : 0);
+    var k = Math.floor(s);
+    var raw = s - k;
+    if (k >= sectionStops.length - 1) {
+      scrollState.a = stopFormation(sectionStops.length - 1);
+      scrollState.b = scrollState.a;
       scrollState.mix = 0;
       return;
     }
-    for (var i = 0; i < sectionStops.length - 1; i += 1) {
-      var current = sectionStops[i];
-      var next = sectionStops[i + 1];
-      if (focus >= current.center && focus < next.center) {
-        var raw = (focus - current.center) / Math.max(1, next.center - current.center);
-        // Hold each formation, then transition with a pronounced custom curve.
-        var transition = ease(clamp((raw - 0.18) / 0.64, 0, 1));
-        scrollState.a = current.index;
-        scrollState.b = next.index;
-        scrollState.mix = transition;
-        return;
-      }
-    }
+    // Hold each formation, then transition with a pronounced custom curve.
+    scrollState.a = stopFormation(k);
+    scrollState.b = stopFormation(k + 1);
+    scrollState.mix = ease(clamp((raw - 0.18) / 0.64, 0, 1));
   }
 
   // Resolution governor. The quality governor below reacts to script time,
@@ -2327,8 +2411,8 @@
     return fa[key] + (fb[key] - fa[key]) * mix;
   }
 
-  var CUT_PERIOD = 14;
-  var CUT_TIME = 3.6;
+  var CUT_PERIOD = 20;
+  var CUT_TIME = 4.5;
 
   function render(now) {
     // render is invoked both by rAF and synchronously (resize/refresh);
@@ -2365,8 +2449,8 @@
     // During the visible K handoff, both the DOM mark and the sampled particle
     // mark share one pose. The lock releases gradually as the K disperses.
     var kHandoffLock = hasOpening && kFormation && !reducedMotion ?
-      ease(clamp((openingPhase - 0.18) / 0.12, 0, 1)) *
-      (1 - ease(clamp((openingPhase - 0.48) / 0.18, 0, 1))) : 0;
+      ease(clamp((openingPhase - 0.2) / 0.12, 0, 1)) *
+      (1 - ease(clamp((openingPhase - 0.46) / 0.16, 0, 1))) : 0;
     var kHandoffDrift = Math.sin(clamp((openingPhase - 0.3) / 0.3, 0, 1) * Math.PI * 0.5);
 
     // Which two formations are on stage, and how far between them.
@@ -2376,73 +2460,84 @@
     if (hasOpening && openingPhase < 0.999) {
       if (kFormation) {
         // Fan stage → the Kainz mark → thrust chamber → ignition → gears.
-        if (openingPhase < 0.36) {
+        if (openingPhase < 0.38) {
           fA = formations[0];
           fB = kFormation;
-          mix = ease(clamp((openingPhase - 0.08) / 0.22, 0, 1));
-        } else if (openingPhase < 0.62) {
+          mix = ease(clamp((openingPhase - 0.16) / 0.18, 0, 1));
+        } else if (openingPhase < 0.64) {
           fA = kFormation;
           fB = engine;
-          mix = ease(clamp((openingPhase - 0.4) / 0.22, 0, 1));
-        } else if (openingPhase < 0.86) {
+          mix = ease(clamp((openingPhase - 0.42) / 0.18, 0, 1));
+        } else if (openingPhase < 0.88) {
           fA = engine;
           fB = ignition;
-          mix = ease(clamp((openingPhase - 0.62) / 0.1, 0, 1));
+          mix = ease(clamp((openingPhase - 0.67) / 0.07, 0, 1));
         } else {
           fA = ignition;
           fB = formations[1];
-          mix = ease(clamp((openingPhase - 0.86) / 0.14, 0, 1));
+          mix = ease(clamp((openingPhase - 0.88) / 0.12, 0, 1));
         }
-      } else if (openingPhase < 0.5) {
+      } else if (openingPhase < 0.64) {
         fA = formations[0];
         fB = engine;
-        mix = ease(clamp((openingPhase - 0.12) / 0.34, 0, 1));
-      } else if (openingPhase < 0.86) {
+        mix = ease(clamp((openingPhase - 0.16) / 0.44, 0, 1));
+      } else if (openingPhase < 0.88) {
         fA = engine;
         fB = ignition;
-        mix = ease(clamp((openingPhase - 0.62) / 0.1, 0, 1));
+        mix = ease(clamp((openingPhase - 0.67) / 0.07, 0, 1));
       } else {
         fA = ignition;
         fB = formations[1];
-        mix = ease(clamp((openingPhase - 0.86) / 0.14, 0, 1));
+        mix = ease(clamp((openingPhase - 0.88) / 0.12, 0, 1));
       }
     }
     var dominant = mix < 0.5 ? fA : fB;
+    // A quarter-turned formation trades its yaw and pitch, so the same tilt
+    // still shows its hoops and faces in 3-D.
+    var rotA = portraitMode && fA.portrait;
+    var rotB = portraitMode && fB.portrait;
+    var viewYawA = rotA ? fA.pitch : fA.yaw;
+    var viewYawB = rotB ? fB.pitch : fB.yaw;
+    var viewPitchA = rotA ? fA.yaw : fA.pitch;
+    var viewPitchB = rotB ? fB.yaw : fB.pitch;
+    view.rot90 = portraitMode && dominant.portrait;
 
     // Drive state. Scroll is the throttle; scrolling also turns the gears.
-    var throttle = 1 + scrollEnergy * 2.4 + openingDrive * 0.8;
+    var throttle = 1 + scrollEnergy * 1.4 + openingDrive * 0.5;
     var scrollDelta = signedScrollPhase - appliedScrollPhase;
     appliedScrollPhase = signedScrollPhase;
     var ignitionLevel = hasOpening && !reducedMotion ?
-      band(0.62, 0.7, openingPhase) * (1 - band(0.88, 0.97, openingPhase)) : 0;
+      band(0.67, 0.74, openingPhase) * (1 - band(0.9, 0.98, openingPhase)) : 0;
     env.t = motionTime;
     env.ign = ignitionLevel;
-    env.clock = Math.max(0, openingPhase - 0.64) * 14;
+    env.clock = Math.max(0, openingPhase - 0.69) * 14;
     if (!reducedMotion) {
-      env.spinRate = 1.05 * throttle;
-      env.gearRate = 0.3 * throttle + scrollDelta * 0.9 / Math.max(0.008, dtSeconds);
+      // The fan stage spools up through the first beat of the opening.
+      var spool = hasOpening ? 1 + band(0.02, 0.16, openingPhase) * 1.6 : 1;
+      env.spinRate = 0.5 * throttle * spool;
+      env.gearRate = 0.2 * throttle + scrollDelta * 0.7 / Math.max(0.008, dtSeconds);
       env.spin += dtSeconds * env.spinRate;
-      env.gear += dtSeconds * 0.3 * throttle + scrollDelta * 0.9;
-      env.slow += dtSeconds * 0.42 * (1 + scrollEnergy);
-      env.flow += dtSeconds * 0.55 * throttle;
-      env.fly += dtSeconds * 0.16 * throttle;
+      env.gear += dtSeconds * 0.2 * throttle + scrollDelta * 0.7;
+      env.slow += dtSeconds * 0.3 * (1 + scrollEnergy * 0.5);
+      env.flow += dtSeconds * 0.42 * throttle;
+      env.fly += dtSeconds * 0.1 * throttle;
     }
     if (fA.frame) fA.frame(env);
     if (fB !== fA && fB.frame) fB.frame(env);
 
     var centerX = width * (compact ? 0.54 : 0.51) +
       (reducedMotion ? 0 :
-        Math.sin(motionTime * 0.14 + scrollState.global * 3.2) * width * 0.012 +
-        Math.sin(openingPhase * Math.PI * 2) * width * 0.018 * openingEnergy);
+        Math.sin(motionTime * 0.14 + scrollState.global * 3.2) * width * 0.005 +
+        Math.sin(openingPhase * Math.PI * 2) * width * 0.008 * openingEnergy);
     var driftY = height * (0.42 + scrollState.global * 0.16 +
       Math.sin(scrollState.global * Math.PI * 5) * 0.018);
     var targetA = fA.anchorY >= 0 ? height * fA.anchorY : driftY + height * fA.shift;
     var targetB = fB.anchorY >= 0 ? height * fB.anchorY : driftY + height * fB.shift;
     var centerY = targetA + (targetB - targetA) * mix +
-      (reducedMotion ? 0 : Math.sin(motionTime * 0.1) * height * 0.008);
-    var baseScale = Math.min(width, height) * (compact ? 0.43 : 0.405) *
+      (reducedMotion ? 0 : Math.sin(motionTime * 0.1) * height * 0.004);
+    var baseScale = Math.min(width, height) * (compact ? 0.46 : 0.405) *
       openingScale * blend(fA, fB, compact ? "compactZoom" : "zoom", mix) *
-      (reducedMotion ? 1 : 1 + Math.sin(motionTime * 0.38) * 0.012 + scrollEnergy * 0.018);
+      (reducedMotion ? 1 : 1 + Math.sin(motionTime * 0.38) * 0.005 + scrollEnergy * 0.008);
     if (kHandoffLock > 0.001) {
       var targetKHeight = Math.min(height * 0.55, width * 0.54);
       var targetKScale = targetKHeight / (1.2 * (2.85 / 3.1));
@@ -2452,14 +2547,14 @@
       centerY += (lockedCenterY - centerY) * kHandoffLock;
       baseScale += (targetKScale - baseScale) * kHandoffLock;
     }
-    var yaw = blend(fA, fB, "yaw", mix) + (scrollState.global - 0.5) * 0.34 +
+    var yaw = viewYawA + (viewYawB - viewYawA) * mix + (scrollState.global - 0.5) * 0.34 +
       (reducedMotion ? 0 :
-        Math.sin(motionTime * 0.17) * 0.06 + scrollEnergy * 0.05 +
-        openingEnergy * Math.sin(openingPhase * Math.PI * 2) * 0.05);
-    var pitch = blend(fA, fB, "pitch", mix) + (reducedMotion ? 0 :
-      Math.cos(motionTime * 0.13) * 0.035);
+        Math.sin(motionTime * 0.17) * 0.03 + scrollEnergy * 0.02 +
+        openingEnergy * Math.sin(openingPhase * Math.PI * 2) * 0.03);
+    var pitch = viewPitchA + (viewPitchB - viewPitchA) * mix + (reducedMotion ? 0 :
+      Math.cos(motionTime * 0.13) * 0.018);
     // The whole projection banks slightly with scroll momentum.
-    var roll = reducedMotion ? 0 : Math.sin(motionTime * 0.11) * 0.014 + scrollBias * 0.05;
+    var roll = reducedMotion ? 0 : Math.sin(motionTime * 0.11) * 0.006 + scrollBias * 0.02;
     yaw *= 1 - kHandoffLock;
     pitch *= 1 - kHandoffLock;
     roll *= 1 - kHandoffLock;
@@ -2483,26 +2578,9 @@
     var morphStagger = 0.44;
     var morphActive = mix > 0.0001 && mix < 0.9999;
     var intro = ease(introProgress);
-    var tick = Math.floor(motionTime * 2.2);
-    var rasterTick = reducedMotion ? 7 : Math.floor(time * 1.6);
     var pointerAge = Math.max(0, time - pointer.moved);
     var proximityStrength = !reducedMotion && pointer.active ? Math.exp(-pointerAge * 1.35) : 0;
     var pointerRadius = compact ? 112 : 172;
-    // Ambient pressure pulse: a blast front that crosses the field now and
-    // then, displacing glyphs and kicking the smoke outward.
-    var eventPeriod = compact ? 14.5 : 13.2;
-    var eventSerial = Math.floor(time / eventPeriod);
-    var eventAge = time - eventSerial * eventPeriod;
-    var eventLife = reducedMotion ? 0 :
-      Math.sin(clamp(eventAge / 4.8, 0, 1) * Math.PI) * Math.exp(-Math.max(0, eventAge - 4.8) * 0.62);
-    eventLife *= 1 - openingEnergy * 0.82;
-    var eventX = width * (0.18 + hash(eventSerial * 17 + 3) * 0.64);
-    var eventY = height * (0.2 + hash(eventSerial * 29 + 7) * 0.58);
-    var eventFront = eventAge * Math.min(width, height) * (compact ? 0.072 : 0.088);
-    if (!reducedMotion && eventSerial !== lastEventSerial && eventAge < 0.5) {
-      lastEventSerial = eventSerial;
-      bursts.push([eventX, eventY, 26, 0.6]);
-    }
     // A moving inspection highlight, like an ultrasonic probe crossing the
     // part.
     var packetCenterX = Math.sin(motionTime * 0.25 + scrollState.global * 4.2) * 0.62;
@@ -2514,12 +2592,11 @@
     // the glyph reads crisp, then releases as it disperses.
     var kWindow = 0;
     if (hasOpening && kFormation && !reducedMotion && openingPhase < 0.999) {
-      kWindow = ease(clamp((openingPhase - 0.12) / 0.18, 0, 1)) *
-        (1 - ease(clamp((openingPhase - 0.42) / 0.2, 0, 1)));
+      kWindow = ease(clamp((openingPhase - 0.16) / 0.16, 0, 1)) *
+        (1 - ease(clamp((openingPhase - 0.44) / 0.18, 0, 1)));
     }
     var particleStride = quality === 0 ? 2 : 1;
     var splatSpread = quality === 0 ? 0 : 1;
-    var detailEffects = quality === 2;
     // Density normalisation keeps the raster exposure stable whenever the
     // particle budget is reduced.
     var densityGain = particleStride;
@@ -2573,9 +2650,8 @@
       var presence;
       var heat;
       var tracer;
-      OUT[5] = 0;
       if (localMix < 0.9999) {
-        fA.motion(fA, i, env, OUT);
+        evalMotion(fA, i);
         x = OUT[0];
         y = OUT[1];
         z = OUT[2];
@@ -2583,8 +2659,7 @@
         heat = OUT[4];
         tracer = OUT[5];
         if (localMix > 0.0001) {
-          OUT[5] = 0;
-          fB.motion(fB, i, env, OUT);
+          evalMotion(fB, i);
           x += (OUT[0] - x) * localMix;
           y += (OUT[1] - y) * localMix;
           z += (OUT[2] - z) * localMix;
@@ -2593,7 +2668,7 @@
           if (localMix > 0.5) tracer = OUT[5];
         }
       } else {
-        fB.motion(fB, i, env, OUT);
+        evalMotion(fB, i);
         x = OUT[0];
         y = OUT[1];
         z = OUT[2];
@@ -2662,7 +2737,6 @@
       var perspective = 2.85 / (3.1 + rotatedZ);
       var px = centerX + rotatedX * baseScale * perspective;
       var py = centerY + rotatedY * baseScale * perspective;
-      var autoBand = 0;
 
       if (proximityStrength > 0.015) {
         var dx = px - pointer.x;
@@ -2671,12 +2745,10 @@
         if (distanceSquared < pointerRadius * pointerRadius && distanceSquared > 0.25) {
           var distance = Math.sqrt(distanceSquared);
           var influence = Math.pow(1 - distance / pointerRadius, 2) * proximityStrength;
-          var wave = Math.sin(distance * 0.105 - time * 5.2);
-          var radialPush = influence * (10 + wave * 6);
+          var radialPush = influence * 9;
           // Pointer velocity feeds a decaying vortex: sweeping the field
           // drags a visible swirl behind the cursor.
-          var phaseShear = influence * (6 + Math.cos(distance * 0.07 - time * 4.4) * 3 +
-            pointer.swirl * 26);
+          var phaseShear = influence * (4 + pointer.swirl * 18);
           px += dx / distance * radialPush - dy / distance * phaseShear;
           py += dy / distance * radialPush + dx / distance * phaseShear;
         }
@@ -2696,23 +2768,8 @@
         }
       }
 
-      if (eventLife > 0.015) {
-        var edx = px - eventX;
-        var edy = py - eventY;
-        var eventDistance = Math.sqrt(edx * edx + edy * edy);
-        var eventWidth = compact ? 30 : 44;
-        autoBand = Math.exp(-Math.pow((eventDistance - eventFront) / eventWidth, 2)) * eventLife;
-        if (autoBand > 0.004 && eventDistance > 0.5) {
-          var eventTurn = Math.sin(eventAge * 4.2 - eventDistance * 0.03) * autoBand;
-          px += edx / eventDistance * autoBand * (compact ? 8 : 14) -
-            edy / eventDistance * eventTurn * (compact ? 4 : 6);
-          py += edy / eventDistance * autoBand * (compact ? 8 : 14) +
-            edx / eventDistance * eventTurn * (compact ? 4 : 6);
-        }
-      }
-
-      // Two-way coupling: gusts in the air (pointer wakes, the plume, blast
-      // fronts) buffet the glyphs; the steady freestream does not.
+      // Two-way coupling: gusts in the air (pointer wakes, the plume, click
+      // blasts) buffet the glyphs; the steady freestream does not.
       if (fluidU) {
         var fcx = (px / cellSize) | 0;
         var fcy = (py / cellSize) | 0;
@@ -2742,7 +2799,7 @@
       var packetDz = z - packetCenterZ;
       var packet = Math.exp(-(packetDx * packetDx * 1.55 + packetDy * packetDy * 1.82 +
         packetDz * packetDz * 1.25));
-      var probability = clamp(0.1 + heat * 0.64 + packet * 0.12 + autoBand * 0.42 +
+      var probability = clamp(0.1 + heat * 0.66 + packet * 0.05 +
         localMorph * 0.05 + scrollEnergy * 0.03 +
         openingBand * 0.24 + kWindow * 0.3, 0, 1) * presence;
       var depth = clamp((perspective - 0.58) / 0.8, 0, 1);
@@ -2766,7 +2823,7 @@
         rasterFlowX[cellIndex] += velocityX * weight;
         rasterFlowY[cellIndex] += velocityY * weight;
         if (splatSpread) {
-          var spill = weight * 0.32;
+          var spill = weight * 0.2;
           if (cellX > 0) rasterDensity[cellIndex - 1] += spill;
           if (cellX < rasterCols - 1) rasterDensity[cellIndex + 1] += spill;
           if (cellY > 0) rasterDensity[cellIndex - rasterCols] += spill;
@@ -2774,43 +2831,21 @@
         }
       }
 
-      var sample = seedA[i] * 0.97 +
-        fastHash(i * 19 + tick * 131 + Math.floor(motionTime * 0.82) * 17) * 0.03;
-      if (sample > probability + 0.08) continue;
-
-      var size = ((compact ? 4.4 : 4.9) +
-        depth * (compact ? 4.5 : 7.4) + probability * 0.9) *
-        (1 + openingEnergy * (compact ? 0.05 : 0.1));
-      var alpha = clamp((0.09 + probability * 0.7) * (0.3 + depth * 0.84) *
-        (1 + openingEnergy * 0.11) * intro * presence, 0, 0.92);
+      // A stable subset of samples draws as crisp measurement marks. The
+      // subset never reshuffles over time, so nothing twinkles.
+      if (seedA[i] > probability * 0.85 + 0.05) continue;
+      var alpha = clamp((0.12 + probability * 0.72) * (0.34 + depth * 0.8) *
+        intro * presence, 0, 0.9);
       if (intro < 0.38) alpha *= intro / 0.38;
-      if (alpha < 0.015) continue;
-
-      var flicker = Math.sin(phase[i] + motionTime * 0.92 + heat * 3) > 0 ? 1 : 0;
-      if (fastHash(i * 43 + tick * 97) > 0.992) flicker = 1 - flicker;
-      var spriteWeight = depth > 0.66 ? 2 : 0;
-
-      // Sparse motion echoes make direction legible on the moving parts.
-      if (!reducedMotion && !compact && detailEffects && i % 15 === 0 && alpha > 0.12 &&
-          velocityX * velocityX + velocityY * velocityY > 0.6) {
-        var trail = 1.6 + depth * 2.4 + localMorph * 2 + scrollEnergy * 2;
-        ctx.globalAlpha = alpha * 0.2;
-        ctx.drawImage(
-          glyphs[spriteWeight + (1 - flicker)],
-          px - velocityX * trail - size * 0.34,
-          py - velocityY * trail - size * 0.34,
-          size * 0.68,
-          size * 0.68
-        );
-      }
-
+      if (alpha < 0.02) continue;
+      // Three baked sizes, each drawn 1:1 in device pixels and snapped to
+      // the pixel grid — no resampling blur.
+      var set = glyphs[depth < 0.36 ? 0 : depth < 0.72 ? 1 : 2];
+      var mark = i % 97 === 0 ? set[4] : set[(heat > 0.62 ? 2 : 0) + (seedC[i] > 0.5 ? 1 : 0)];
+      var half = mark.width * 0.5;
       ctx.globalAlpha = alpha;
-      if (i % 97 === 0) {
-        var markSize = size * 1.25;
-        ctx.drawImage(markSprite, px - markSize * 0.5, py - markSize * 0.5, markSize, markSize);
-      } else {
-        ctx.drawImage(glyphs[spriteWeight + flicker], px - size * 0.5, py - size * 0.5, size, size);
-      }
+      ctx.drawImage(mark, Math.round(px * dpr - half) / dpr, Math.round(py * dpr - half) / dpr,
+        mark.width / dpr, mark.height / dpr);
     }
 
     // Flow solver step, fed by this frame's mechanism raster.
@@ -2867,20 +2902,19 @@
           Math.max(1.4, exitRadius * 0.62),
           jdx / jl * jetSpeed, (jdy / jl + wobble * 0.18) * jetSpeed, 0.5 * ignitionLevel, 1);
       }
-      var rakeOn = frac(time * 0.85) < 0.56;
       var rakeLevel = blend(fA, fB, "rake", mix);
       fluidStep(fdt, dtSeconds, {
         ux: freestream,
-        uy: -scrollBias * 4,
+        uy: -scrollBias * 1.5,
         solid: blend(fA, fB, "solid", mix) * (1 - kWindow * 0.6),
-        emit: morphEnergy * 1.3,
-        rake: rakeOn && rakeLevel > 0.02 ? (0.55 + 0.45 * rakeLevel) * (1 - kWindow) : 0,
+        emit: morphEnergy * 0.35,
+        rake: rakeLevel > 0.02 ? (0.5 + 0.4 * rakeLevel) * (1 - kWindow) : 0,
         rakeTop: rakeTop,
         rakeBottom: rakeBottom,
-        rakeSpacing: compact ? 4 : 5,
+        rakeSpacing: compact ? 6 : 5,
         confine: quality === 2 ? 9 : quality === 1 ? 6 : 0,
         iters: (quality === 2 ? 14 : 8) - (fluid.n > 14000 ? 4 : 0),
-        decay: 0.19
+        decay: 0.3
       });
     }
 
@@ -2898,7 +2932,7 @@
     // character grid: mechanism density picks the glyph, coherent motion
     // replaces it with a stroke, the section cut hatches it, and where no
     // hardware is, the smoke shows.
-    var rasterAlphaBase = intro * (compact ? 0.7 : 0.78);
+    var rasterAlphaBase = intro * 0.86;
     if (rasterAlphaBase > 0.02) {
       var flowThreshold2 = Math.pow(dt * 0.062, 2);
       var dye = fluidOn ? fluid.dye : null;
@@ -2916,8 +2950,8 @@
           var density = rasterDensity[idx];
           var sprite;
           var cellAlpha;
-          if (density >= 0.17) {
-            cellAlpha = Math.min(0.8, 0.09 + density * 0.34) * rasterAlphaBase;
+          if (density >= 0.24) {
+            cellAlpha = Math.min(0.9, 0.1 + density * 0.4) * rasterAlphaBase;
             if (cellAlpha < 0.02) continue;
             var drawX = cx * cellSize;
             var flowX = rasterFlowX[idx];
@@ -2938,14 +2972,14 @@
             } else if (density < 0.8) {
               sprite = rampSprites[1];
             } else {
-              var bit = fastHash(idx * 31 + rasterTick * 7) > 0.5 ? 1 : 0;
+              var bit = fastHash(idx * 31) > 0.5 ? 1 : 0;
               sprite = rampSprites[density < 2.05 ? 2 + bit : 4 + bit];
             }
             ctx.globalAlpha = cellAlpha;
             ctx.drawImage(sprite, drawX, drawY, cellSize, cellSize);
           } else if (dye) {
             var smoke = dye[idx];
-            if (smoke < 0.07) continue;
+            if (smoke < 0.12) continue;
             var su = smokeU[idx];
             var sv = smokeV[idx];
             // Thin the smoke to ridge lines across the local flow, so
@@ -2957,7 +2991,7 @@
                 (cx < rasterCols - 1 ? dye[idx + 1] : 0);
               if (smoke < n1 || smoke < n2) continue;
             }
-            if (smoke < 0.13) {
+            if (smoke < 0.18) {
               sprite = smokeDot;
             } else if (curl && Math.abs(curl[idx]) > 2.6 && smoke > 0.3) {
               sprite = smokeCurl;
@@ -2965,7 +2999,7 @@
               var smokeSector = Math.round(Math.atan2(sv, su) * 4 / Math.PI);
               sprite = smokeSprites[(smokeSector + 8) % 4];
             }
-            ctx.globalAlpha = Math.min(0.58, 0.08 + smoke * 0.55) * smokeAlphaBase;
+            ctx.globalAlpha = Math.min(0.42, 0.06 + smoke * 0.4) * smokeAlphaBase;
             ctx.drawImage(sprite, cx * cellSize, drawY, cellSize, cellSize);
           }
         }
@@ -3051,10 +3085,6 @@
     pointer.y = event.clientY;
     pointer.active = true;
     pointer.moved = stamp;
-    if (hash(Math.floor(stamp * 8)) > 0.83) {
-      ripples.push({ x: pointer.x, y: pointer.y, born: stamp, strength: 0.45 });
-      if (ripples.length > 3) ripples.shift();
-    }
     requestFrame();
   }, { passive: true });
 
@@ -3073,6 +3103,7 @@
     var stamp = performance.now();
     var deltaTime = Math.max(8, stamp - lastScrollStamp);
     var scrollDelta = window.scrollY - lastScrollY;
+    if (Math.abs(scrollDelta) > height * 1.4) stageSnap = true;
     var instantaneous = Math.min(0.68, Math.abs(scrollDelta) / deltaTime * 0.22);
     scrollEnergy = Math.max(scrollEnergy * 0.56, instantaneous);
     scrollBias = clamp(scrollBias + scrollDelta / deltaTime * 0.045, -1, 1);
@@ -3126,8 +3157,7 @@
     },
     setOpeningProgress: function (value) {
       openingExternallyDriven = true;
-      openingProgress = clamp(value, 0, 1);
-      openingTarget = openingProgress;
+      openingTarget = clamp(value, 0, 1);
       requestFrame();
     },
     burst: function (x, y) {
@@ -3135,6 +3165,7 @@
     },
     refresh: function () {
       measureSections();
+      if (Math.abs(stageTarget() - stage) > 1.2) stageSnap = true;
       render(performance.now());
     }
   };
