@@ -4,11 +4,16 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
 
 ## Structure
 
-- `index.html` — one-page portfolio with sections 01–07
+- `index.html` — one-page portfolio with sections 01–06
 - `drawings.html` — 15-figure drawings and miscellaneous studies register
 - `aerial.html` — 21-photograph aerial archive
-- `quantum-field.js` — scroll-linked binary probability field
-- `elastic-wave.js` — interactive FIG. 0.2 coupled elastic-wave lattice
+- `flow-field.js` — the background: a live engineering test section rendered
+  on a glyph grid. Particle mechanisms (fan stage, gear train, wing section,
+  exploded shaft, terrain survey, gyroscope, ground-station dish, and a
+  thrust chamber that ignites during the opening scroll) move like the real
+  hardware; a Navier–Stokes smoke solver runs on the same grid with the
+  mechanisms as moving boundaries; a drafting layer adds chain-line axes,
+  live dimensions, leaders, balloons, and a sweeping section cut
 - `main.js` — loading sequence, navigation, motion, filtering, overlays, and lightboxes
 - `project-data.js` — project case-file content and original media mapping
 - `styles.css` — site-wide black/white editorial design system
@@ -31,4 +36,4 @@ The repository has no build step. Publish from the repository root and keep
 or a GitHub project-page subpath.
 
 The motion layer loads GSAP, ScrollTrigger, and Lenis from pinned CDN versions. Native scrolling remains available if a CDN is unavailable.
-`prefers-reduced-motion` uses a static field and static elastic-wave state.
+`prefers-reduced-motion` shows a single still frame of the field (no solver).

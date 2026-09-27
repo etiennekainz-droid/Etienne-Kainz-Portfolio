@@ -35,28 +35,28 @@
       } catch (e) {}
     })(document, window);
   </script>
-  <link rel="stylesheet" href="styles.css?v=18">
+  <link rel="stylesheet" href="styles.css?v=19">
 </head>
 <body class="home-page is-loading">
   <a class="skip-link" href="#main">Skip to content</a>
 
-  <canvas id="quantumField" class="quantum-field" aria-hidden="true"></canvas>
+  <canvas id="flowField" class="flow-field" aria-hidden="true"></canvas>
   <div class="field-vignette" aria-hidden="true"></div>
 
   <div class="loader" id="loader" role="status" aria-live="polite">
     <div class="loader__field" id="loaderField" aria-hidden="true"></div>
     <div class="loader__top micro">
-      <span>EK.QF / INITIAL CONDITION</span>
+      <span>EK / INITIAL CONDITIONS</span>
       <span id="loaderCounter">000%</span>
     </div>
     <div class="loader__core">
-      <p class="loader__label micro">ASSEMBLING PROBABILITY FIELD</p>
-      <div class="loader__mark" aria-label="Etienne Kainz">EK<span>.</span>QF</div>
+      <p class="loader__label micro">MESHING FLOW DOMAIN</p>
+      <div class="loader__mark" aria-label="Etienne Kainz">EK</div>
       <div class="loader__track"><i id="loaderProgress"></i></div>
-      <p class="loader__status micro" id="loaderStatus">SCATTERED STATE</p>
+      <p class="loader__status micro" id="loaderStatus">GENERATING MESH</p>
     </div>
     <div class="loader__bottom micro">
-      <span>ψ(x,t) / NUMERICAL BASIS</span>
+      <span>NAVIER–STOKES / LIVE SOLVER</span>
       <span>VIENNA · 48.2082°N</span>
     </div>
   </div>
@@ -97,11 +97,10 @@
     <nav class="menu-nav" aria-label="Primary">
       <a href="#about" data-menu-link><span>01</span><b>About</b><i>Profile / Ethos</i></a>
       <a href="#projects" data-menu-link><span>02</span><b>Projects</b><i>Design / Analysis / Simulation</i></a>
-      <a href="#figure" data-menu-link><span>03</span><b>Interactive figure</b><i>Material response</i></a>
-      <a href="drawings.html" data-transition-link data-menu-link><span>04</span><b>Drawings + Misc.</b><i>15 figures</i></a>
-      <a href="aerial.html" data-transition-link data-menu-link><span>05</span><b>Aerial</b><i>21 photographs</i></a>
-      <a href="#certifications" data-menu-link><span>06</span><b>Certifications</b><i>4 credentials</i></a>
-      <a href="#contact" data-menu-link><span>07</span><b>Contact</b><i>Open channel</i></a>
+      <a href="drawings.html" data-transition-link data-menu-link><span>03</span><b>Drawings + Misc.</b><i>15 figures</i></a>
+      <a href="aerial.html" data-transition-link data-menu-link><span>04</span><b>Aerial</b><i>21 photographs</i></a>
+      <a href="#certifications" data-menu-link><span>05</span><b>Certifications</b><i>4 credentials</i></a>
+      <a href="#contact" data-menu-link><span>06</span><b>Contact</b><i>Open channel</i></a>
     </nav>
     <div class="menu-overlay__footer micro">
       <a href="mailto:pro.kainz@icloud.com">PRO.KAINZ@ICLOUD.COM</a>
@@ -114,7 +113,7 @@
       <div class="hero__stage">
         <div class="hero__meta micro" data-reveal="clip">
           <span data-scramble="ENGINEERING PORTFOLIO">ENGINEERING PORTFOLIO</span>
-          <span>QF—00 / OBSERVER FRAME</span>
+          <span>FIG. 00 / GENERAL ARRANGEMENT</span>
         </div>
         <div class="hero__wordmark" aria-label="Etienne Kainz">
           <h1 class="wordmark wordmark--fill split-chars">EtienneKainz</h1>
@@ -134,12 +133,12 @@
         <div class="hero__coordinates micro" data-reveal="clip">
           <span>48.2082° N</span>
           <span>16.3738° E</span>
-          <span>SCROLL TO OBSERVE</span>
+          <span>SCROLL TO IGNITE</span>
         </div>
         <div class="hero__overture micro" aria-hidden="true">
-          <span>ψ / LIVE PROBABILITY CURRENT</span>
+          <span>T–0 / IGNITION SEQUENCE</span>
           <i></i>
-          <span>SCROLL EXCITES FIELD</span>
+          <span>SCROLL TO THROTTLE</span>
         </div>
         <div class="scroll-cue" aria-hidden="true"><span>SCROLL</span><i></i></div>
       </div>
@@ -274,47 +273,11 @@
       </figure>
     </section>
 
-    <section class="section figure-section scene" id="figure" data-field="3" data-section="03" data-title="Interactive figure">
+    <section class="section archive-teaser drawings-teaser scene" id="drawings" data-field="3" data-section="03" data-title="Drawings + Misc.">
       <header class="section-heading">
         <div class="section-heading__index">
           <span class="section-number" data-count="3">00</span>
           <span class="micro" data-scramble="SEC—03">SEC—03</span>
-        </div>
-        <h2 class="split-lines">Interactive figure</h2>
-      </header>
-      <p class="figure-section__lead statement split-lines">A projected crystal lattice carries coupled P- and S-wave packets with live bond strain. Move across the field to steer the view.</p>
-
-      <figure class="wave-figure" aria-labelledby="waveCaption" data-reveal="media">
-        <div class="wave-stage" id="elasticWaveStudy">
-          <canvas id="latticeCanvas" tabindex="0" aria-label="Interactive three-dimensional crystal lattice carrying coupled longitudinal and transverse elastic waves. Move across the field to steer the view."></canvas>
-          <div class="wave-hud" aria-hidden="true">
-            <span>FIG. 0.2 · ELASTIC WAVE FIELD</span>
-            <strong id="waveStatus">COUPLED MODES / LIVE</strong>
-            <span>P-WAVE 5.9 km·s⁻¹ · S-WAVE 3.2 km·s⁻¹ · REFLECTION</span>
-          </div>
-          <dl class="wave-metrics" aria-hidden="true">
-            <div><dt>εMAX</dt><dd id="waveStrain">0.0000</dd></div>
-            <div><dt>ΔU</dt><dd id="waveDisplacement">0.0 a.u.</dd></div>
-            <div><dt>ENERGY</dt><dd id="waveEnergy">00%</dd></div>
-            <div><dt>NODES</dt><dd id="waveNodes">000</dd></div>
-          </dl>
-          <div class="wave-legend" aria-hidden="true">
-            <span><i></i>P MODE</span>
-            <span><i></i>S MODE</span>
-            <span><i></i>REFLECTED</span>
-          </div>
-          <button class="wave-control micro" type="button" id="wavePause" aria-pressed="false">PAUSE FIELD</button>
-          <span class="wave-hint" aria-hidden="true">POINTER / TOUCH · STEER VIEW · DISPLAY AMPLIFIED</span>
-        </div>
-        <figcaption id="waveCaption"><b>FIG. 0.2</b><span>3-D CRYSTAL LATTICE — COUPLED ELASTIC-WAVE PROPAGATION</span><span>P + S / LIVE</span></figcaption>
-      </figure>
-    </section>
-
-    <section class="section archive-teaser drawings-teaser scene" id="drawings" data-field="4" data-section="04" data-title="Drawings + Misc.">
-      <header class="section-heading">
-        <div class="section-heading__index">
-          <span class="section-number" data-count="4">00</span>
-          <span class="micro" data-scramble="SEC—04">SEC—04</span>
         </div>
         <h2 class="split-lines">Drawings + Misc.</h2>
       </header>
@@ -324,15 +287,15 @@
         </div>
         <div class="teaser-card__top micro"><span>DETAIL / ASSEMBLY / CONCEPT</span><span>15 FIGURES</span></div>
         <div class="teaser-card__title"><span>Enter drawings + misc.</span><i>↗</i></div>
-        <div class="teaser-card__index" aria-hidden="true">04</div>
+        <div class="teaser-card__index" aria-hidden="true">03</div>
       </a>
     </section>
 
-    <section class="section archive-teaser aerial-teaser scene" id="aerial" data-field="5" data-section="05" data-title="Aerial">
+    <section class="section archive-teaser aerial-teaser scene" id="aerial" data-field="4" data-section="04" data-title="Aerial">
       <header class="section-heading">
         <div class="section-heading__index">
-          <span class="section-number" data-count="5">00</span>
-          <span class="micro" data-scramble="SEC—05">SEC—05</span>
+          <span class="section-number" data-count="4">00</span>
+          <span class="micro" data-scramble="SEC—04">SEC—04</span>
         </div>
         <h2 class="split-lines">Aerial</h2>
       </header>
@@ -342,22 +305,22 @@
         </div>
         <div class="teaser-card__top micro"><span>FIELD / TRAVEL RECORD</span><span>21 PHOTOGRAPHS</span></div>
         <div class="teaser-card__title"><span>Open aerial archive</span><i>↗</i></div>
-        <div class="teaser-card__index" aria-hidden="true">05</div>
+        <div class="teaser-card__index" aria-hidden="true">04</div>
       </a>
     </section>
 
-    <section class="section certifications scene" id="certifications" data-field="6" data-section="06" data-title="Certifications">
+    <section class="section certifications scene" id="certifications" data-field="5" data-section="05" data-title="Certifications">
       <header class="section-heading">
         <div class="section-heading__index">
-          <span class="section-number" data-count="6">00</span>
-          <span class="micro" data-scramble="SEC—06">SEC—06</span>
+          <span class="section-number" data-count="5">00</span>
+          <span class="micro" data-scramble="SEC—05">SEC—05</span>
         </div>
         <h2 class="split-lines">Certifications</h2>
       </header>
       <div class="credential-list">
         <article class="credential" data-reveal="line">
           <button type="button" data-lightbox-group="cert-quantum">
-            <span class="credential__no">6.1</span>
+            <span class="credential__no">5.1</span>
             <span class="credential__issuer">CU Boulder · Coursera</span>
             <strong>Quantum Mechanics for Engineers — Specialization</strong>
             <span class="credential__date">2026</span>
@@ -370,7 +333,7 @@
         </article>
         <article class="credential" data-reveal="line">
           <button type="button" data-lightbox-group="cert-solidworks">
-            <span class="credential__no">6.2</span>
+            <span class="credential__no">5.2</span>
             <span class="credential__issuer">Dassault Systèmes</span>
             <strong>SOLIDWORKS Foundations: Sketching and Extrusion</strong>
             <span class="credential__date">AUG 2025</span>
@@ -383,7 +346,7 @@
         </article>
         <article class="credential" data-reveal="line">
           <button type="button" data-lightbox-group="cert-math">
-            <span class="credential__no">6.3</span>
+            <span class="credential__no">5.3</span>
             <span class="credential__issuer">HKUST</span>
             <strong>Mathematics for Engineers</strong>
             <span class="credential__date">JUN 2025</span>
@@ -396,7 +359,7 @@
         </article>
         <article class="credential" data-reveal="line">
           <button type="button" data-lightbox-group="cert-oilgas">
-            <span class="credential__no">6.4</span>
+            <span class="credential__no">5.4</span>
             <span class="credential__issuer">Duke · Nicholas School</span>
             <strong>Oil &amp; Gas Industry Operations and Markets</strong>
             <span class="credential__date">MAR 2025</span>
@@ -410,11 +373,11 @@
       </div>
     </section>
 
-    <section class="section contact scene" id="contact" data-field="7" data-section="07" data-title="Contact">
+    <section class="section contact scene" id="contact" data-field="6" data-section="06" data-title="Contact">
       <header class="section-heading">
         <div class="section-heading__index">
-          <span class="section-number" data-count="7">00</span>
-          <span class="micro" data-scramble="SEC—07">SEC—07</span>
+          <span class="section-number" data-count="6">00</span>
+          <span class="micro" data-scramble="SEC—06">SEC—06</span>
         </div>
         <h2 class="split-lines">Contact</h2>
       </header>
@@ -435,13 +398,13 @@
         <span class="micro">SECTIONS</span>
         <a href="#about">01 / About</a>
         <a href="#projects">02 / Projects</a>
-        <a href="#figure">03 / Interactive figure</a>
+        <a href="#contact">06 / Contact</a>
       </div>
       <div>
         <span class="micro">ARCHIVES</span>
-        <a href="drawings.html" data-transition-link>04 / Drawings + Misc.</a>
-        <a href="aerial.html" data-transition-link>05 / Aerial</a>
-        <a href="#certifications">06 / Certifications</a>
+        <a href="drawings.html" data-transition-link>03 / Drawings + Misc.</a>
+        <a href="aerial.html" data-transition-link>04 / Aerial</a>
+        <a href="#certifications">05 / Certifications</a>
       </div>
       <div>
         <span class="micro">CONNECT</span>
@@ -470,8 +433,7 @@
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
   <script src="project-data.js?v=6"></script>
-  <script src="quantum-field.js?v=20"></script>
-  <script src="main.js?v=21"></script>
-  <script src="elastic-wave.js?v=3"></script>
+  <script src="flow-field.js?v=1"></script>
+  <script src="main.js?v=22"></script>
 </body>
 </html>
