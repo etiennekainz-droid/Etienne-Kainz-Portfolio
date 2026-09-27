@@ -32,8 +32,8 @@
   // Reduced motion shows one still frame, so it can afford a denser, more
   // legible point cloud than the old static field did.
   var particleCount = reducedMotion ?
-    (compact ? 460 : medium ? 760 : 980) :
-    (compact ? 1400 : medium ? 1950 : 2750);
+    (compact ? 640 : medium ? 900 : 1200) :
+    (compact ? 1800 : medium ? 2600 : 3600);
   var phase = new Float32Array(particleCount);
   var seedA = new Float32Array(particleCount);
   var seedB = new Float32Array(particleCount);
@@ -41,6 +41,17 @@
   var seedD = new Float32Array(particleCount);
   var prevScreenX = new Float32Array(particleCount);
   var prevScreenY = new Float32Array(particleCount);
+  // Per-frame sample buffers. Samples are projected first, then splatted in
+  // a second pass once the depth buffer knows what sits in front.
+  var sampleCell = new Int32Array(particleCount);
+  var sampleX = new Float32Array(particleCount);
+  var sampleY = new Float32Array(particleCount);
+  var sampleZ = new Float32Array(particleCount);
+  var sampleWeight = new Float32Array(particleCount);
+  var sampleVX = new Float32Array(particleCount);
+  var sampleVY = new Float32Array(particleCount);
+  var sampleAlpha = new Float32Array(particleCount);
+  var sampleMark = new Uint8Array(particleCount);
   var sectionStops = [];
   var width = 1;
   var height = 1;
@@ -95,7 +106,7 @@
   // very same grid, so one cell is one glyph is one fluid cell. Phones get
   // a finer grid: a mechanism a phone-width wide needs more than 25 glyphs
   // across to read as hardware.
-  var cellSize = compact ? 10 : 13;
+  var cellSize = compact ? 9 : 11;
   // Portrait phones lay tall mechanisms out vertically (engine firing
   // downward, gear train and shaft stacked) instead of shrinking them.
   var portraitMode = false;
@@ -104,12 +115,19 @@
   var rasterDensity = null;
   var rasterFlowX = null;
   var rasterFlowY = null;
+  // Depth buffer: nearest sample depth per cell, then dilated one cell so a
+  // sparse front surface still hides what is behind it (hidden-line view).
+  var rasterNear = null;
+  var rasterNearDil = null;
+  var rasterGX = null;
+  var rasterGY = null;
   var rampSprites = [];
   var directionSprites = [];
   var smokeSprites = [];
   var smokeDot = null;
   var smokeCurl = null;
   var hatchSprite = null;
+  var edgeSprites = [];
 
   function hash(n) {
     var x = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
@@ -284,7 +302,19 @@
       var lane = i % 24;
       var angle;
       var radius;
-      if (lane < 13 || lane > 21) {
+      if (lane === 23) {
+        // Bolt circles: spinner retaining bolts (rotating) and the rear
+        // casing flange (static). Each bolt is a tiny ring of samples.
+        var boltRing = b < 0.38;
+        var bolts = boltRing ? 12 : 36;
+        var boltAngle = Math.floor(a * bolts) / bolts * TAU + (boltRing ? 0.13 : 0);
+        var pitchR = boltRing ? 0.205 : 1.1;
+        var headR = boltRing ? 0.014 : 0.016;
+        var bxp = Math.cos(boltAngle) * pitchR + Math.cos(c * TAU) * headR;
+        var byp = Math.sin(boltAngle) * pitchR + Math.sin(c * TAU) * headR;
+        if (boltRing) put(f, i, 1, Math.sqrt(bxp * bxp + byp * byp), Math.atan2(byp, bxp), -0.012, 0.52);
+        else put(f, i, 2, bxp, byp, 0.68, 0.48);
+      } else if (lane < 13 || lane > 21) {
         var blade = Math.floor(d * FAN_BLADES);
         var span = 0.27 + 0.73 * Math.sqrt(a);
         var chord = b < 0.3 ? -0.5 : b < 0.6 ? 0.5 : c - 0.5;
@@ -428,10 +458,20 @@
         var cy = Math.sin(holeAngle) * G.R * 0.6 + Math.sin(b * TAU) * holeR;
         r = Math.sqrt(cx * cx + cy * cy);
         angle = Math.atan2(cy, cx);
-      } else if (roll < 0.82) {
+      } else if (roll < 0.79) {
         r = rootR - G.R * 0.1;
         angle = a * TAU;
         heat = 0.24;
+      } else if (roll < 0.83) {
+        // Hub bolt circle.
+        var boltCount = G.holes ? 8 : 6;
+        var boltAt = Math.floor(a * boltCount) / boltCount * TAU + 0.2;
+        var boltPitch = G.R * (G.holes ? 0.42 : 0.5);
+        var hx = Math.cos(boltAt) * boltPitch + Math.cos(b * TAU) * G.R * 0.035;
+        var hy = Math.sin(boltAt) * boltPitch + Math.sin(b * TAU) * G.R * 0.035;
+        r = Math.sqrt(hx * hx + hy * hy);
+        angle = Math.atan2(hy, hx);
+        heat = 0.5;
       } else if (roll < 0.91) {
         r = G.R * 0.3;
         angle = a * TAU;
@@ -476,6 +516,7 @@
       var callAngles = [-2.35, -1.25, 0.55];
       g.label = "FIG. 01 — SPUR GEAR TRAIN";
       g.data = "i 1.60 · n1 " + fmt(Math.abs(e.gearRate) * 380, 0) + " RPM";
+      g.plot = "mesh";
       for (var k = 0; k < GEARS.length; k += 1) {
         var G = GEARS[k];
         var reach = G.R + GEAR_MODULE * 2.4;
@@ -636,6 +677,42 @@
     var leField = toField(le[0], le[1], [0, 0]);
     var teField = toField(te[0], te[1], [0, 0]);
     var suction = outline(leTheta - 0.55, [0, 0, 0]);
+
+    // Surface envelope in field space (for rib lightening holes) and the
+    // pressure distribution Cp = 1 − (V/U)² over the chord, upper and lower.
+    var bins = 48;
+    var binMinX = Math.min(leField[0], teField[0]);
+    var binSpan = Math.abs(teField[0] - leField[0]);
+    var upperY = new Float32Array(bins).fill(1e9);
+    var lowerY = new Float32Array(bins).fill(-1e9);
+    var cpUpper = [];
+    var cpLower = [];
+    var probePoint = [0, 0, 0];
+    for (k = 0; k <= 400; k += 1) {
+      var sweep = -beta + k / 400 * TAU;
+      outline(sweep, probePoint);
+      var bin = Math.floor((probePoint[0] - binMinX) / binSpan * bins);
+      if (bin >= 0 && bin < bins) {
+        if (probePoint[1] < upperY[bin]) upperY[bin] = probePoint[1];
+        if (probePoint[1] > lowerY[bin]) lowerY[bin] = probePoint[1];
+      }
+      if (k % 5 === 0) {
+        var surf = shape(sweep, 1);
+        var near = shape(sweep, 1.012);
+        velocity(near[0], near[1]);
+        var cp = clamp(1 - (vel[0] * vel[0] + vel[1] * vel[1]), -3.2, 1);
+        var xc = clamp((surf[0] - minX) / chord, 0, 1);
+        if (sweep < leTheta) cpUpper.push(xc, cp);
+        else cpLower.push(xc, cp);
+      }
+    }
+    function envelope(fraction, out) {
+      var bin = clamp(Math.round(fraction * (bins - 1)), 0, bins - 1);
+      out[0] = binMinX + (bin + 0.5) / bins * binSpan;
+      out[1] = upperY[bin];
+      out[2] = lowerY[bin];
+      return out;
+    }
     return {
       data: new Float32Array(store),
       offsets: offsets,
@@ -647,6 +724,9 @@
       le: leField,
       te: teField,
       suction: suction,
+      envelope: envelope,
+      cpUpper: cpUpper,
+      cpLower: cpLower,
       cl: 2 * gamma / chord,
       alphaDeg: 7
     };
@@ -666,8 +746,17 @@
       var pt = [0, 0, 0];
       if (lane < 7) {
         var station = Math.floor(d * 7);
-        WING.outline(a * TAU, pt);
-        put(f, i, 0, pt[0], pt[1], -WING_SPAN + station * (WING_SPAN * 2 / 6), pt[2]);
+        var ribZ = -WING_SPAN + station * (WING_SPAN * 2 / 6);
+        if (frac(d * 13) < 0.3) {
+          // Lightening holes through each rib, sized to the local depth.
+          var holeAt = [0.3, 0.48, 0.66][Math.floor(frac(d * 29) * 3)];
+          WING.envelope(holeAt, pt);
+          var holeR = (pt[2] - pt[1]) * 0.3;
+          put(f, i, 0, pt[0] + Math.cos(a * TAU) * holeR, (pt[1] + pt[2]) / 2 + Math.sin(a * TAU) * holeR, ribZ, 0.42);
+        } else {
+          WING.outline(a * TAU, pt);
+          put(f, i, 0, pt[0], pt[1], ribZ, pt[2]);
+        }
       } else if (lane < 10) {
         var thetas = [WING.leTheta, WING.teTheta, Math.PI * 0.72, Math.PI * 0.4, -Math.PI * 0.55];
         WING.outline(thetas[Math.floor(d * thetas.length)], pt);
@@ -703,7 +792,7 @@
         out[0] = data[base] + (data[nextBase] - data[base]) * t;
         out[1] = data[base + 1] + (data[nextBase + 1] - data[base + 1]) * t;
         out[2] = f.c[i];
-        out[3] = 1 - band(1.25, 1.6, Math.abs(out[0]));
+        out[3] = (1 - band(1.25, 1.6, Math.abs(out[0]))) * 0.72;
         out[4] = 0.22 + 0.55 * clamp((speed - 0.75) / 1.0, 0, 1);
         out[5] = 1;
         return;
@@ -731,6 +820,7 @@
       g.thin.push([le[0], le[1], 0, le[0] + 0.95, le[1], 0]);
       g.arcs.push([le[0], le[1], 0, 0.78, 0, Math.atan2(dy, dx), WING.alphaDeg + "°"]);
       g.callouts.push([le[0], le[1], 0, "STAGNATION PT", -1]);
+      g.plot = "cp";
       g.callouts.push([WING.suction[0], WING.suction[1], 0, "SUCTION PEAK", 1]);
     }
   });
@@ -982,6 +1072,7 @@
     guides: function (e, g) {
       g.label = "FIG. 04 — TERRAIN SURVEY, DEM FLYOVER";
       g.data = "AGL 120 M · GSD 3.1 CM · CONTOURS 10 M";
+      g.plot = "profile";
     }
   });
 
@@ -1104,6 +1195,7 @@
   // slowly while plane wavefronts leave the aperture along the boresight.
   var DISH_R = 0.86;
   var DISH_F = 0.42;
+  var DISH_SUB = 0.13;
   var DB = new Float32Array(12);
 
   function dishPoint(x, y, z, out) {
@@ -1128,11 +1220,11 @@
       var angle;
       if (lane < 9) {
         if (d < 0.56) {
-          r = (Math.floor(b * 6) + 1) / 6 * DISH_R;
+          r = (Math.floor(b * 8) + 1) / 8 * DISH_R;
           angle = a * TAU;
         } else {
           r = Math.sqrt(a) * DISH_R;
-          angle = Math.floor(b * 16) / 16 * TAU;
+          angle = Math.floor(b * 24) / 24 * TAU;
         }
         put(f, i, 0, Math.cos(angle) * r, Math.sin(angle) * r, r * r / (4 * DISH_F), 0.3 + 0.32 * Math.pow(r / DISH_R, 2));
       } else if (lane < 11) {
@@ -1141,16 +1233,22 @@
         put(f, i, 0, Math.cos(a * TAU) * r, Math.sin(a * TAU) * r,
           DISH_R * DISH_R / (4 * DISH_F) + Math.sin(minor) * 0.02, 0.56);
       } else if (lane < 14) {
-        if (d < 0.4) {
-          var along = a;
-          r = 0.02 + along * 0.06;
-          put(f, i, 0, Math.cos(b * TAU) * r, Math.sin(b * TAU) * r, DISH_F - 0.08 + along * 0.14, 0.92);
+        // Cassegrain optics: feed horn at the vertex, convex subreflector
+        // near the prime focus on a quadripod.
+        if (d < 0.22) {
+          r = 0.035 + a * 0.045;
+          put(f, i, 0, Math.cos(b * TAU) * r, Math.sin(b * TAU) * r, 0.02 + a * 0.18, 0.9);
+        } else if (d < 0.5) {
+          r = b < 0.5 ? DISH_SUB : DISH_SUB * Math.sqrt(a);
+          put(f, i, 0, Math.cos(c * TAU) * r, Math.sin(c * TAU) * r, DISH_F - 0.03 - r * r * 1.6, 0.86);
         } else {
           var strut = Math.floor(b * 4) / 4 * TAU + Math.PI / 4;
           var sx = Math.cos(strut) * DISH_R;
           var sy = Math.sin(strut) * DISH_R;
           var sz = DISH_R * DISH_R / (4 * DISH_F);
-          put(f, i, 0, sx * (1 - a), sy * (1 - a), sz + (DISH_F + 0.06 - sz) * a, 0.44);
+          var tx = Math.cos(strut) * DISH_SUB;
+          var ty = Math.sin(strut) * DISH_SUB;
+          put(f, i, 0, sx + (tx - sx) * a, sy + (ty - sy) * a, sz + (DISH_F - 0.03 - sz) * a, 0.44);
         }
       } else if (lane < 15) {
         put(f, i, 0, Math.cos(a * TAU) * 0.16, Math.sin(a * TAU) * 0.16, -0.02 - b * 0.14, 0.34);
@@ -1224,12 +1322,13 @@
       dishPoint(0, 0, 0, v);
       dishPoint(0, 0, 2.7, far);
       dishPoint(DISH_R, 0, DISH_R * DISH_R / (4 * DISH_F), rim);
-      dishPoint(0, 0, DISH_F, feed);
+      dishPoint(0, 0, DISH_F - 0.03, feed);
       g.label = "FIG. 06 — GROUND STATION, OPEN CHANNEL";
       g.data = "X-BAND 8.4 GHZ · AZ " + fmt(200 + e.dishAz * 57.3, 1) + "°";
       g.chain.push([v[0], v[1], v[2], far[0], far[1], far[2]]);
       g.callouts.push([rim[0], rim[1], rim[2], "f/D 0.24", 1]);
-      g.callouts.push([feed[0], feed[1], feed[2], "FEED HORN", -1]);
+      g.plot = "beam";
+      g.callouts.push([feed[0], feed[1], feed[2], "SUBREFLECTOR", -1]);
     }
   });
 
@@ -1303,9 +1402,25 @@
       put(f, i, 0, Math.cos(angle) * r, -0.72 - 0.15 * Math.sqrt(Math.max(0, 1 - (r / ENG_RC) * (r / ENG_RC))),
         Math.sin(angle) * r, 0.42);
     } else if (lane < 9) {
-      if (b < 0.8) {
+      if (b < 0.42) {
         var strut = Math.floor(d * 4) * Math.PI / 2 + Math.PI / 4;
         put(f, i, 0, Math.cos(strut) * 0.2 * (1 - a), -0.8 - 0.3 * a, Math.sin(strut) * 0.2 * (1 - a), 0.32);
+      } else if (b < 0.62) {
+        // Gimbal actuators: cylinder body, then the rod, from the thrust
+        // frame to lugs on the chamber — one in each gimbal plane.
+        var pitchPlane = d < 0.5;
+        var ax0 = pitchPlane ? -0.46 : 0;
+        var az0 = pitchPlane ? 0 : 0.46;
+        var ax1 = pitchPlane ? -0.27 : 0;
+        var az1 = pitchPlane ? 0 : 0.27;
+        var along = a;
+        var cylR = along < 0.58 ? 0.034 : 0.013;
+        var ring = c * TAU;
+        var cx0 = ax0 + (ax1 - ax0) * along;
+        var cz0 = az0 + (az1 - az0) * along;
+        var cy0 = -1.0 + 0.54 * along;
+        if (pitchPlane) put(f, i, 0, cx0 + Math.cos(ring) * cylR * 0.94, cy0 - Math.cos(ring) * cylR * 0.35, cz0 + Math.sin(ring) * cylR, 0.46);
+        else put(f, i, 0, cx0 + Math.sin(ring) * cylR, cy0 - Math.cos(ring) * cylR * 0.35, cz0 + Math.cos(ring) * cylR * 0.94, 0.46);
       } else {
         var e12 = Math.floor(a * 12);
         var q = c * 0.14 - 0.07;
@@ -1403,6 +1518,7 @@
       g.label = "FIG. 00.2 — IGNITION, MAIN STAGE";
       g.data = "T+ " + fmt(env.clock, 1).padStart(4, "0") + " S · THRUST " + fmt(845 * env.ign, 0) + " kN";
       g.callouts.push([disk[0], disk[1], disk[2], "MACH DISK", -1]);
+      g.plot = "pc";
       g.callouts.push([shear[0], shear[1], shear[2], "SHOCK DIAMONDS", 1]);
       g.callouts.push([throat[0], throat[1], throat[2], "THROAT", -1]);
     }
@@ -1617,6 +1733,14 @@
     smokeCurl = makeRasterGlyph("~", "400", 1);
     // Section-cut hatching (ISO 128: thin 45° lines).
     hatchSprite = makeRasterGlyph("/", "500", 1.08);
+    // Outline strokes along detected edges and thin members, by line
+    // orientation (0°, 45°, 90°, 135°, screen y down).
+    edgeSprites = [
+      makeRasterGlyph("-", "600", 1.12),
+      makeRasterGlyph("\\", "500", 1.02),
+      makeRasterGlyph("|", "500", 1.02),
+      makeRasterGlyph("/", "500", 1.02)
+    ];
   }
 
   // ---------------------------------------------------------------------
@@ -1897,7 +2021,7 @@
 
   // ---------------------------------------------------------------------
   // Drafting layer.
-  var guides = { label: "", data: "", chain: [], thin: [], circles: [], callouts: [], balloons: [], arcs: [] };
+  var guides = { label: "", data: "", chain: [], thin: [], circles: [], callouts: [], balloons: [], arcs: [], plot: "" };
   var PA = new Float32Array(3);
   var PB = new Float32Array(3);
   // Smoothed screen-space extents of the mechanism, with the positions of
@@ -2129,6 +2253,234 @@
     ctx.fillText("A", cutX + 6, bottom + 12);
   }
 
+  // ---------------------------------------------------------------------
+  // Live engineering plots beside the mechanism, drawn like figure insets.
+  var PLOT_W = 196;
+  var PLOT_H = 92;
+
+  function plotOrigin(kind) {
+    var x0;
+    var y0;
+    if (kind === "profile") {
+      x0 = width - PLOT_W - 64;
+      y0 = 150;
+    } else if (kind === "pc") {
+      x0 = bbox.r + 72;
+      y0 = bbox.b + 34;
+    } else {
+      x0 = bbox.r + 48;
+      y0 = bbox.t + 10;
+      if (x0 + PLOT_W > width - 32) {
+        x0 = bbox.r - PLOT_W;
+        y0 = bbox.t - PLOT_H - 58;
+      }
+    }
+    return [clamp(x0, 96, width - PLOT_W - 24), clamp(y0, 84, height - PLOT_H - 56)];
+  }
+
+  function plotFrame(x0, y0, title, xLabel, yLabel, alpha, grow) {
+    ctx.globalAlpha = alpha * 0.5;
+    ctx.lineWidth = 0.75;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x0, y0 + PLOT_H);
+    ctx.lineTo(x0 + PLOT_W * grow, y0 + PLOT_H);
+    for (var t = 0; t <= 4; t += 1) {
+      var tx = x0 + PLOT_W * t / 4;
+      ctx.moveTo(tx, y0 + PLOT_H);
+      ctx.lineTo(tx, y0 + PLOT_H + 3);
+    }
+    for (t = 0; t <= 2; t += 1) {
+      var ty = y0 + PLOT_H * t / 2;
+      ctx.moveTo(x0 - 3, ty);
+      ctx.lineTo(x0, ty);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = alpha * 0.18;
+    ctx.setLineDash([1, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x0, y0 + PLOT_H / 2);
+    ctx.lineTo(x0 + PLOT_W, y0 + PLOT_H / 2);
+    ctx.moveTo(x0 + PLOT_W / 2, y0);
+    ctx.lineTo(x0 + PLOT_W / 2, y0 + PLOT_H);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    setFont("500");
+    knockoutText(title, x0, y0 - 10, "left", alpha * 0.7 * grow);
+    setFont("400");
+    ctx.globalAlpha = alpha * 0.55 * grow;
+    ctx.fillText(yLabel, x0 + 5, y0 + fontPx);
+    ctx.textAlign = "right";
+    ctx.fillText(xLabel, x0 + PLOT_W, y0 + PLOT_H + fontPx + 5);
+    ctx.textAlign = "left";
+  }
+
+  function plotCurve(x0, y0, points, xs, ys, grow, dash) {
+    var last = Math.max(2, Math.floor(points.length / 2 * grow));
+    ctx.setLineDash(dash || []);
+    ctx.beginPath();
+    for (var k = 0; k < last; k += 1) {
+      var px = x0 + xs(points[k * 2]) * PLOT_W;
+      var py = y0 + (1 - ys(points[k * 2 + 1])) * PLOT_H;
+      if (k === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function pcAt(t) {
+    return 70 * (1 - Math.exp(-t / 0.22)) * (1 + 0.14 * Math.exp(-t / 0.35) * Math.sin(t * 16));
+  }
+
+  function meshStiffness(u) {
+    // Alternating double / single tooth-pair contact, contact ratio 1.62.
+    u = frac(u);
+    var edge = 0.035;
+    var high = u < 0.62 ? 1 : 0;
+    if (u < edge) high = u / edge;
+    else if (Math.abs(u - 0.62) < edge) high = 0.5 - (u - 0.62) / edge * 0.5;
+    return 0.42 + high * 0.46;
+  }
+
+  function drawPlot(kind, alpha, grow) {
+    var origin = plotOrigin(kind);
+    var x0 = origin[0];
+    var y0 = origin[1];
+    var pts = [];
+    var k;
+    ctx.save();
+    ctx.strokeStyle = "#000";
+    ctx.fillStyle = "#000";
+    if (kind === "cp") {
+      plotFrame(x0, y0, "PRESSURE COEFFICIENT · α 7°", "x/c", "−Cp", alpha, grow);
+      var sx = function (v) { return v; };
+      var sy = function (v) { return (-v + 1) / 4.2; };
+      ctx.globalAlpha = alpha * 0.72;
+      ctx.lineWidth = 1;
+      plotCurve(x0, y0, WING.cpUpper, sx, sy, grow);
+      plotCurve(x0, y0, WING.cpLower, sx, sy, grow, [3, 2]);
+      setFont("400");
+      ctx.globalAlpha = alpha * 0.5 * grow;
+      ctx.fillText("UPPER", x0 + PLOT_W * 0.2, y0 + PLOT_H * 0.16);
+      ctx.fillText("LOWER", x0 + PLOT_W * 0.55, y0 + PLOT_H * 0.78);
+    } else if (kind === "pc") {
+      plotFrame(x0, y0, "CHAMBER PRESSURE", "T+ s", "Pc bar", alpha, grow);
+      var tEnd = clamp(env.clock, 0, 3);
+      for (k = 0; k <= 90; k += 1) {
+        var t = tEnd * k / 90;
+        pts.push(t / 3, pcAt(t) / 90);
+      }
+      ctx.globalAlpha = alpha * 0.8;
+      ctx.lineWidth = 1.1;
+      plotCurve(x0, y0, pts, function (v) { return v; }, function (v) { return v; }, 1);
+      var cxp = x0 + tEnd / 3 * PLOT_W;
+      var cyp = y0 + (1 - pcAt(tEnd) / 90) * PLOT_H;
+      ctx.beginPath();
+      ctx.arc(cxp, cyp, 2.2, 0, TAU);
+      ctx.fill();
+      setFont("400");
+      knockoutText(fmt(pcAt(tEnd), 1), cxp + 6, cyp - 4, "left", alpha * 0.75);
+    } else if (kind === "mesh") {
+      plotFrame(x0, y0, "MESH STIFFNESS · εα 1.62", "ROLL ANGLE", "k", alpha, grow);
+      for (k = 0; k <= 150; k += 1) pts.push(k / 150, meshStiffness(k / 50));
+      ctx.globalAlpha = alpha * 0.72;
+      ctx.lineWidth = 1;
+      plotCurve(x0, y0, pts, function (v) { return v; }, function (v) { return v; }, grow);
+      var G0 = GEARS[0];
+      var toothPhase = frac((G0.phase + G0.dir * env.gear) * G0.z / TAU);
+      var mx = x0 + (1 + toothPhase) / 3 * PLOT_W;
+      var my = y0 + (1 - meshStiffness(toothPhase)) * PLOT_H;
+      ctx.globalAlpha = alpha * 0.35;
+      ctx.beginPath();
+      ctx.moveTo(mx, y0);
+      ctx.lineTo(mx, y0 + PLOT_H);
+      ctx.stroke();
+      ctx.globalAlpha = alpha * 0.85;
+      ctx.beginPath();
+      ctx.arc(mx, my, 2.2, 0, TAU);
+      ctx.fill();
+    } else if (kind === "beam") {
+      setFont("500");
+      knockoutText("BEAM PATTERN · SIDELOBE −13.3 dB", x0, y0 - 10, "left", alpha * 0.7 * grow);
+      var bcx = x0 + PLOT_W / 2;
+      var bcy = y0 + PLOT_H;
+      var br = PLOT_H - 4;
+      ctx.globalAlpha = alpha * 0.3;
+      ctx.lineWidth = 0.75;
+      ctx.setLineDash([1, 3]);
+      for (k = 1; k <= 3; k += 1) {
+        ctx.beginPath();
+        ctx.arc(bcx, bcy, br * k / 3, Math.PI, TAU);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.globalAlpha = alpha * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(bcx - br - 4, bcy);
+      ctx.lineTo(bcx + br + 4, bcy);
+      ctx.moveTo(bcx, bcy);
+      ctx.lineTo(bcx, bcy - br - 4);
+      ctx.stroke();
+      ctx.globalAlpha = alpha * 0.78;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      var steps = Math.max(2, Math.round(240 * grow));
+      for (k = 0; k <= steps; k += 1) {
+        var phi = -Math.PI / 2 + Math.PI * k / 240;
+        var u = Math.PI * 5 * Math.sin(phi);
+        var gain = Math.abs(u) < 1e-4 ? 1 : Math.pow(Math.sin(u) / u, 2);
+        var db = Math.max(-30, 10 * Math.log(gain) / Math.LN10);
+        var rr = (db + 30) / 30 * br;
+        var qx = bcx + Math.sin(phi) * rr;
+        var qy = bcy - Math.cos(phi) * rr;
+        if (k === 0) ctx.moveTo(qx, qy);
+        else ctx.lineTo(qx, qy);
+      }
+      ctx.stroke();
+      setFont("400");
+      ctx.globalAlpha = alpha * 0.5 * grow;
+      ctx.fillText("0 dB", bcx + 4, bcy - br - 6);
+      ctx.fillText("−20", bcx + br / 3 + 2, bcy - 3);
+    } else if (kind === "profile") {
+      plotFrame(x0, y0, "ELEVATION · SURVEY LINE", "ALONG TRACK", "h", alpha, grow);
+      for (k = 0; k <= 120; k += 1) {
+        var along = k / 120 * TER_DEPTH;
+        pts.push(k / 120, clamp(terrainHeight(env.scan, along + env.fly) / 1.3, 0, 1));
+      }
+      ctx.globalAlpha = alpha * 0.72;
+      ctx.lineWidth = 1;
+      plotCurve(x0, y0, pts, function (v) { return v; }, function (v) { return v * 0.9 + 0.04; }, grow);
+    }
+    ctx.restore();
+  }
+
+  // The build front of a morph, drawn like a print gantry crossing the
+  // plate: a fine dotted rule with its progress readout.
+  function drawBuildFront(position, horizontal, percent, alpha) {
+    ctx.save();
+    ctx.strokeStyle = "#000";
+    ctx.fillStyle = "#000";
+    ctx.lineWidth = 0.75;
+    ctx.globalAlpha = alpha * 0.4;
+    ctx.setLineDash([2, 5]);
+    ctx.beginPath();
+    if (horizontal) {
+      ctx.moveTo(0, position);
+      ctx.lineTo(width, position);
+    } else {
+      ctx.moveTo(position, 0);
+      ctx.lineTo(position, height);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    setFont("500");
+    var label = "BUILD " + String(Math.round(percent)).padStart(2, "0") + "%";
+    if (horizontal) knockoutText(label, 18, position - 6, "left", alpha * 0.7);
+    else knockoutText(label, position + 6, height * 0.12, "left", alpha * 0.7);
+    ctx.restore();
+  }
+
   function drawDrafting(f, alpha, time, cutX) {
     if (!f || !f.guides || alpha < 0.02) return;
     guides.label = "";
@@ -2139,6 +2491,7 @@
     guides.callouts.length = 0;
     guides.balloons.length = 0;
     guides.arcs.length = 0;
+    guides.plot = "";
     f.guides(env, guides);
     var grow = ease(alpha);
     var k;
@@ -2176,6 +2529,7 @@
     }
     ctx.lineWidth = 0.75;
     for (k = 0; k < guides.balloons.length; k += 1) drawBalloon(guides.balloons[k], alpha, grow);
+    if (detail && guides.plot && bbox.valid) drawPlot(guides.plot, alpha, grow);
 
     // View label, set like a drawing's view title.
     if (guides.label && bbox.valid) {
@@ -2208,7 +2562,7 @@
     // mid-session would cost far more than the extra points are worth.
     compact = compactQuery.matches;
     medium = mediumQuery.matches;
-    cellSize = compact ? 10 : 13;
+    cellSize = compact ? 9 : 11;
     fontPx = compact ? 8 : 10;
     portraitMode = compact && window.innerHeight > window.innerWidth * 1.15;
     var bounds = canvas.getBoundingClientRect();
@@ -2235,6 +2589,10 @@
       rasterDensity = new Float32Array(cellCount);
       rasterFlowX = new Float32Array(cellCount);
       rasterFlowY = new Float32Array(cellCount);
+      rasterNear = new Float32Array(cellCount);
+      rasterNearDil = new Float32Array(cellCount);
+      rasterGX = new Float32Array(cellCount);
+      rasterGY = new Float32Array(cellCount);
     }
     allocFluid();
     buildParticleSprites();
@@ -2407,6 +2765,33 @@
     render(now);
   }
 
+  // Structure tensor over a 3×3 window of density gradients. Where the
+  // local structure is strongly oriented — a silhouette edge or a thin
+  // member such as a tube, spoke or blade — the cell draws a stroke along
+  // it instead of a density mark, like an edge-aware ASCII renderer.
+  function edgeGlyph(idx, cx, cy, density) {
+    if (cx < 1 || cy < 1 || cx > rasterCols - 2 || cy > rasterRows - 2 || density < 0.34) return null;
+    var jxx = 0;
+    var jyy = 0;
+    var jxy = 0;
+    for (var ty = -1; ty <= 1; ty += 1) {
+      var row = idx + ty * rasterCols;
+      for (var tx = -1; tx <= 1; tx += 1) {
+        var gxv = rasterGX[row + tx];
+        var gyv = rasterGY[row + tx];
+        jxx += gxv * gxv;
+        jyy += gyv * gyv;
+        jxy += gxv * gyv;
+      }
+    }
+    var trace = jxx + jyy;
+    if (trace < density * density * 1.6 + 0.06) return null;
+    var diff = jxx - jyy;
+    if (Math.sqrt(diff * diff + 4 * jxy * jxy) < trace * 0.45) return null;
+    var sector = Math.round((0.5 * Math.atan2(2 * jxy, diff) + Math.PI / 2) * 4 / Math.PI);
+    return edgeSprites[((sector % 4) + 4) % 4];
+  }
+
   function blend(fa, fb, key, mix) {
     return fa[key] + (fb[key] - fa[key]) * mix;
   }
@@ -2575,7 +2960,6 @@
     view.sinRoll = sinRoll;
 
     var morphEnergy = reducedMotion ? 0 : Math.sin(mix * Math.PI);
-    var morphStagger = 0.44;
     var morphActive = mix > 0.0001 && mix < 0.9999;
     var intro = ease(introProgress);
     var pointerAge = Math.max(0, time - pointer.moved);
@@ -2637,44 +3021,44 @@
     var boxTX = 0;
     var boxBX = 0;
 
+    var sampleCount = 0;
+    rasterNear.fill(1e9);
     for (var i = 0; i < particleCount; i += particleStride) {
       var localMix = mix;
-      if (morphActive) {
-        // Each particle joins the morph on its own seeded delay, so
-        // formations reassemble as a travelling swarm wave.
-        localMix = ease(clamp((mix - seedB[i] * morphStagger) / (1 - morphStagger), 0, 1));
-      }
       var x;
       var y;
       var z;
       var presence;
       var heat;
       var tracer;
-      if (localMix < 0.9999) {
-        evalMotion(fA, i);
+      if (!morphActive) {
+        evalMotion(mix < 0.5 ? fA : fB, i);
         x = OUT[0];
         y = OUT[1];
         z = OUT[2];
         presence = OUT[3];
         heat = OUT[4];
         tracer = OUT[5];
-        if (localMix > 0.0001) {
-          evalMotion(fB, i);
-          x += (OUT[0] - x) * localMix;
-          y += (OUT[1] - y) * localMix;
-          z += (OUT[2] - z) * localMix;
-          presence += (OUT[3] - presence) * localMix;
-          heat += (OUT[4] - heat) * localMix;
-          if (localMix > 0.5) tracer = OUT[5];
-        }
       } else {
+        // Build sweep: the next mechanism assembles along a moving front,
+        // like a print head crossing the build plate, so each sample joins
+        // when the front reaches its own target position.
         evalMotion(fB, i);
-        x = OUT[0];
-        y = OUT[1];
-        z = OUT[2];
-        presence = OUT[3];
-        heat = OUT[4];
-        tracer = OUT[5];
+        var bx = OUT[0];
+        var by = OUT[1];
+        var bz = OUT[2];
+        var bPresence = OUT[3];
+        var bHeat = OUT[4];
+        var bTracer = OUT[5];
+        var sweepU = clamp(((rotB ? by : bx) + 1.7) / 3.4, 0, 1);
+        localMix = ease(clamp((mix - sweepU * 0.5 - seedB[i] * 0.12) / 0.38, 0, 1));
+        evalMotion(fA, i);
+        x = OUT[0] + (bx - OUT[0]) * localMix;
+        y = OUT[1] + (by - OUT[1]) * localMix;
+        z = OUT[2] + (bz - OUT[2]) * localMix;
+        presence = OUT[3] + (bPresence - OUT[3]) * localMix;
+        heat = OUT[4] + (bHeat - OUT[4]) * localMix;
+        tracer = localMix > 0.5 ? bTracer : OUT[5];
       }
       if (presence < 0.02) {
         prevScreenX[i] = -9999;
@@ -2687,7 +3071,7 @@
         // Mid-morph the swarm swirls through a seeded vortex before it
         // settles into the next mechanism.
         if (localMorph > 0.004) {
-          var swirlAngle = localMorph * (seedC[i] - 0.5) * 1.7;
+          var swirlAngle = localMorph * (seedC[i] - 0.5) * 0.7;
           var swirlCos = Math.cos(swirlAngle);
           var swirlSin = Math.sin(swirlAngle);
           var swirlX = x * swirlCos - y * swirlSin;
@@ -2799,8 +3183,9 @@
       var packetDz = z - packetCenterZ;
       var packet = Math.exp(-(packetDx * packetDx * 1.55 + packetDy * packetDy * 1.82 +
         packetDz * packetDz * 1.25));
+      // The build front runs hot, like a melt pool under the laser.
       var probability = clamp(0.1 + heat * 0.66 + packet * 0.05 +
-        localMorph * 0.05 + scrollEnergy * 0.03 +
+        localMorph * 0.32 + scrollEnergy * 0.03 +
         openingBand * 0.24 + kWindow * 0.3, 0, 1) * presence;
       var depth = clamp((perspective - 0.58) / 0.8, 0, 1);
 
@@ -2816,36 +3201,76 @@
       }
       var cellX = (px / cellSize) | 0;
       var cellY = (py / cellSize) | 0;
-      if (cellX >= 0 && cellX < rasterCols && cellY >= 0 && cellY < rasterRows) {
-        var weight = probability * (0.32 + depth * 0.68) * 1.45 * densityGain;
-        var cellIndex = cellY * rasterCols + cellX;
-        rasterDensity[cellIndex] += weight;
-        rasterFlowX[cellIndex] += velocityX * weight;
-        rasterFlowY[cellIndex] += velocityY * weight;
-        if (splatSpread) {
-          var spill = weight * 0.2;
-          if (cellX > 0) rasterDensity[cellIndex - 1] += spill;
-          if (cellX < rasterCols - 1) rasterDensity[cellIndex + 1] += spill;
-          if (cellY > 0) rasterDensity[cellIndex - rasterCols] += spill;
-          if (cellY < rasterRows - 1) rasterDensity[cellIndex + rasterCols] += spill;
-        }
-      }
-
+      if (cellX < 0 || cellX >= rasterCols || cellY < 0 || cellY >= rasterRows) continue;
+      var cellIndex = cellY * rasterCols + cellX;
+      if (rotatedZ < rasterNear[cellIndex]) rasterNear[cellIndex] = rotatedZ;
+      sampleCell[sampleCount] = cellIndex;
+      sampleX[sampleCount] = px;
+      sampleY[sampleCount] = py;
+      sampleZ[sampleCount] = rotatedZ;
+      sampleWeight[sampleCount] = probability * (0.32 + depth * 0.68) * 1.45 * densityGain;
+      sampleVX[sampleCount] = velocityX;
+      sampleVY[sampleCount] = velocityY;
       // A stable subset of samples draws as crisp measurement marks. The
       // subset never reshuffles over time, so nothing twinkles.
-      if (seedA[i] > probability * 0.85 + 0.05) continue;
-      var alpha = clamp((0.12 + probability * 0.72) * (0.34 + depth * 0.8) *
-        intro * presence, 0, 0.9);
-      if (intro < 0.38) alpha *= intro / 0.38;
-      if (alpha < 0.02) continue;
+      var alpha = 0;
+      if (seedA[i] <= probability * 0.85 + 0.05) {
+        alpha = clamp((0.12 + probability * 0.72) * (0.34 + depth * 0.8) *
+          intro * presence, 0, 0.9);
+        if (intro < 0.38) alpha *= intro / 0.38;
+      }
+      sampleAlpha[sampleCount] = alpha;
+      // Mark: size bucket * 5 + glyph (0–3 crosses, 4 diameter mark).
+      sampleMark[sampleCount] = (depth < 0.36 ? 0 : depth < 0.72 ? 5 : 10) +
+        (i % 97 === 0 ? 4 : (heat > 0.62 ? 2 : 0) + (seedC[i] > 0.5 ? 1 : 0));
+      sampleCount += 1;
+    }
+
+    // Dilate the depth buffer one cell, so the front surface of a sparse
+    // point cloud still counts as a surface.
+    for (var ny = 0; ny < rasterRows; ny += 1) {
+      var nRow = ny * rasterCols;
+      for (var nx = 0; nx < rasterCols; nx += 1) {
+        var nearest = rasterNear[nRow + nx];
+        for (var oy = ny > 0 ? -1 : 0; oy <= (ny < rasterRows - 1 ? 1 : 0); oy += 1) {
+          var oRow = nRow + oy * rasterCols;
+          for (var ox = nx > 0 ? -1 : 0; ox <= (nx < rasterCols - 1 ? 1 : 0); ox += 1) {
+            var candidate = rasterNear[oRow + nx + ox];
+            if (candidate < nearest) nearest = candidate;
+          }
+        }
+        rasterNearDil[nRow + nx] = nearest;
+      }
+    }
+
+    // Second pass: hidden-line splat. Samples well behind the front surface
+    // of their cell fade back, like hidden edges in a CAD view.
+    for (var si = 0; si < sampleCount; si += 1) {
+      var sCell = sampleCell[si];
+      var behind = sampleZ[si] - rasterNearDil[sCell];
+      var fade = behind < 0.12 ? 1 : behind > 0.42 ? 0.26 : 1 - (behind - 0.12) / 0.3 * 0.74;
+      var w = sampleWeight[si] * fade;
+      rasterDensity[sCell] += w;
+      rasterFlowX[sCell] += sampleVX[si] * w;
+      rasterFlowY[sCell] += sampleVY[si] * w;
+      if (splatSpread) {
+        var spill = w * 0.2;
+        var scx = sCell % rasterCols;
+        if (scx > 0) rasterDensity[sCell - 1] += spill;
+        if (scx < rasterCols - 1) rasterDensity[sCell + 1] += spill;
+        if (sCell >= rasterCols) rasterDensity[sCell - rasterCols] += spill;
+        if (sCell < rasterDensity.length - rasterCols) rasterDensity[sCell + rasterCols] += spill;
+      }
+      var markAlpha = sampleAlpha[si] * fade * fade;
+      if (markAlpha < 0.02) continue;
       // Three baked sizes, each drawn 1:1 in device pixels and snapped to
       // the pixel grid — no resampling blur.
-      var set = glyphs[depth < 0.36 ? 0 : depth < 0.72 ? 1 : 2];
-      var mark = i % 97 === 0 ? set[4] : set[(heat > 0.62 ? 2 : 0) + (seedC[i] > 0.5 ? 1 : 0)];
+      var code = sampleMark[si];
+      var mark = glyphs[(code / 5) | 0][code % 5];
       var half = mark.width * 0.5;
-      ctx.globalAlpha = alpha;
-      ctx.drawImage(mark, Math.round(px * dpr - half) / dpr, Math.round(py * dpr - half) / dpr,
-        mark.width / dpr, mark.height / dpr);
+      ctx.globalAlpha = markAlpha;
+      ctx.drawImage(mark, Math.round(sampleX[si] * dpr - half) / dpr,
+        Math.round(sampleY[si] * dpr - half) / dpr, mark.width / dpr, mark.height / dpr);
     }
 
     // Flow solver step, fed by this frame's mechanism raster.
@@ -2900,7 +3325,7 @@
         var wobble = Math.sin(time * 9.1) * 0.25 + Math.sin(time * 5.3) * 0.2;
         splat(PA[0] / cellSize + 0.4 * jdx / jl, PA[1] / cellSize + 0.4 * jdy / jl,
           Math.max(1.4, exitRadius * 0.62),
-          jdx / jl * jetSpeed, (jdy / jl + wobble * 0.18) * jetSpeed, 0.5 * ignitionLevel, 1);
+          jdx / jl * jetSpeed, (jdy / jl + wobble * 0.18) * jetSpeed, 0.26 * ignitionLevel, 1);
       }
       var rakeLevel = blend(fA, fB, "rake", mix);
       fluidStep(fdt, dtSeconds, {
@@ -2942,6 +3367,15 @@
       var smokeAlphaBase = rasterAlphaBase * 0.95;
       var cutCellMin = cutX > -9999 ? cutX - cellSize * 1.4 : 1e9;
       var cutCellMax = cutX > -9999 ? cutX + cellSize * 0.4 : -1e9;
+      // Density gradients for the structure tensor below.
+      for (var gy = 1; gy < rasterRows - 1; gy += 1) {
+        var gRow = gy * rasterCols;
+        for (var gx = 1; gx < rasterCols - 1; gx += 1) {
+          var gi = gRow + gx;
+          rasterGX[gi] = rasterDensity[gi + 1] - rasterDensity[gi - 1];
+          rasterGY[gi] = rasterDensity[gi + rasterCols] - rasterDensity[gi - rasterCols];
+        }
+      }
       for (var cy = 0; cy < rasterRows; cy += 1) {
         var rowOffset = cy * rasterCols;
         var drawY = cy * cellSize;
@@ -2967,6 +3401,8 @@
               var sector = Math.round(Math.atan2(meanFlowY, meanFlowX) * 4 / Math.PI);
               sprite = directionSprites[(sector + 8) % 8];
               cellAlpha = Math.min(0.82, cellAlpha * 1.35);
+            } else if ((sprite = edgeGlyph(idx, cx, cy, density))) {
+              cellAlpha = Math.min(0.95, cellAlpha * 1.25 + 0.08);
             } else if (density < 0.45) {
               sprite = rampSprites[0];
             } else if (density < 0.8) {
@@ -3022,6 +3458,14 @@
     }
 
     drawDrafting(dominant, draftAlpha, time, cutX);
+    if (morphActive && !reducedMotion && morphEnergy > 0.06 && intro > 0.9 && fB !== kFormation) {
+      var frontU = clamp((mix - 0.25) / 0.5, 0, 1);
+      var savedRot = view.rot90;
+      view.rot90 = rotB;
+      project(frontU * 3.4 - 1.7, 0, 0, PA);
+      view.rot90 = savedRot;
+      drawBuildFront(rotB ? PA[1] : PA[0], rotB, frontU * 100, morphEnergy * intro);
+    }
 
     ctx.globalAlpha = 1;
     var renderCost = performance.now() - renderStarted;
