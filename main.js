@@ -171,7 +171,7 @@
     if (target || !initialHash) jumpTo(target);
     if (ScrollTrigger) ScrollTrigger.refresh();
     settleScrubs();
-    if (window.quantumField) window.quantumField.refresh();
+    if (window.flowField) window.flowField.refresh();
     remeasureRail();
   }
 
@@ -214,7 +214,7 @@
     var count = window.innerWidth < 720 ? 90 : 180;
     for (var i = 0; i < count; i += 1) {
       var glyph = doc.createElement("i");
-      glyph.textContent = i % 5 === 0 ? "ψ" : i % 3 ? "+" : "·";
+      glyph.textContent = i % 5 === 0 ? "Ø" : i % 3 ? "+" : "·";
       glyph.style.setProperty("--x", ((i * 47) % 101) + "%");
       glyph.style.setProperty("--y", ((i * 73 + 11) % 101) + "%");
       glyph.style.setProperty("--d", ((i % 17) * 0.018) + "s");
@@ -249,7 +249,7 @@
       if (ScrollTrigger) ScrollTrigger.refresh();
       remeasureRail();
     }
-    if (window.quantumField) window.quantumField.setIntroProgress(1);
+    if (window.flowField) window.flowField.setIntroProgress(1);
     if (loader) {
       loader.setAttribute("aria-hidden", "true");
       window.setTimeout(function () {
@@ -297,7 +297,7 @@
   function liftArrival(fromLoader) {
     var wipe = doc.querySelector(".page-wipe");
     playHero();
-    if (window.quantumField) {
+    if (window.flowField) {
       if (fromLoader && gsap) {
         // The field normally assembles behind the loader; here it assembles
         // as the wipe uncovers it.
@@ -306,10 +306,10 @@
           value: 1,
           duration: 1.3,
           ease: "power3.out",
-          onUpdate: function () { window.quantumField.setIntroProgress(intro.value); }
+          onUpdate: function () { window.flowField.setIntroProgress(intro.value); }
         });
       } else {
-        window.quantumField.setIntroProgress(1);
+        window.flowField.setIntroProgress(1);
       }
     }
     if (!wipe || !gsap) {
@@ -376,7 +376,7 @@
     }
     if (!loader) {
       body.classList.remove("is-loading");
-      if (window.quantumField) window.quantumField.setIntroProgress(1);
+      if (window.flowField) window.flowField.setIntroProgress(1);
       playHero();
       revealPrepared = true;
       initScrollAnimations();
@@ -416,11 +416,11 @@
           var value = Math.round(state.value);
           if (counter) counter.textContent = String(value).padStart(3, "0") + "%";
           if (bar) bar.style.transform = "scaleX(" + (value / 100) + ")";
-          if (window.quantumField) window.quantumField.setIntroProgress(value / 100);
+          if (window.flowField) window.flowField.setIntroProgress(value / 100);
           if (status) {
-            status.textContent = value < 30 ? "SCATTERED STATE" :
-              value < 72 ? "COHERENCE RISING" :
-                value < 96 ? "NORMALISING ψ" : "OBSERVABLE READY";
+            status.textContent = value < 30 ? "GENERATING MESH" :
+              value < 72 ? "SOLVING NAVIER–STOKES" :
+                value < 96 ? "RESIDUALS CONVERGING" : "FLOW FIELD READY";
           }
         }
       }, 0.08)
@@ -551,8 +551,8 @@
           var progress = this.progress();
           body.classList.toggle("is-field-solo", progress > 0.2 && progress < 0.9);
           if (applyKPose) applyKPose();
-          if (window.quantumField && window.quantumField.setOpeningProgress) {
-            window.quantumField.setOpeningProgress(progress);
+          if (window.flowField && window.flowField.setOpeningProgress) {
+            window.flowField.setOpeningProgress(progress);
           }
         },
         scrollTrigger: {
@@ -704,7 +704,7 @@
 
         // The erosion PNGs are deliberately sparse dust, not full-opacity
         // replacements. Keep the solid silhouette present until the particle
-        // K is coherent, then fade it separately while the dust layers bloom
+        // K has fully formed, then fade it separately while the dust layers bloom
         // additively over the live field.
         var kDissolveStart = 0.31;
         var kDustStep = 0.055;
@@ -879,6 +879,9 @@
     }
   }
   function remeasureRail() {
+    // With reduced motion the loader finishes synchronously, before the
+    // scene list below exists; the call after its definition measures.
+    if (!scenes) return;
     measureScenes();
     updateRail();
   }
@@ -894,7 +897,7 @@
 
   function refreshLayout() {
     if (ScrollTrigger) ScrollTrigger.refresh();
-    if (window.quantumField) window.quantumField.refresh();
+    if (window.flowField) window.flowField.refresh();
     remeasureRail();
   }
 
@@ -1240,15 +1243,14 @@
   var SECTION_ROUTES = {
     "#about": ["01", "About"],
     "#projects": ["02", "Projects"],
-    "#figure": ["03", "Interactive figure"],
-    "#drawings": ["04", "Drawings + Misc."],
-    "#aerial": ["05", "Aerial"],
-    "#certifications": ["06", "Certifications"],
-    "#contact": ["07", "Contact"]
+    "#drawings": ["03", "Drawings + Misc."],
+    "#aerial": ["04", "Aerial"],
+    "#certifications": ["05", "Certifications"],
+    "#contact": ["06", "Contact"]
   };
   var PAGE_ROUTES = {
-    "drawings.html": ["04", "Drawings + Misc."],
-    "aerial.html": ["05", "Aerial"]
+    "drawings.html": ["03", "Drawings + Misc."],
+    "aerial.html": ["04", "Aerial"]
   };
   var INDEX_ROUTE = ["00", "Index"];
 
@@ -1436,7 +1438,7 @@
 
   window.addEventListener("load", function () {
     if (ScrollTrigger) ScrollTrigger.refresh();
-    if (window.quantumField) window.quantumField.refresh();
+    if (window.flowField) window.flowField.refresh();
     remeasureRail();
   });
 })();
