@@ -113,10 +113,8 @@
       meta: ["Fusion 360", "Caliper measurement · DIN 862", "ISO 2768-mK drawing"],
       line: "A series rod end with M14×2 male thread (DIN ISO 12240-4, series K) measured against catalogue values, " +
         "fixed in a dimensioned hand sketch with a Ø14 H7 bore, and rebuilt as a Fusion 360 solid model with a derived technical drawing.",
-      docs: [
-        ["assets/docs/rod-end-m14-project-sheet.pdf", "Project sheet — rod end M14 (DE)"]
-      ],
       images: [
+        ["assets/projects/rod-end/project-sheet.jpg", "Project sheet — the full process on one A4 page (DE)", 2400, 3395],
         ["assets/projects/rod-end/part.jpg", "Series part — rod end M14×2 with spherical plain bearing", 1500, 2000],
         ["assets/projects/rod-end/measurement.jpg", "Caliper measurement and dimensioned hand sketch", 1500, 2000],
         ["assets/projects/rod-end/cad-iso.jpg", "Solid model — Fusion 360, isometric view", 1556, 1070],

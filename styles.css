@@ -155,6 +155,15 @@ img {
   transition: opacity 1.2s var(--ease-out);
 }
 
+/* Sized to the large viewport, so a phone URL bar collapsing or returning
+   never stretches the canvas bitmap (a stretched bitmap is a blurred one). */
+@supports (height: 100lvh) {
+  .flow-field {
+    bottom: auto;
+    height: 100lvh;
+  }
+}
+
 .flow-field-ready .flow-field {
   opacity: 1;
 }
@@ -2049,7 +2058,7 @@ html.is-arriving .page-wipe {
 
   .field-vignette {
     background:
-      linear-gradient(90deg, rgba(255, 255, 255, .42), transparent 26%, transparent 74%, rgba(255, 255, 255, .42));
+      linear-gradient(90deg, rgba(255, 255, 255, .3), transparent 14%, transparent 86%, rgba(255, 255, 255, .3));
   }
 
   .menu-toggle {
