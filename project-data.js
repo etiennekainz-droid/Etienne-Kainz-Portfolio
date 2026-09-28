@@ -63,7 +63,7 @@
       no: "2.5",
       title: "AIM-174B Missile — CAD",
       status: "Complete",
-      meta: ["SOLIDWORKS", "Surface modelling", "3-D printed scale model"],
+      meta: ["Surface modelling", "CFD surface mesh", "3-D printed scale model"],
       line: "A watertight airframe reconstruction from public dimensions, prepared for external-flow meshing and scale printing.",
       images: [
         ["assets/projects/aim174b/model-photo.jpg", "3-D printed scale model with reference notebook", 1280, 1280],
@@ -130,10 +130,6 @@
     "cert-quantum": [
       ["assets/certs/cu-boulder.png", "University of Colorado Boulder"],
       ["assets/certs/fig-quantum.png", "Quantum Mechanics for Engineers — |ψ|² course figure"]
-    ],
-    "cert-solidworks": [
-      ["assets/certs/fig-solidworks.png", "SOLIDWORKS Foundations — assembly environment"],
-      ["assets/certs/solidworks.png", "Dassault Systèmes"]
     ],
     "cert-math": [
       ["assets/certs/hkust.jpg", "The Hong Kong University of Science and Technology"],

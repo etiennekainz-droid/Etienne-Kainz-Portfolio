@@ -35,15 +35,24 @@
     var text = node.textContent;
     node.textContent = "";
     node.setAttribute("aria-label", text);
-    Array.from(text).forEach(function (char) {
-      var clip = doc.createElement("span");
-      clip.className = "char-clip";
-      clip.setAttribute("aria-hidden", "true");
-      var inner = doc.createElement("span");
-      inner.className = "char";
-      inner.textContent = char === " " ? "\u00a0" : char;
-      clip.appendChild(inner);
-      node.appendChild(clip);
+    // Letters are grouped per word: a run of inline-block letters may wrap
+    // between any two of them, which broke "Misc." across lines.
+    text.split(" ").forEach(function (part, index) {
+      if (index > 0) node.appendChild(doc.createTextNode(" "));
+      if (!part) return;
+      var word = doc.createElement("span");
+      word.className = "char-word";
+      word.setAttribute("aria-hidden", "true");
+      Array.from(part).forEach(function (char) {
+        var clip = doc.createElement("span");
+        clip.className = "char-clip";
+        var inner = doc.createElement("span");
+        inner.className = "char";
+        inner.textContent = char;
+        clip.appendChild(inner);
+        word.appendChild(clip);
+      });
+      node.appendChild(word);
     });
     node.dataset.splitReady = "true";
   }
@@ -90,16 +99,68 @@
     }
   })();
 
+  // Scroll governor. The background plays each moment at its own pace (the
+  // fan spooling up, the thrust chamber, ignition, every mechanism's build),
+  // and reports which moment it is actually showing. When a visitor scrolls
+  // further ahead of that than a moment can follow, forward scrolling gains
+  // weight — progressively, never to a stop — until the field catches up.
+  // Scrolling back is never weighed down, and nothing is weighed while the
+  // field keeps pace.
+  var TOUCH_INERTIA = 35;
+  var heroNode = doc.querySelector(".hero");
+
+  function scrollWeight(lead) {
+    // Journey units: the whole opening is one unit, each section gap is one.
+    var free = lead.opening ? 0.04 : 0.5;
+    var full = lead.opening ? 0.16 : 1.3;
+    var floor = lead.opening ? 0.1 : 0.35;
+    if (lead.ahead <= free) return 1;
+    var t = Math.min(1, (lead.ahead - free) / (full - free));
+    var weight = 1 - (1 - floor) * t * t * (3 - 2 * t);
+    if (lead.ahead > full) weight *= Math.max(0.3, 1 - (lead.ahead - full) / full);
+    return weight;
+  }
+
+  function inOpening() {
+    if (!heroNode) return false;
+    return heroNode.getBoundingClientRect().bottom - window.innerHeight > 4;
+  }
+
+  function governScroll(data) {
+    var field = window.flowField;
+    if (!lenis || !field || !field.lead) return;
+    var type = data.event.type;
+    if (type === "touchstart") {
+      // Touch stays native, except for gestures that begin inside the
+      // opening: Lenis drives those, so they can carry weight too.
+      lenis.options.syncTouch = inOpening();
+      lenis.options.touchInertiaMultiplier = TOUCH_INERTIA;
+      return;
+    }
+    var touch = type.indexOf("touch") === 0;
+    if (touch && !lenis.options.syncTouch) return;
+    // A released swipe coasts on velocity × inertia, not on this delta.
+    var delta = type === "touchend" ? lenis.velocity * TOUCH_INERTIA : data.deltaY;
+    if (!(delta > 0)) return;
+    var lead = field.lead(lenis.targetScroll + delta);
+    if (!lead) return;
+    var weight = scrollWeight(lead);
+    if (type === "touchend") lenis.options.touchInertiaMultiplier = TOUCH_INERTIA * weight;
+    else data.deltaY = delta * weight;
+  }
+
   function initSmoothScroll() {
     if (reduceMotion || !window.Lenis) return;
     try {
       lenis = new window.Lenis({
         smoothWheel: true,
         syncTouch: false,
-        lerp: 0.12,
+        touchInertiaMultiplier: TOUCH_INERTIA,
+        lerp: 0.1,
         wheelMultiplier: 1,
         touchMultiplier: 1,
-        overscroll: false
+        overscroll: false,
+        virtualScroll: governScroll
       });
       if (ScrollTrigger) lenis.on("scroll", ScrollTrigger.update);
       if (gsap) {
@@ -352,17 +413,20 @@
       duration: 1.35,
       stagger: 0.032
     }, 0)
-      .fromTo(revealSelector, { y: 28, opacity: 0 }, {
+      // Clip, not opacity: the opening scrub fades these same elements out,
+      // and an entrance still running on opacity when a visitor starts to
+      // scroll used to finish after the scrub and leave them on screen.
+      .fromTo(revealSelector, { y: 28, clipPath: "inset(0 0 100% 0)" }, {
         y: 0,
-        opacity: 1,
+        clipPath: "inset(0 0 0% 0)",
         duration: 0.9,
-        stagger: 0.12
+        stagger: 0.12,
+        clearProps: "clipPath"
       }, 0.55);
     if (hero.classList.contains("hero")) {
       tl.fromTo(".wordmark--trace", { opacity: 0, xPercent: -2.4 }, { opacity: 1, xPercent: 0, duration: 1.4 }, 0.2)
-        .fromTo(".scroll-cue", { scaleY: 0, opacity: 0, transformOrigin: "top" }, {
+        .fromTo(".scroll-cue", { scaleY: 0, transformOrigin: "top" }, {
         scaleY: 1,
-        opacity: 1,
         duration: 0.8
       }, 0.9);
     }
@@ -494,6 +558,9 @@
       };
       finalState.clipPath = type === "clip" || type === "media" ?
         "inset(0 0% 0% 0)" : "none";
+      // A finished reveal drops its clip, so a drafting sheet's corner
+      // marks (drawn just outside the box) are not cut off.
+      if (type === "clip" || type === "media") finalState.clearProps = "clipPath";
       gsap.fromTo(node, from, Object.assign({}, to, finalState));
       var image = node.querySelector && node.querySelector("img");
       if (type === "media" && image) {
