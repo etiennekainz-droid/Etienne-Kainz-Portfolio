@@ -129,6 +129,10 @@
       ["assets/certs/cu-boulder.png", "University of Colorado Boulder"],
       ["assets/certs/fig-quantum.png", "Quantum Mechanics for Engineers — |ψ|² course figure"]
     ],
+    "cert-solidworks": [
+      ["assets/certs/fig-solidworks.png", "SOLIDWORKS Foundations — assembly environment"],
+      ["assets/certs/solidworks.png", "Dassault Systèmes"]
+    ],
     "cert-math": [
       ["assets/certs/hkust.jpg", "The Hong Kong University of Science and Technology"],
       ["assets/certs/fig-math.jpg", "Mathematics for Engineers — linear algebra course figure"]
