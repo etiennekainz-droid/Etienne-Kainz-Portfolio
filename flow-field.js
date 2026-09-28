@@ -98,6 +98,12 @@
     var sectionStops = [];
     var width = 1;
     var height = 1;
+    // The part of the canvas actually on screen. The canvas is sized to the
+    // large viewport, so while a phone's toolbars show, its lower edge sits
+    // behind them; everything that is laid out — formation centre, scale,
+    // the K handoff, labels, the scroll focus line — uses this height, the
+    // same window.innerHeight main.js positions the K overlay against.
+    var viewHeight = 1;
     var dpr = 1;
     var introProgress = config.introProgress;
     var frame = 0;
@@ -2197,7 +2203,7 @@
       var bh = bbox.b - bbox.t;
       if (bw < 70 || bh < 50) return -1;
       var perUnit = view.scale * 0.92;
-      var dimY = Math.min(height - 46, bbox.b + 20);
+      var dimY = Math.min(viewHeight - 46, bbox.b + 20);
       var left = Math.max(8, bbox.l);
       var right = Math.min(width - 8, bbox.r);
       var cx = (left + right) / 2;
@@ -2390,7 +2396,7 @@
           y0 = bbox.t - PLOT_H - 58;
         }
       }
-      return [clamp(x0, 96, width - PLOT_W - 24), clamp(y0, 84, height - PLOT_H - 56)];
+      return [clamp(x0, 96, width - PLOT_W - 24), clamp(y0, 84, viewHeight - PLOT_H - 56)];
     }
 
     function plotFrame(x0, y0, title, xLabel, yLabel, alpha, grow) {
@@ -2592,7 +2598,7 @@
       setFont("500");
       var label = "BUILD " + String(Math.round(percent)).padStart(2, "0") + "%";
       if (horizontal) knockoutText(label, 18, position - 6, "left", alpha * 0.7);
-      else knockoutText(label, position + 6, height * 0.12, "left", alpha * 0.7);
+      else knockoutText(label, position + 6, viewHeight * 0.12, "left", alpha * 0.7);
       ctx.restore();
     }
 
@@ -2654,7 +2660,7 @@
         var lx = clamp(bbox.l, railClear, Math.max(railClear, width - labelWidth - 18));
         var ly = dimY > 0 ? dimY + 24 : bbox.t - 30;
         // Phones keep the label clear of the menu toggle.
-        ly = clamp(ly, compact ? 100 : 40, height - 30);
+        ly = clamp(ly, compact ? 100 : 40, viewHeight - 30);
         ctx.globalAlpha = alpha * 0.6;
         ctx.fillRect(lx, ly - fontPx - 5, Math.min(labelWidth, 28) * grow, 1);
         knockoutText(guides.label, lx, ly, "left", alpha * 0.72 * grow);
@@ -2728,20 +2734,21 @@
     }
 
     function applyLayout() {
+      viewHeight = Math.min(height, Math.max(1, viewport.visible || height));
       sectionStops = layout.stops.map(function (stop) {
         return { index: clamp(stop[0], 0, formationCount - 1), center: stop[1] };
       });
       if (layout.opening) {
         openingStart = layout.opening[0];
-        openingTravel = Math.max(1, layout.opening[1] - height);
+        openingTravel = Math.max(1, layout.opening[1] - viewHeight);
       }
-      pageScrollMax = Math.max(1, layout.scrollHeight - height);
+      pageScrollMax = Math.max(1, layout.scrollHeight - viewHeight);
       // The opening chain lands on formation 1, so the hero stop must agree —
       // otherwise the first scroll past the hero lerps abruptly back toward 0.
       if (hasOpening && !reducedMotion && sectionStops.length && sectionStops[0].index === 0) {
         sectionStops[0].index = 1;
       }
-      if (!sectionStops.length) sectionStops = [{ index: 0, center: height * 0.5 }];
+      if (!sectionStops.length) sectionStops = [{ index: 0, center: viewHeight * 0.5 }];
     }
 
     function sectionCoordinate(focus) {
@@ -2765,7 +2772,7 @@
         }
         if (openingTarget < 0.999) return openingTarget;
       }
-      return (hasOpening ? 1 : 0) + sectionCoordinate(hostScrollY + height * 0.52);
+      return (hasOpening ? 1 : 0) + sectionCoordinate(hostScrollY + viewHeight * 0.52);
     }
 
     function stopFormation(k) {
@@ -3039,22 +3046,22 @@
         (reducedMotion ? 0 :
           Math.sin(motionTime * 0.14 + scrollState.global * 3.2) * width * 0.005 +
           Math.sin(openingPhase * Math.PI * 2) * width * 0.008 * openingEnergy);
-      var driftY = height * (0.42 + scrollState.global * 0.16 +
+      var driftY = viewHeight * (0.42 + scrollState.global * 0.16 +
         Math.sin(scrollState.global * Math.PI * 5) * 0.018);
       var anchorA = rotA ? fA.portraitAnchorY : fA.anchorY;
       var anchorB = rotB ? fB.portraitAnchorY : fB.anchorY;
-      var targetA = anchorA >= 0 ? height * anchorA : driftY + height * fA.shift;
-      var targetB = anchorB >= 0 ? height * anchorB : driftY + height * fB.shift;
+      var targetA = anchorA >= 0 ? viewHeight * anchorA : driftY + viewHeight * fA.shift;
+      var targetB = anchorB >= 0 ? viewHeight * anchorB : driftY + viewHeight * fB.shift;
       var centerY = targetA + (targetB - targetA) * mix +
-        (reducedMotion ? 0 : Math.sin(motionTime * 0.1) * height * 0.004);
-      var baseScale = Math.min(width, height) * (compact ? 0.46 : 0.405) *
+        (reducedMotion ? 0 : Math.sin(motionTime * 0.1) * viewHeight * 0.004);
+      var baseScale = Math.min(width, viewHeight) * (compact ? 0.46 : 0.405) *
         openingScale * blend(fA, fB, compact ? "compactZoom" : "zoom", mix) *
         (reducedMotion ? 1 : 1 + Math.sin(motionTime * 0.38) * 0.005 + scrollEnergy * 0.008);
       if (kHandoffLock > 0.001) {
-        var targetKHeight = Math.min(height * 0.55, width * 0.54);
+        var targetKHeight = Math.min(viewHeight * 0.55, width * 0.54);
         var targetKScale = targetKHeight / (1.2 * (2.85 / 3.1));
         var lockedCenterX = width * 0.51;
-        var lockedCenterY = height * 0.45 - kHandoffDrift * 30;
+        var lockedCenterY = viewHeight * 0.45 - kHandoffDrift * 30;
         centerX += (lockedCenterX - centerX) * kHandoffLock;
         centerY += (lockedCenterY - centerY) * kHandoffLock;
         baseScale += (targetKScale - baseScale) * kHandoffLock;
@@ -3797,7 +3804,7 @@
           requestFrame();
           break;
         case "burst":
-          addRipple(typeof msg.x === "number" ? msg.x : width * 0.5, typeof msg.y === "number" ? msg.y : height * 0.5, 1);
+          addRipple(typeof msg.x === "number" ? msg.x : width * 0.5, typeof msg.y === "number" ? msg.y : viewHeight * 0.5, 1);
           break;
         case "fonts":
           // Sprites are baked at startup; rebake once the webfont arrives so
@@ -3873,6 +3880,7 @@
     viewportCache = {
       width: Math.max(1, bounds.width),
       height: Math.max(1, bounds.height),
+      visible: Math.max(1, Math.min(bounds.height, window.innerHeight)),
       dpr: window.devicePixelRatio || 1,
       compact: compact,
       medium: mediumQuery.matches,
@@ -3998,7 +4006,7 @@
   }
 
   function journeyAt(y) {
-    var h = viewportCache.height;
+    var h = viewportCache.visible;
     if (hasOpening && layoutCache.opening) {
       var travel = Math.max(1, layoutCache.opening[1] - h);
       var opening = Math.min(1, Math.max(0, (y - layoutCache.opening[0]) / travel));
@@ -4035,10 +4043,20 @@
     lastViewportH = window.innerHeight;
     send({ type: "resize", viewport: measureViewport(), layout: measureLayout(), scrollY: window.scrollY });
   }
+  // A toolbar showing or hiding only moves the visible height; the canvas
+  // (large viewport) keeps its size. That update is cheap, and main.js moves
+  // the K overlay against innerHeight at once, so it goes out on the next
+  // frame instead of after the debounce — the field's K stays under it.
+  var visibleFrame = 0;
+  function visibleChanged() {
+    visibleFrame = 0;
+    if (canvas.getBoundingClientRect().height === viewportCache.height) resized();
+  }
   window.addEventListener("resize", function () {
     var minor = window.innerWidth === lastViewportW &&
       Math.abs(window.innerHeight - lastViewportH) < 140;
     clearTimeout(resizeDebounce);
+    if (minor && !visibleFrame) visibleFrame = window.requestAnimationFrame(visibleChanged);
     resizeDebounce = setTimeout(resized, minor ? 240 : 90);
   }, { passive: true });
 
