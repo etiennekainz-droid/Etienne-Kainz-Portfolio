@@ -5,6 +5,11 @@
   --faint-ink: rgba(0, 0, 0, .36);
   --rule: rgba(0, 0, 0, .18);
   --rule-strong: rgba(0, 0, 0, .78);
+  /* Panels are knocked out of the drawing the way the field's own labels
+     are: paper at nearly the same opacity, so the sheet reads as one page. */
+  --sheet: rgba(255, 255, 255, .88);
+  --mark: 12px;
+  --mark-gap: 7px;
   --grotesk: "Space Grotesk", Arial, Helvetica, sans-serif;
   --mono: "IBM Plex Mono", "Courier New", monospace;
   --pad: clamp(1rem, 2.8vw, 3.25rem);
@@ -570,6 +575,56 @@ html.is-arriving .page-wipe {
   text-align: right;
 }
 
+/* Drafting sheets. Content panels are drawn as regions of the same drawing
+   the field is on: knocked-out paper, registration marks just outside the
+   corners (like the field's extension lines), and an optional sheet tag set
+   on the rule like a view title. */
+.sheet {
+  position: relative;
+  background-color: var(--sheet);
+}
+
+.sheet::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--mark-gap) * -1);
+  pointer-events: none;
+  background:
+    linear-gradient(var(--ink), var(--ink)) left top / var(--mark) 1px,
+    linear-gradient(var(--ink), var(--ink)) left top / 1px var(--mark),
+    linear-gradient(var(--ink), var(--ink)) right top / var(--mark) 1px,
+    linear-gradient(var(--ink), var(--ink)) right top / 1px var(--mark),
+    linear-gradient(var(--ink), var(--ink)) left bottom / var(--mark) 1px,
+    linear-gradient(var(--ink), var(--ink)) left bottom / 1px var(--mark),
+    linear-gradient(var(--ink), var(--ink)) right bottom / var(--mark) 1px,
+    linear-gradient(var(--ink), var(--ink)) right bottom / 1px var(--mark);
+  background-repeat: no-repeat;
+}
+
+.sheet[data-sheet]::before {
+  content: attr(data-sheet);
+  content: attr(data-sheet) / "";
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: calc(var(--mark) + 2px);
+  padding: 2px 5px 1px;
+  background: var(--sheet);
+  color: var(--soft-ink);
+  font: 500 .52rem/1 var(--mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Large statements take the field's knockout-label treatment line by line:
+   each word clears its own patch of paper and the patches join into a
+   ragged-right block, instead of a soft white glow over the drawing. */
+.knockout .word-clip {
+  background: var(--paper);
+  box-shadow: .3em 0 0 var(--paper), -.14em 0 0 var(--paper);
+}
+
 /* Shared section architecture */
 .scene {
   position: relative;
@@ -627,6 +682,11 @@ html.is-arriving .page-wipe {
 .char,
 .word {
   display: inline-block;
+}
+
+.char-word {
+  display: inline-block;
+  white-space: nowrap;
 }
 
 /* Only the hero chars stay promoted — they ride the scroll scrub. A blanket
@@ -816,7 +876,6 @@ html.is-arriving .page-wipe {
   padding: .55rem 0 .7rem;
   border-top: 1px solid var(--ink);
   border-bottom: 1px solid var(--ink);
-  background: rgba(255, 255, 255, .9);
 }
 
 .hero__subline p {
@@ -894,14 +953,6 @@ html.is-arriving .page-wipe {
   margin: clamp(4.5rem, 7vw, 7.5rem) 0 clamp(3.5rem, 6vw, 6rem) auto;
 }
 
-.about__lead .statement,
-.projects__intro .statement {
-  text-shadow:
-    0 0 2px var(--paper),
-    0 0 12px var(--paper),
-    0 0 24px var(--paper);
-}
-
 .about__grid {
   display: grid;
   grid-template-columns: minmax(14rem, 28vw) 1fr;
@@ -942,7 +993,6 @@ html.is-arriving .page-wipe {
 
 .ethos {
   margin-top: 7vw;
-  background: rgba(255, 255, 255, .93);
 }
 
 .ethos__label {
@@ -990,7 +1040,7 @@ html.is-arriving .page-wipe {
   overflow: hidden;
   border-top: 1px solid var(--ink);
   border-bottom: 1px solid var(--ink);
-  background: rgba(255, 255, 255, .82);
+  background: var(--sheet);
 }
 
 .ticker__track {
@@ -1065,7 +1115,6 @@ html.is-arriving .page-wipe {
 
 .project-index {
   border-top: 1px solid var(--ink);
-  background: rgba(255, 255, 255, .9);
 }
 
 .project-row {
@@ -1288,7 +1337,6 @@ html.is-arriving .page-wipe {
 .credential-list {
   margin-top: clamp(4.5rem, 7vw, 7rem);
   border-top: 1px solid var(--ink);
-  background: rgba(255, 255, 255, .92);
 }
 
 .credential {
@@ -2435,6 +2483,11 @@ html.is-arriving .page-wipe {
 
   .hero__overture {
     display: none;
+  }
+
+  /* Without motion nothing animates the project file's clip open. */
+  .project-overlay[aria-hidden="false"] {
+    clip-path: none;
   }
 
   [data-reveal],
