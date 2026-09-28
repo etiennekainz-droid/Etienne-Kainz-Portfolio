@@ -6,8 +6,9 @@
   --rule: rgba(0, 0, 0, .18);
   --rule-strong: rgba(0, 0, 0, .78);
   /* Panels are knocked out of the drawing the way the field's own labels
-     are: paper at nearly the same opacity, so the sheet reads as one page. */
-  --sheet: rgba(255, 255, 255, .88);
+     are, but lighter: a third of the drawing shows through, so the sheet
+     reads as one page. */
+  --sheet: rgba(255, 255, 255, .66);
   --mark: 12px;
   --mark-gap: 7px;
   --grotesk: "Space Grotesk", Arial, Helvetica, sans-serif;
