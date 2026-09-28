@@ -1779,14 +1779,18 @@
     // Scatter marks read as measurement samples: crosses for the point cloud,
     // a rare diameter mark drifting through the hardware. Three depth sizes.
     function buildParticleSprites() {
-      var sizes = compact ? [5.5, 7.5, 9.5] : [6.5, 9.5, 12.5];
+      // Phones get larger, heavier marks: at hairline weight a 5 px cross
+      // renders as a grey speck rather than a drawn mark.
+      var sizes = compact ? [6.5, 8.5, 10.5] : [6.5, 9.5, 12.5];
+      var light = compact ? "500" : "400";
+      var heavy = compact ? "600" : "500";
       glyphs = sizes.map(function (size) {
         return [
-          makeGlyph("+", "400", size),
-          makeGlyph("×", "400", size),
-          makeGlyph("+", "500", size),
-          makeGlyph("×", "500", size),
-          makeGlyph("Ø", "400", size * 1.2)
+          makeGlyph("+", light, size),
+          makeGlyph("×", light, size),
+          makeGlyph("+", heavy, size),
+          makeGlyph("×", heavy, size),
+          makeGlyph("Ø", light, size * 1.2)
         ];
       });
     }
@@ -1807,45 +1811,49 @@
     }
 
     function buildRasterSprites() {
+      // On phones every stroke goes one weight up: a 9 px cell at hairline
+      // weight is under a CSS pixel wide and reads as grey, not as ink.
+      var w4 = compact ? "500" : "400";
+      var w5 = compact ? "600" : "500";
       // Brightness ramp, faint to solid — mesh nodes and sample crosses first,
       // then FEM/tolerance marks in the hot core, like a contour plot.
       rampSprites = [
-        makeRasterGlyph("·", "400", 1.05),
-        makeRasterGlyph(":", "400", 0.92),
-        makeRasterGlyph("+", "400", 0.98),
-        makeRasterGlyph("×", "400", 0.98),
-        makeRasterGlyph("Δ", "500", 0.92),
-        makeRasterGlyph("±", "500", 0.98)
+        makeRasterGlyph("·", w4, 1.05),
+        makeRasterGlyph(":", w4, 0.92),
+        makeRasterGlyph("+", w4, 0.98),
+        makeRasterGlyph("×", w4, 0.98),
+        makeRasterGlyph("Δ", w5, 0.92),
+        makeRasterGlyph("±", w5, 0.98)
       ];
       // Motion-aligned strokes by screen direction (8 sectors, y down).
       directionSprites = [
-        makeRasterGlyph(">", "400", 0.94),
-        makeRasterGlyph("\\", "400", 0.98),
-        makeRasterGlyph("|", "400", 0.98),
-        makeRasterGlyph("/", "400", 0.98),
-        makeRasterGlyph("<", "400", 0.94),
-        makeRasterGlyph("\\", "400", 0.98),
-        makeRasterGlyph("|", "400", 0.98),
-        makeRasterGlyph("/", "400", 0.98)
+        makeRasterGlyph(">", w4, 0.94),
+        makeRasterGlyph("\\", w4, 0.98),
+        makeRasterGlyph("|", w4, 0.98),
+        makeRasterGlyph("/", w4, 0.98),
+        makeRasterGlyph("<", w4, 0.94),
+        makeRasterGlyph("\\", w4, 0.98),
+        makeRasterGlyph("|", w4, 0.98),
+        makeRasterGlyph("/", w4, 0.98)
       ];
       // Smoke: thin streak marks along the local flow direction.
       smokeSprites = [
-        makeRasterGlyph("-", "400", 1),
-        makeRasterGlyph("\\", "400", 0.9),
-        makeRasterGlyph("|", "400", 0.9),
-        makeRasterGlyph("/", "400", 0.9)
+        makeRasterGlyph("-", w4, 1),
+        makeRasterGlyph("\\", w4, 0.9),
+        makeRasterGlyph("|", w4, 0.9),
+        makeRasterGlyph("/", w4, 0.9)
       ];
-      smokeDot = makeRasterGlyph("·", "400", 0.9);
-      smokeCurl = makeRasterGlyph("~", "400", 1);
+      smokeDot = makeRasterGlyph("·", w4, 0.9);
+      smokeCurl = makeRasterGlyph("~", w4, 1);
       // Section-cut hatching (ISO 128: thin 45° lines).
-      hatchSprite = makeRasterGlyph("/", "500", 1.08);
+      hatchSprite = makeRasterGlyph("/", w5, 1.08);
       // Outline strokes along detected edges and thin members, by line
       // orientation (0°, 45°, 90°, 135°, screen y down).
       edgeSprites = [
         makeRasterGlyph("-", "600", 1.12),
-        makeRasterGlyph("\\", "500", 1.02),
-        makeRasterGlyph("|", "500", 1.02),
-        makeRasterGlyph("/", "500", 1.02)
+        makeRasterGlyph("\\", w5, 1.02),
+        makeRasterGlyph("|", w5, 1.02),
+        makeRasterGlyph("/", w5, 1.02)
       ];
     }
 
@@ -2672,13 +2680,23 @@
       // Render at native resolution where the pixel budget allows — the
       // glyphs stay razor sharp on retina displays. The pixel budget is the
       // real cost governor, so the caps can sit near native density.
-      var requestedDpr = Math.min(viewport.dpr || 1, compact ? 3 : medium ? 2.25 : 2);
-      var pixelBudget = compact ? 3400000 : medium ? 3500000 : 5600000;
-      var baseDpr = Math.max(0.9, Math.min(requestedDpr, Math.sqrt(pixelBudget / Math.max(1, width * height))));
-      // The governor may trade density for frame rate, but never below the
-      // floor. On phones the floor is 2x: below that the glyphs go soft.
-      dprFloor = Math.min(baseDpr, compact ? 2 : 1);
-      dpr = Math.max(dprFloor, baseDpr * dprScale);
+      var requestedDpr = Math.min(viewport.dpr || 1, compact ? 3.5 : medium ? 2.25 : 2);
+      if (compact) {
+        // Phones render at exactly the native density, always. A backing
+        // store that does not map 1:1 onto device pixels is resampled by the
+        // compositor, and at glyph size that resampling is the blur (2.46x
+        // on a 3x screen smears every stroke). Their frame budget is kept by
+        // the frame-rate step in governResolution instead.
+        dprFloor = requestedDpr;
+        dpr = requestedDpr;
+      } else {
+        var pixelBudget = medium ? 3500000 : 5600000;
+        var baseDpr = Math.max(0.9, Math.min(requestedDpr, Math.sqrt(pixelBudget / Math.max(1, width * height))));
+        // The governor may trade density for frame rate, but never below
+        // the floor.
+        dprFloor = Math.min(baseDpr, 1);
+        dpr = Math.max(dprFloor, baseDpr * dprScale);
+      }
       resetGovernor(45);
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
@@ -2840,20 +2858,26 @@
       var sorted = gapSamples.slice().sort(function (a, b) { return a - b; });
       var median = sorted[sorted.length >> 1];
       resetGovernor();
-      if (median > 25 && renderCostAverage < median * 0.45 && dpr > dprFloor + 0.05) {
-        dprScale *= 0.82;
-        setTimeout(resize, 0);
+      if (median > 25 && renderCostAverage < median * 0.45) {
+        if (compact) {
+          // Phones keep their pixels and give up frames: every other vsync
+          // still reads as smooth for motion this slow.
+          minFrameGap = 30;
+        } else if (dpr > dprFloor + 0.05) {
+          dprScale *= 0.82;
+          setTimeout(resize, 0);
+        }
       }
     }
 
     // rAF entry point. On high-refresh displays the field renders at most every
     // ~10.5 ms — every other vsync at 120 Hz — because its motion is slow and
     // ambient; the halved cost goes to scrolling and the page's own animations.
-    var MIN_FRAME_GAP = 10.5;
+    var minFrameGap = 10.5;
     function tick(now) {
       frame = 0;
       if (!pageVisible || occluded) return;
-      if (now - lastFrame < MIN_FRAME_GAP) {
+      if (now - lastFrame < minFrameGap) {
         frame = raf(tick);
         return;
       }
@@ -3372,6 +3396,11 @@
           if (sCell < rasterDensity.length - rasterCols) rasterDensity[sCell + rasterCols] += spill;
         }
         var markAlpha = sampleAlpha[si] * fade * fade;
+        if (compact) {
+          // Phones draw the marks after the raster pass, in empty cells only.
+          sampleAlpha[si] = markAlpha;
+          continue;
+        }
         if (markAlpha < 0.02) continue;
         // Three baked sizes, each drawn 1:1 in device pixels and snapped to
         // the pixel grid — no resampling blur.
@@ -3467,7 +3496,9 @@
       // character grid: mechanism density picks the glyph, coherent motion
       // replaces it with a stroke, the section cut hatches it, and where no
       // hardware is, the smoke shows.
-      var rasterAlphaBase = intro * 0.86;
+      var rasterAlphaBase = intro * (compact ? 0.94 : 0.86);
+      var cellFloor = compact ? 0.15 : 0.1;
+      var smokeMin = compact ? 0.16 : 0.12;
       if (rasterAlphaBase > 0.02) {
         var flowThreshold2 = Math.pow(dt * 0.062, 2);
         var dye = fluidOn ? fluid.dye : null;
@@ -3495,7 +3526,7 @@
             var sprite;
             var cellAlpha;
             if (density >= 0.24) {
-              cellAlpha = Math.min(0.9, 0.1 + density * 0.4) * rasterAlphaBase;
+              cellAlpha = Math.min(0.9, cellFloor + density * 0.4) * rasterAlphaBase;
               if (cellAlpha < 0.02) continue;
               var drawX = cx * cellSize;
               var flowX = rasterFlowX[idx];
@@ -3531,7 +3562,7 @@
               ctx.drawImage(sprite, drawX, drawY, cellSize, cellSize);
             } else if (dye) {
               var smoke = dye[idx];
-              if (smoke < 0.12) continue;
+              if (smoke < smokeMin) continue;
               var su = smokeU[idx];
               var sv = smokeV[idx];
               // Thin the smoke to ridge lines across the local flow, so
@@ -3555,6 +3586,22 @@
               ctx.drawImage(sprite, cx * cellSize, drawY, cellSize, cellSize);
             }
           }
+        }
+      }
+      // Phones: scatter marks only where the raster left the cell empty.
+      // Piled on top of grid glyphs at phone scale they read as dust over
+      // the drawing, which the eye takes for blur; around the silhouette they
+      // read as the measured point cloud.
+      if (compact) {
+        for (var mi = 0; mi < sampleCount; mi += 1) {
+          var mAlpha = sampleAlpha[mi];
+          if (mAlpha < 0.02 || rasterDensity[sampleCell[mi]] >= 0.24) continue;
+          var mCode = sampleMark[mi];
+          var mMark = glyphs[(mCode / 5) | 0][mCode % 5];
+          var mHalf = mMark.width * 0.5;
+          ctx.globalAlpha = mAlpha;
+          ctx.drawImage(mMark, Math.round(sampleX[mi] * dpr - mHalf) / dpr,
+            Math.round(sampleY[mi] * dpr - mHalf) / dpr, mMark.width / dpr, mMark.height / dpr);
         }
       }
       if (foundBox) {
@@ -3701,10 +3748,22 @@
           }
           break;
         case "resize":
+          var sameSize = viewport && msg.viewport.width === viewport.width &&
+            msg.viewport.height === viewport.height && msg.viewport.dpr === viewport.dpr &&
+            msg.viewport.compact === viewport.compact && msg.viewport.medium === viewport.medium &&
+            msg.viewport.portrait === viewport.portrait;
           viewport = msg.viewport;
           layout = msg.layout;
           hostScrollY = msg.scrollY;
-          resize();
+          // A phone URL bar showing or hiding moves the page but not the
+          // canvas (it is sized to the large viewport): re-measure only, no
+          // realloc and re-bake.
+          if (sameSize) {
+            applyLayout();
+            requestFrame();
+          } else {
+            resize();
+          }
           break;
         case "layout":
           layout = msg.layout;
