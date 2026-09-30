@@ -50,6 +50,7 @@
     "attribute vec4 aA;",          // x, y (0..1), depth (0..1), unused
     "attribute float aS;",         // seed 0..1
     "uniform vec2 uRes;",          // canvas size, CSS px
+    "uniform float uPad;",         // dust margin past every edge, CSS px
     "uniform float uDpr;",
     "uniform float uTime;",
     "uniform float uScroll;",
@@ -86,11 +87,16 @@
     "  float t = uTime;",
     "  float d = aA.z;",
     "  vec2 q = aA.xy;",
+    // The dust is laid out past every edge by uPad: the currents below move
+    // it by up to ~15 % of the screen height, and wherever they flow inward
+    // from an edge there must be dust outside to carry in, or a bare strip
+    // opens along that edge (on a narrow phone, a large share of the screen).
+    "  vec2 span = uRes + 2.0 * uPad;",
     // Slow drift, faster for near dots, plus scroll parallax.
-    "  q += vec2(0.0016 + 0.0034 * d, -0.0008 - 0.0012 * d) * t;",
-    "  q.y -= uScroll / uRes.y * (0.03 + 0.1 * d);",
+    "  q += vec2(0.0016 + 0.0034 * d, -0.0008 - 0.0012 * d) * t * uRes / span;",
+    "  q.y -= uScroll / span.y * (0.03 + 0.1 * d);",
     "  q = fract(q);",
-    "  vec2 p = q * uRes;",
+    "  vec2 p = q * span - uPad;",
     // Currents, evaluated in screen-height units so eddies stay round.
     "  vec2 x = p / uRes.y;",
     "  vec3 f = flow(x, t);",
@@ -198,17 +204,24 @@
   }
   gl.useProgram(program);
   var U = {};
-  ["uRes", "uDpr", "uTime", "uScroll", "uDust", "uFlow", "uReveal", "uParallax", "uMouse", "uCell", "uDisp"]
+  ["uRes", "uPad", "uDpr", "uTime", "uScroll", "uDust", "uFlow", "uReveal", "uParallax", "uMouse", "uCell", "uDisp"]
     .forEach(function (name) { U[name] = gl.getUniformLocation(program, name); });
   U.uRip = gl.getUniformLocation(program, "uRip[0]") || gl.getUniformLocation(program, "uRip");
 
   // -------------------------------------------------------------- particles
   var compact = Math.min(window.screen.width, window.screen.height) < 700;
-  // Dust per CSS px²; the draw count follows the window, the buffer is sized
-  // for the whole screen so a resize never reallocates.
-  var DUST_DENSITY = compact ? 0.3 : 0.28;
-  var screenArea = Math.max(window.screen.width * window.screen.height, window.innerWidth * window.innerHeight);
-  var nDust = Math.min(compact ? 260000 : 1000000, Math.round(screenArea * DUST_DENSITY));
+  // Dust per CSS px², over the window plus its margin; the draw count follows
+  // the window, the buffer is sized for the whole screen (either way up) so a
+  // resize or rotation never reallocates.
+  var DUST_DENSITY = compact ? 0.5 : 0.48;
+  function margin(h) {
+    return Math.round(h * 0.12 + 28);
+  }
+  var screenW = Math.max(window.screen.width, window.innerWidth);
+  var screenH = Math.max(window.screen.height, window.innerHeight);
+  var screenPad = margin(Math.max(screenW, screenH));
+  var screenArea = (screenW + 2 * screenPad) * (screenH + 2 * screenPad);
+  var nDust = Math.min(compact ? 480000 : 2000000, Math.round(screenArea * DUST_DENSITY));
 
   (function buildParticles() {
     // Interleaved [x, y, depth, 0, seed], in random order, so drawing a
@@ -360,6 +373,7 @@
   // --------------------------------------------------------------- state
   var width = 1;
   var height = 1;
+  var pad = 0;
   var visible = 1;
   var dpr = 1;
   var quality = 1;
@@ -382,6 +396,7 @@
   function resize() {
     width = Math.max(1, canvas.clientWidth || window.innerWidth);
     height = Math.max(1, canvas.clientHeight || window.innerHeight);
+    pad = margin(height);
     visible = Math.min(height, window.innerHeight || height);
     dpr = Math.min(window.devicePixelRatio || 1, compact ? 3 : 2);
     var bw = Math.round(width * dpr);
@@ -464,6 +479,7 @@
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.uniform2f(U.uRes, width, height);
+    gl.uniform1f(U.uPad, pad);
     gl.uniform1f(U.uDpr, dpr);
     gl.uniform1f(U.uTime, time);
     gl.uniform1f(U.uScroll, smoothScroll);
@@ -479,7 +495,7 @@
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.uniform1i(U.uDisp, 0);
     }
-    var count = Math.min(nDust, Math.round(width * height * DUST_DENSITY * quality));
+    var count = Math.min(nDust, Math.round((width + 2 * pad) * (height + 2 * pad) * DUST_DENSITY * quality));
     if (count > 0) gl.drawArrays(gl.POINTS, 0, count);
     if (!ready) {
       ready = true;
