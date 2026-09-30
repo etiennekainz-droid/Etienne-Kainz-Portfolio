@@ -11,14 +11,17 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
 - `drawings.html`, `aerial.html`, `certifications.html` — the other
   categories, same layout: a short intro, then the pictures.
 - `field.js` — the background. One WebGL point cloud on black: fine dust in
-  three depth layers, carried by slow currents (the curl of an evolving
-  stream function, so it swirls in eddies whose cores shimmer faintly). Near
-  dots shift with the pointer and with scrolling; a click or tap sends a ring
-  through the dust. A fast pointer stroke slashes it: a coarse grid of
-  spring-dampers holds a wake and a cut (opening amplitude plus signed
-  distance to the cut line), sampled by every dot in the vertex shader, so
-  the dust splits along the stroke and the cut heals. Page changes send a
-  ring from the clicked link and a gust through the currents.
+  three depth layers, seeded past every edge, carried by slow currents (the
+  curl of an evolving stream function whose coordinates are folded by a
+  second wave field, so eddies stretch and wrap around each other) that
+  swell and ease. Near dots shift with the pointer and with scrolling. The
+  pointer drives a small incompressible fluid on a coarse grid (stable fluids
+  with vorticity confinement): strokes roll up into eddies that swirl the
+  dust, which glows with how far it has been swept and relaxes home without
+  overshoot. A fast stroke cuts the dust: the cut snaps open, holds, then
+  zips shut in the order it was made, its grains knitting back along the
+  seam. Clicks send a ring and a small eddy; page changes a ring and a broad
+  vortex from the clicked link.
 - `site.js` — menu, page changes (internal links swap `<main>` in place so the
   background never restarts), pictures revealing as they scroll in, project
   pages, and the lightbox.

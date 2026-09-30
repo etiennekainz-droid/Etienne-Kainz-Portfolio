@@ -82,6 +82,14 @@
     "  WAVE( 6.1, 11.4, 0.300, 0.0010, 5.3)",
     "  return r;",
     "}",
+    // A second, slower wave field that folds the currents' own coordinates
+    // (domain warping): the eddies stretch, twist and wrap around each other
+    // instead of repeating as clean rolls.
+    "vec2 warp(vec2 x, float t) {",
+    "  return vec2(sin(1.7 * x.y + 0.21 * t + 1.3), cos(1.9 * x.x - 0.17 * t + 0.4))",
+    "    + 0.5 * vec2(sin(3.9 * x.y - 0.33 * t + 4.2), cos(3.3 * x.x + 0.29 * t + 2.8))",
+    "    + 0.25 * vec2(sin(7.1 * x.x + 5.3 * x.y + 0.47 * t), cos(6.3 * x.y - 4.7 * x.x - 0.41 * t));",
+    "}",
     "void main() {",
     "  float s = aS;",
     "  float t = uTime;",
@@ -99,7 +107,7 @@
     "  vec2 p = q * span - uPad;",
     // Currents, evaluated in screen-height units so eddies stay round.
     "  vec2 x = p / uRes.y;",
-    "  vec3 f = flow(x, t);",
+    "  vec3 f = flow(x + warp(x, t) * 0.07, t);",
     "  p += f.xy * uRes.y * uFlow * (0.55 + 0.7 * d);",
     "  p += uParallax * (d - 0.35) * 34.0;",
     "  float size = 0.5 + 1.0 * d * d;",
@@ -114,7 +122,7 @@
     "      vec2 dv = p - r.xy;",
     "      float dist = length(dv) + 0.001;",
     "      float front = r.z * 560.0;",
-    "      float ring = exp(-pow((dist - front) / 64.0, 2.0)) * r.w * exp(-r.z * 1.1);",
+    "      float ring = exp(-pow((dist - front) / 64.0, 2.0)) * r.w * exp(-r.z * 1.1) * (1.0 - smoothstep(2.4, 3.2, r.z));",
     "      p += dv / dist * ring * (18.0 + 22.0 * d);",
     "      a *= 1.0 + ring * 1.4;",
     "    }",
@@ -123,8 +131,13 @@
     "  vec2 uv = clamp(p / uRes, 0.0, 1.0);",
     "  vec4 g = texture2D(uDisp, uv);",
     "  vec2 e = g.rg * 2.0 - 1.0;",
-    "  vec2 disp = sign(e) * e * e * 160.0;",
+    // Near dust is carried further than far dust, so inside an eddy the
+    // depth layers shear past each other and the swirl reads even over an
+    // even spread of dust; swept dust glows with how far it has travelled.
+    "  vec2 disp = sign(e) * e * e * 160.0 * (0.45 + 1.1 * d);",
+    "  a *= 1.0 + min(length(disp), 140.0) * 0.014;",
     "  float cut = g.b;",
+    "  float knit = 0.0;",
     "  if (cut > 0.004) {",
     "    vec2 du = vec2(uCell.x / uRes.x, 0.0);",
     "    vec2 dvv = vec2(0.0, uCell.y / uRes.y);",
@@ -132,12 +145,20 @@
     "                  texture2D(uDisp, uv + dvv).a - texture2D(uDisp, uv - dvv).a);",
     "    float nl = length(n);",
     "    if (nl > 0.00001) {",
+    "      vec2 nn = n / nl;",
     "      float side = g.a >= 0.5 ? 1.0 : -1.0;",
-    "      disp += n / nl * side * cut * 84.0 * (0.75 + 0.5 * h(s * 41.0));",
+    // Each grain lets go at its own point of the close, so the seam frays
+    // and knits instead of sliding shut in one piece...
+    "      float cd = pow(cut, 0.55 + 0.9 * h(s * 41.0));",
+    "      disp += nn * side * cd * 84.0 * (0.75 + 0.5 * h(s * 17.0));",
+    // ...and, mid-close, grains near the seam slip along it as the two
+    // edges meet, like the teeth of a zip.
+    "      knit = 4.0 * cut * (1.0 - cut) * exp(-abs(g.a * 2.0 - 1.0) * 3.0);",
+    "      disp += vec2(-nn.y, nn.x) * knit * (h(s * 13.0) - 0.5) * 46.0;",
     "    }",
     "  }",
     "  p += disp * (0.85 + 0.3 * h(s * 71.3));",
-    "  a *= 1.0 + 1.6 * cut;",
+    "  a *= 1.0 + 1.1 * cut + 2.2 * knit;",
     "#endif",
     // The cursor pushes the dust aside and, while moving, stirs it round.
     "  vec2 dm = p - uMouse.xy;",
@@ -215,7 +236,7 @@
   // resize or rotation never reallocates.
   var DUST_DENSITY = compact ? 0.5 : 0.48;
   function margin(h) {
-    return Math.round(h * 0.12 + 28);
+    return Math.round(h * 0.14 + 28);
   }
   var screenW = Math.max(window.screen.width, window.innerWidth);
   var screenH = Math.max(window.screen.height, window.innerHeight);
@@ -243,11 +264,26 @@
     gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 20, 16);
   })();
 
-  // ----------------------------------------------------------- cut grid
+  // ------------------------------------------------------ fluid + cut grid
+  // A coarse grid over the screen carries two things the dust samples in the
+  // vertex shader:
+  //   - a small incompressible fluid (stable fluids with vorticity
+  //     confinement). The pointer drags the air along; the projection turns
+  //     that push into pairs of counter-rotating eddies, and each cell keeps
+  //     a displacement that the flow advects and adds to, relaxing home
+  //     without overshoot once the air settles. The dust swirls in the wake
+  //     instead of being shoved and snapped back;
+  //   - the cut of a fast stroke: an opening amplitude and the signed
+  //     distance to the cut line. The cut snaps open, holds for a beat, then
+  //     zips shut in the order it was made, each stretch closing on an
+  //     S-curve (a critically damped spring: no overshoot, no hard stop).
   var CELL = compact ? 10 : 12;
   var SDMAX = 48;          // px, signed-distance range stored per cell
+  var DMAX = 160;          // px, displacement range stored per cell
+  var CUT_HOLD = 0.22;     // s the cut stays open after it is made
+  var CUT_ZIP = 0.0011;    // s per px of stroke: how fast the zip runs
   var grid = { w: 0, h: 0, cw: 1, ch: 1 };
-  var dX, dY, vX, vY, cutA, cutV, sdist, texels;
+  var airU, airV, airU0, airV0, press, divg, curl, dX, dY, dX0, dY0, cutA, cutV, cutGoal, cutHold, sdist, texels;
   var gridActive = false;
   var gridDirty = true;
   var texture = gl.createTexture();
@@ -258,9 +294,13 @@
     grid.cw = width / grid.w;
     grid.ch = height / grid.h;
     var n = grid.w * grid.h;
+    airU = new Float32Array(n); airV = new Float32Array(n);
+    airU0 = new Float32Array(n); airV0 = new Float32Array(n);
+    press = new Float32Array(n); divg = new Float32Array(n); curl = new Float32Array(n);
     dX = new Float32Array(n); dY = new Float32Array(n);
-    vX = new Float32Array(n); vY = new Float32Array(n);
+    dX0 = new Float32Array(n); dY0 = new Float32Array(n);
     cutA = new Float32Array(n); cutV = new Float32Array(n);
+    cutGoal = new Float32Array(n); cutHold = new Float32Array(n);
     sdist = new Float32Array(n);
     for (var i = 0; i < n; i += 1) sdist[i] = SDMAX;
     texels = new Uint8Array(n * 4);
@@ -277,9 +317,9 @@
     var n = grid.w * grid.h;
     for (var i = 0; i < n; i += 1) {
       var o = i * 4;
-      // sqrt encoding: fine steps near zero, where a healing cut settles.
-      var ex = dX[i] / 160;
-      var ey = dY[i] / 160;
+      // sqrt encoding: fine steps near zero, where the dust settles home.
+      var ex = dX[i] / DMAX;
+      var ey = dY[i] / DMAX;
       ex = ex > 0 ? Math.sqrt(Math.min(ex, 1)) : -Math.sqrt(Math.min(-ex, 1));
       ey = ey > 0 ? Math.sqrt(Math.min(ey, 1)) : -Math.sqrt(Math.min(-ey, 1));
       texels[o] = Math.round((ex * 0.5 + 0.5) * 255);
@@ -294,26 +334,30 @@
 
   var segments = [];
 
-  function applySegment(x0, y0, x1, y1, seconds) {
+  // One pointer segment: drag the air along it and, if it is fast, cut.
+  // `stroked` is how far the stroke had already run, for the zip.
+  function applySegment(x0, y0, x1, y1, seconds, stroked) {
     var sx = x1 - x0;
     var sy = y1 - y0;
     var length = Math.sqrt(sx * sx + sy * sy);
     if (length < 0.5) return;
     var speed = Math.min(4200, length / Math.max(seconds, 0.008)) / 1000;
-    if (speed < 0.12) return;
+    if (speed < 0.08) return;
     var tx = sx / length;
     var ty = sy / length;
     var nx = -ty;
     var ny = tx;
-    var cutR = 18 + 6 * speed;
-    var wakeR = 46 + 12 * speed;
-    var reach = Math.max(wakeR * 1.8, SDMAX);
+    var cutR = 16 + 6 * speed;
+    var wakeR = 34 + 14 * speed;
+    var reach = Math.max(wakeR * 2, SDMAX);
+    // The air is dragged at up to about half the pointer's speed (cells/s).
+    var push = speed * 1000 / CELL * 0.55;
+    // Superlinear in speed: an ordinary pass stirs the dust, a flick cuts.
+    var cutAdd = (reduced ? 0.35 : 1) * 0.5 * Math.pow(speed, 1.5);
     var i0 = Math.max(0, Math.floor((Math.min(x0, x1) - reach) / grid.cw));
     var i1 = Math.min(grid.w - 1, Math.ceil((Math.max(x0, x1) + reach) / grid.cw));
     var j0 = Math.max(0, Math.floor((Math.min(y0, y1) - reach) / grid.ch));
     var j1 = Math.min(grid.h - 1, Math.ceil((Math.max(y0, y1) + reach) / grid.ch));
-    // Superlinear in speed: an ordinary pass stirs the dust, a flick cuts.
-    var cutGain = (reduced ? 0.4 : 1.15) * Math.pow(speed, 1.6);
     for (var j = j0; j <= j1; j += 1) {
       var cy = (j + 0.5) * grid.ch;
       for (var i = i0; i <= i1; i += 1) {
@@ -327,43 +371,178 @@
         var d2 = ox * ox + oy * oy;
         if (d2 > reach * reach) continue;
         var k = j * grid.w + i;
-        var across = ox * nx + oy * ny;
+        var ww = Math.exp(-d2 / (wakeR * wakeR));
+        if (ww > 0.01) {
+          airU[k] += (tx * push - airU[k]) * ww * 0.5;
+          airV[k] += (ty * push - airV[k]) * ww * 0.5;
+        }
         var wc = Math.exp(-d2 / (cutR * cutR));
-        if (wc > 0.02) {
-          cutV[k] += wc * cutGain;
+        if (wc > 0.02 && cutAdd > 0.004) {
+          var across = ox * nx + oy * ny;
+          cutGoal[k] = Math.min(1.1, Math.max(cutGoal[k], cutA[k]) + wc * cutAdd);
+          // The zip: each stretch closes a beat after it was cut, later the
+          // further along the stroke it lies.
+          cutHold[k] = Math.max(cutHold[k], CUT_HOLD + Math.min(0.9, (stroked + clampAlong) * CUT_ZIP));
           if (Math.abs(across) < SDMAX && (wc > 0.2 || cutA[k] < 0.05)) sdist[k] = across;
         }
-        var ww = Math.exp(-d2 / (wakeR * wakeR)) * speed;
-        vX[k] += tx * ww * 70;
-        vY[k] += ty * ww * 70;
       }
     }
     gridActive = true;
   }
 
-  function stepGrid(dt) {
-    var n = grid.w * grid.h;
-    var energy = 0;
-    // Spring-dampers: cut (k 3.2, c 2.7 — ζ≈0.75, heals in ~2.5 s) and
-    // wake (k 5, c 3.1).
-    for (var i = 0; i < n; i += 1) {
-      var a = cutA[i];
-      var av = cutV[i] + (-3.2 * a - 2.7 * cutV[i]) * dt;
-      a += av * dt;
-      if (a < 0) { a = 0; if (av < 0) av *= 0.3; }
-      cutA[i] = a;
-      cutV[i] = av;
-      var vx = vX[i] + (-5 * dX[i] - 3.1 * vX[i]) * dt;
-      var vy = vY[i] + (-5 * dY[i] - 3.1 * vY[i]) * dt;
-      vX[i] = vx;
-      vY[i] = vy;
-      dX[i] += vx * dt;
-      dY[i] += vy * dt;
-      energy += a + Math.abs(av) + Math.abs(dX[i]) + Math.abs(dY[i]) + Math.abs(vx) + Math.abs(vy);
+  // A vortex in the air: solid-body core, Gaussian skirt (Lamb–Oseen-like).
+  // omega in rad/s, radius in px.
+  function swirl(x, y, omega, radius) {
+    if (!useDisp || reduced) return;
+    var R = radius / CELL;
+    var ci = x / grid.cw - 0.5;
+    var cj = y / grid.ch - 0.5;
+    var reachCells = Math.ceil(R * 2.4);
+    var i0 = Math.max(0, Math.floor(ci - reachCells));
+    var i1 = Math.min(grid.w - 1, Math.ceil(ci + reachCells));
+    var j0 = Math.max(0, Math.floor(cj - reachCells));
+    var j1 = Math.min(grid.h - 1, Math.ceil(cj + reachCells));
+    for (var j = j0; j <= j1; j += 1) {
+      for (var i = i0; i <= i1; i += 1) {
+        var rx = i - ci;
+        var ry = j - cj;
+        var f = omega * Math.exp(-(rx * rx + ry * ry) / (R * R));
+        var k = j * grid.w + i;
+        airU[k] -= ry * f;
+        airV[k] += rx * f;
+      }
     }
-    if (energy < 0.0002 * n) {
-      for (var z = 0; z < n; z += 1) {
-        dX[z] = dY[z] = vX[z] = vY[z] = cutA[z] = cutV[z] = 0;
+    gridActive = true;
+  }
+
+  // Critically damped spring step, solved exactly (stable for any dt).
+  function settleCut(k, goal, omega, dt) {
+    var c1 = cutA[k] - goal;
+    var c2 = cutV[k] + omega * c1;
+    var e = Math.exp(-omega * dt);
+    cutA[k] = goal + (c1 + c2 * dt) * e;
+    cutV[k] = (c2 - omega * (c1 + c2 * dt)) * e;
+  }
+
+  // Bilinear sample of a cell field at (x, y) in cell coordinates.
+  function sample(f, x, y) {
+    var w = grid.w;
+    x = x < 0 ? 0 : x > w - 1.001 ? w - 1.001 : x;
+    y = y < 0 ? 0 : y > grid.h - 1.001 ? grid.h - 1.001 : y;
+    var i = x | 0;
+    var j = y | 0;
+    var fx = x - i;
+    var fy = y - j;
+    var k = j * w + i;
+    return (f[k] * (1 - fx) + f[k + 1] * fx) * (1 - fy) + (f[k + w] * (1 - fx) + f[k + w + 1] * fx) * fy;
+  }
+
+  function stepGrid(dt) {
+    var w = grid.w;
+    var h = grid.h;
+    var n = w * h;
+    var i;
+    var j;
+    var k;
+    // 1. Vorticity confinement keeps the eddies spinning and tight.
+    for (j = 1; j < h - 1; j += 1) {
+      for (i = 1; i < w - 1; i += 1) {
+        k = j * w + i;
+        curl[k] = 0.5 * ((airV[k + 1] - airV[k - 1]) - (airU[k + w] - airU[k - w]));
+      }
+    }
+    var eps = 5 * dt;
+    for (j = 2; j < h - 2; j += 1) {
+      for (i = 2; i < w - 2; i += 1) {
+        k = j * w + i;
+        var gx = Math.abs(curl[k + 1]) - Math.abs(curl[k - 1]);
+        var gy = Math.abs(curl[k + w]) - Math.abs(curl[k - w]);
+        var glen = Math.sqrt(gx * gx + gy * gy) + 1e-5;
+        airU[k] += gy / glen * curl[k] * eps;
+        airV[k] -= gx / glen * curl[k] * eps;
+      }
+    }
+    // 2. Projection: remove divergence (Gauss–Seidel, warm-started), so the
+    //    air neither piles the dust up nor tears holes in it.
+    for (j = 0; j < h; j += 1) {
+      for (i = 0; i < w; i += 1) {
+        k = j * w + i;
+        var uR = i < w - 1 ? airU[k + 1] : 0;
+        var uL = i > 0 ? airU[k - 1] : 0;
+        var vD = j < h - 1 ? airV[k + w] : 0;
+        var vU = j > 0 ? airV[k - w] : 0;
+        divg[k] = 0.5 * (uR - uL + vD - vU);
+        press[k] *= 0.8;
+      }
+    }
+    for (var it = 0; it < 14; it += 1) {
+      for (j = 0; j < h; j += 1) {
+        for (i = 0; i < w; i += 1) {
+          k = j * w + i;
+          var pc = press[k];
+          press[k] = ((i > 0 ? press[k - 1] : pc) + (i < w - 1 ? press[k + 1] : pc) +
+            (j > 0 ? press[k - w] : pc) + (j < h - 1 ? press[k + w] : pc) - divg[k]) * 0.25;
+        }
+      }
+    }
+    for (j = 0; j < h; j += 1) {
+      for (i = 0; i < w; i += 1) {
+        k = j * w + i;
+        var pk = press[k];
+        airU[k] -= 0.5 * ((i < w - 1 ? press[k + 1] : pk) - (i > 0 ? press[k - 1] : pk));
+        airV[k] -= 0.5 * ((j < h - 1 ? press[k + w] : pk) - (j > 0 ? press[k - w] : pk));
+      }
+    }
+    // 3. Advect velocity and displacement along the flow (semi-Lagrangian);
+    //    the displacement also gathers the flow itself, then relaxes home.
+    var damp = Math.exp(-dt * 1.1);
+    var relax = Math.exp(-dt * 1.35);
+    var maxU = 0;
+    var maxD = 0;
+    for (j = 0; j < h; j += 1) {
+      for (i = 0; i < w; i += 1) {
+        k = j * w + i;
+        var bx = i - airU[k] * dt;
+        var by = j - airV[k] * dt;
+        airU0[k] = sample(airU, bx, by) * damp;
+        airV0[k] = sample(airV, bx, by) * damp;
+        var ddx = (sample(dX, bx, by) + airU[k] * grid.cw * dt) * relax;
+        var ddy = (sample(dY, bx, by) + airV[k] * grid.ch * dt) * relax;
+        dX0[k] = ddx > DMAX ? DMAX : ddx < -DMAX ? -DMAX : ddx;
+        dY0[k] = ddy > DMAX ? DMAX : ddy < -DMAX ? -DMAX : ddy;
+        var au = Math.abs(airU0[k]) + Math.abs(airV0[k]);
+        var ad = Math.abs(dX0[k]) + Math.abs(dY0[k]);
+        if (au > maxU) maxU = au;
+        if (ad > maxD) maxD = ad;
+      }
+    }
+    var swap = airU; airU = airU0; airU0 = swap;
+    swap = airV; airV = airV0; airV0 = swap;
+    swap = dX; dX = dX0; dX0 = swap;
+    swap = dY; dY = dY0; dY0 = swap;
+    // 4. The cut: open fast toward its goal while held, then zip shut.
+    var maxCut = 0;
+    var holding = false;
+    for (k = 0; k < n; k += 1) {
+      if (cutHold[k] > 0) {
+        cutHold[k] -= dt;
+        holding = true;
+        settleCut(k, cutGoal[k], 22, dt);
+      } else if (cutA[k] > 0.0005 || cutV[k] !== 0) {
+        cutGoal[k] = 0;
+        settleCut(k, 0, 5.5, dt);
+        if (cutA[k] < 0.0005 && Math.abs(cutV[k]) < 0.005) {
+          cutA[k] = cutV[k] = 0;
+          sdist[k] = SDMAX;
+        }
+      }
+      if (cutA[k] > maxCut) maxCut = cutA[k];
+    }
+    // Everything settled below a fraction of a pixel: rest.
+    if (!holding && maxCut < 0.0005 && maxU < 0.05 && maxD < 0.15) {
+      for (k = 0; k < n; k += 1) {
+        airU[k] = airV[k] = press[k] = dX[k] = dY[k] = cutA[k] = cutV[k] = cutGoal[k] = cutHold[k] = 0;
+        sdist[k] = SDMAX;
       }
       gridActive = false;
     }
@@ -388,8 +567,9 @@
   var gust = 0;
   var reveal = reduced ? 1e5 : 0;
   var ripples = [];
+  var spin = 1;
   var rippleData = new Float32Array(RIPPLES * 4);
-  var pointer = { x: -9999, y: -9999, px: 0, py: 0, stir: 0, speed: 0, t: 0, has: false };
+  var pointer = { x: -9999, y: -9999, px: 0, py: 0, stir: 0, speed: 0, t: 0, has: false, stroked: 0 };
   var scrollY = window.scrollY || 0;
   var smoothScroll = scrollY;
 
@@ -449,7 +629,7 @@
     if (useDisp && segments.length) {
       for (var s = 0; s < segments.length; s += 1) {
         var seg = segments[s];
-        applySegment(seg[0], seg[1], seg[2], seg[3], seg[4]);
+        applySegment(seg[0], seg[1], seg[2], seg[3], seg[4], seg[5]);
       }
       segments.length = 0;
     }
@@ -484,7 +664,9 @@
     gl.uniform1f(U.uTime, time);
     gl.uniform1f(U.uScroll, smoothScroll);
     gl.uniform1f(U.uDust, intensity);
-    gl.uniform1f(U.uFlow, (reduced ? 0.4 : 1) * (1 + gust));
+    // The currents breathe: slow swells, never in step, on top of gusts.
+    var swell = 1 + 0.28 * Math.sin(time * 0.093) * Math.sin(time * 0.041 + 0.7);
+    gl.uniform1f(U.uFlow, (reduced ? 0.4 : swell) * (1 + gust));
     gl.uniform1f(U.uReveal, reveal);
     gl.uniform2f(U.uParallax, pointer.px, pointer.py);
     gl.uniform3f(U.uMouse, pointer.x, pointer.y, pointer.stir);
@@ -524,8 +706,13 @@
       var seconds = Math.max(0.008, (now - pointer.t) / 1000);
       var moved = Math.sqrt((x - pointer.x) * (x - pointer.x) + (y - pointer.y) * (y - pointer.y));
       pointer.speed = Math.max(pointer.speed, moved / seconds);
-      segments.push([pointer.x, pointer.y, x, y, seconds]);
+      segments.push([pointer.x, pointer.y, x, y, seconds, pointer.stroked]);
       if (segments.length > 64) segments.shift();
+      // A stroke is a run of fast movement; slowing down starts a new one,
+      // so the zip of a later cut never waits on an old path.
+      pointer.stroked = moved / seconds > 250 ? pointer.stroked + moved : 0;
+    } else {
+      pointer.stroked = 0;
     }
     pointer.x = x;
     pointer.y = y;
@@ -539,6 +726,9 @@
   }, { passive: true });
   window.addEventListener("pointerdown", function (event) {
     addRipple(event.clientX, event.clientY, event.pointerType === "touch" ? 0.8 : 1);
+    // ...and a small eddy, alternating in sense, that the air carries off.
+    spin = -spin;
+    swirl(event.clientX, event.clientY, spin * 1.4, 90);
   }, { passive: true });
   window.addEventListener("touchstart", function (event) {
     var touch = event.touches[0];
@@ -580,7 +770,12 @@
   // Page changes: a strong ring from where the visitor clicked, and a gust
   // through the currents.
   api.pulse = function (x, y) {
-    addRipple(typeof x === "number" ? x : width * 0.5, typeof y === "number" ? y : visible * 0.5, 1.6);
+    var px = typeof x === "number" ? x : width * 0.5;
+    var py = typeof y === "number" ? y : visible * 0.5;
+    addRipple(px, py, 1.6);
+    // A page change also spins a broad vortex into the air from the link.
+    spin = -spin;
+    swirl(px, py, spin * 2.4, 240);
     if (!reduced) gust = Math.min(2.5, gust + 1.6);
   };
 
