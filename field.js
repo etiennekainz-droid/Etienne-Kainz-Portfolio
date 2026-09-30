@@ -46,7 +46,7 @@
   var useDisp = gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS) > 0;
   var RIPPLES = 4;
   var SDMAX = 40;   // px, signed-distance range stored per grid cell
-  var OMAX = 6;     // px, largest crack opening per face
+  var OMAX = 8;     // px, largest crack opening per face
   var DRAGMAX = 5;  // px, largest drag along a cut
 
   // ---------------------------------------------------------------- shaders
@@ -154,7 +154,7 @@
     // fading into the bulk, so the grains bank up along the lips. Every
     // grain sits a little deeper or shallower in its face: the lips are
     // granular, not ruled.
-    "    p += n * (sd >= 0.0 ? 1.0 : -1.0) * open * exp(-r / 16.0) * (0.9 + 0.2 * h(s * 41.0));",
+    "    p += n * (sd >= 0.0 ? 1.0 : -1.0) * open * exp(-r / 18.0) * (0.9 + 0.2 * h(s * 41.0));",
     // The blade drags both faces along the cut.
     "    p += vec2(n.y, -n.x) * drag * ok * exp(-r / 11.0);",
     // A faint lip on each face and, where the crack has closed, a hairline
@@ -408,7 +408,7 @@
       c.t[j] = T[seg - 1] + (T[seg] - T[seg - 1]) * f;
       var v = V[seg - 1] + (V[seg] - V[seg - 1]) * f;
       // A faster blade opens a wider cut and drags harder; always fine.
-      c.amp[j] = Math.min(4.6, Math.max(1.8, 1 + 0.9 * v)) * (reduced ? 0.6 : 1);
+      c.amp[j] = Math.min(6.4, Math.max(2.5, 1.4 + 1.25 * v)) * (reduced ? 0.6 : 1);
       c.drag[j] = reduced ? 0 : Math.min(4, 0.9 * v);
     }
     // For painting, runs of points that lie within half a pixel of a straight
@@ -562,7 +562,7 @@
           var t = fi - j;
           // Past either end of the crack, nothing but its field fading out.
           var f = beyond > 0 ? Math.max(0, 1 - beyond / 6) : 1;
-          var op = (O[j] + (O[j + 1] - O[j]) * t) * f * (1 - smooth(22, 36, r));
+          var op = (O[j] + (O[j + 1] - O[j]) * t) * f * (1 - smooth(24, 38, r));
           var dg = (D[j] + (D[j + 1] - D[j]) * t) * f * (1 - smooth(18, 30, r));
           var sm = (E[j] + (E[j + 1] - E[j]) * t) * f * (1 - smooth(5, 11, r));
           var sd = lx * oy - ly * ox >= 0 ? r : -r;
