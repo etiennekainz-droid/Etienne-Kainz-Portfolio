@@ -9,13 +9,14 @@
  *   - depth: near dots are larger, brighter and shift more with the pointer
  *     and with scrolling;
  *   - ripples: a click or tap sends a ring through the dust;
- *   - the pointer: the cursor presses the dust aside, and a fast stroke cuts
- *     it like a blade through a soft solid.
+ *   - the pointer: the cursor presses the dust aside, and moving it (or a
+ *     finger) cuts the dust like a blade through a soft solid.
  *
  * A cut is a crack along the stroke. Its faces part behind the blade with the
  * square-root opening of a crack tip, the blade drags the grains along and
- * they spring back, and after a beat the crack closes from both tips inward,
- * leaving a weld seam that fades. The cracks are painted every frame into a
+ * they spring back, the crack closes behind a blade that keeps moving, and
+ * once it stops, what is still open closes from both tips inward. Every
+ * closed stretch leaves a weld seam that fades. The cracks are painted every frame into a
  * fine grid texture (signed distance to the crack, opening, seam, drag); the
  * vertex shader moves each dot off the line on its own side, so the cut stays
  * a clean, thin line.
@@ -265,7 +266,7 @@
   })();
 
   // ---------------------------------------------------------------- cracks
-  // A fast stroke cuts the dust like a blade through a soft solid. The cut is
+  // Any movement cuts the dust like a blade through a soft solid. The cut is
   // a crack along the stroke (the pointer samples smoothed into a curve and
   // resampled every STEP px), and each point of it follows the mechanics of a
   // cut in an elastic material:
@@ -276,10 +277,12 @@
   //     cut opens less than a long one;
   //   - drag: the blade carries the grains along the cut, and they spring
   //     back past rest before they settle;
-  //   - healing: a beat after the blade leaves, both tips run inward to meet
-  //     somewhere along the cut, closing the crack behind them, while the
-  //     faces relax. Each stretch that closes leaves a hairline weld seam,
-  //     which fades.
+  //   - healing: while the blade keeps moving, the cut closes behind it a
+  //     fixed time after it was made, so a long stroke trails an open crack
+  //     that zips shut from its tail. A beat after the blade leaves, both
+  //     tips of what is still open run inward to meet somewhere along it,
+  //     while the faces relax. Each stretch that closes leaves a hairline
+  //     weld seam, which fades.
   // Every frame the cracks are painted into a fine grid texture the vertex
   // shader samples: per cell, the signed distance to the nearest crack (its
   // zero set is the cut line, which linear filtering keeps sharp), the
@@ -287,8 +290,10 @@
   var CELL = compact ? 5 : 6;
   var REACH = SDMAX;        // px either side of a crack that it moves
   var SEAM_REACH = 12;      // px either side of a closed stretch
-  var CUT_SPEED = 0.9;      // px/ms: slower strokes only press the dust
-  var CRACK_MAX = 1100;     // px: a longer stroke starts a new crack
+  var CUT_SPEED = 0.12;     // px/ms: any ordinary movement cuts...
+  var CUT_KEEP = 0.06;      // ...and only a near stop lifts the blade
+  var OPEN = 1.2;           // s a stretch stays open while the blade moves on
+  var TRAIL = OPEN + 4;     // s of stroke kept: older stretches have faded
   var TIP = compact ? 40 : 56; // px: the tip zone, where the opening grows
   var HOLD = 0.4;           // s a crack stays open after the blade leaves
   var STEP = 10;            // px between crack points
@@ -352,7 +357,7 @@
   function newCrack(x, y, v) {
     return {
       rx: [x], ry: [y], rt: [clock], rv: [v], last: clock, dirty: true,
-      n: 0, len: 0, heal: -1, T: 1, m: 0, pa: 0, pb: 0
+      n: 0, len: 0, heal: -1, T: 1, m: 0, a0: 0, pa: 0, pb: 0
     };
   }
 
@@ -407,8 +412,9 @@
       c.s[j] = s;
       c.t[j] = T[seg - 1] + (T[seg] - T[seg - 1]) * f;
       var v = V[seg - 1] + (V[seg] - V[seg - 1]) * f;
-      // A faster blade opens a wider cut and drags harder; always fine.
-      c.amp[j] = Math.min(6.4, Math.max(2.5, 1.4 + 1.25 * v)) * (reduced ? 0.6 : 1);
+      // A faster blade opens a wider cut and drags harder; even a slow one
+      // opens a clear gap.
+      c.amp[j] = Math.min(6.4, Math.max(3.2, 2 + 1.1 * v)) * (reduced ? 0.6 : 1);
       c.drag[j] = reduced ? 0 : Math.min(4, 0.9 * v);
     }
     // For painting, runs of points that lie within half a pixel of a straight
@@ -434,23 +440,39 @@
     c.dirty = false;
   }
 
+  // How far the tail has closed behind a moving blade: to the point cut
+  // OPEN seconds ago.
+  function trail(c, t) {
+    var due = t - OPEN;
+    if (c.t[0] > due) return 0;
+    for (var j = 1; j < c.n; j += 1) {
+      if (c.t[j] > due) return c.s[j - 1] + (c.s[j] - c.s[j - 1]) * (due - c.t[j - 1]) / (c.t[j] - c.t[j - 1]);
+    }
+    return c.len;
+  }
+
   function release(c) {
     if (live === c) live = null;
     if (c.dirty) build(c);
-    if (c.len < 12) {
-      var i = cracks.indexOf(c);
-      if (i >= 0) cracks.splice(i, 1);
-      return;
+    c.a0 = trail(c, clock);
+    if (c.len - c.a0 < 12) {
+      if (c.a0 === 0) {
+        var i = cracks.indexOf(c);
+        if (i >= 0) cracks.splice(i, 1);
+        return;
+      }
+      c.a0 = c.len;
     }
+    // What is still open heals from both ends.
+    var rest = c.len - c.a0;
     c.heal = clock + HOLD;
-    c.T = 1 + c.len / 1200 + Math.random() * 0.2;
-    c.m = c.len * (0.35 + 0.3 * Math.random());
+    c.T = 1 + rest / 1200 + Math.random() * 0.2;
+    c.m = c.a0 + rest * (0.35 + 0.3 * Math.random());
     c.pa = Math.random() * 6.283;
     c.pb = Math.random() * 6.283;
   }
 
   function cut(x0, y0, x1, y1, v) {
-    if (live && live.len > CRACK_MAX) release(live);
     if (!live) {
       live = newCrack(x0, y0, v);
       cracks.push(live);
@@ -468,6 +490,14 @@
     live.rx.push(x1); live.ry.push(y1); live.rt.push(clock); live.rv.push(v);
     live.last = clock;
     live.dirty = true;
+    // A long stroke keeps only its last few seconds; the rest has healed and
+    // its seam faded.
+    var drop = 0;
+    while (drop < live.rt.length - 2 && (live.rt[drop + 1] < clock - TRAIL || live.rt.length - drop > 900)) drop += 1;
+    if (drop) {
+      live.rx.splice(0, drop); live.ry.splice(0, drop);
+      live.rt.splice(0, drop); live.rv.splice(0, drop);
+    }
   }
 
   // Where the closing tip has run to, 0..1, at heal time u. The tips run on
@@ -485,21 +515,25 @@
     var b = L;
     var healing = c.heal >= 0 && t > c.heal;
     var rel = 1;
+    if (c.heal < 0) a = trail(c, t);
+    else a = c.a0;
     if (healing) {
       var u = (t - c.heal) / c.T;
-      a = run(u, c.pa) * c.m;
+      a = c.a0 + run(u, c.pa) * (c.m - c.a0);
       b = L - run(u, c.pb) * (L - c.m);
       u = Math.min(1, u);
       rel = 1 - 0.3 * u * u * (3 - 2 * u);
     }
     var alive = !healing || b > a;
+    var tail = healing ? c.a0 : a;  // closed behind the moving blade
     for (var j = 0; j < c.n; j += 1) {
       var s = c.s[j];
       var tip = Math.min(s - a, b - s);
       var age = t - c.t[j];
       var o = 0;
       if (tip > 0) o = c.amp[j] * Math.sqrt(Math.min(1, tip / TIP)) * opening(age) * rel;
-      else if (healing && c.closed[j] < 0) c.closed[j] = t;
+      // Closed behind the moving blade: exactly OPEN after it was cut.
+      else if (c.closed[j] < 0 && (healing || s < a)) c.closed[j] = s < tail ? Math.min(t, c.t[j] + OPEN) : t;
       c.open[j] = o;
       var seam = c.closed[j] >= 0 ? Math.exp(-(t - c.closed[j]) / 0.8) : 0;
       c.seam[j] = seam;
@@ -788,10 +822,13 @@
       var seconds = Math.max(0.002, (now - pointer.t) / 1000);
       var moved = Math.sqrt((x - pointer.x) * (x - pointer.x) + (y - pointer.y) * (y - pointer.y));
       pointer.speed = Math.max(pointer.speed, moved / seconds);
-      // Fast enough, it cuts; slowing down lifts the blade.
+      // Moving, it cuts; stopping lifts the blade. Sub-pixel jitter does
+      // neither.
       var v = moved / seconds / 1000;
-      if (useDisp && v >= CUT_SPEED && moved > 1) cut(pointer.x, pointer.y, x, y, Math.min(v, 5));
-      else if (live) release(live);
+      if (moved > 0.75) {
+        if (useDisp && v >= (live ? CUT_KEEP : CUT_SPEED)) cut(pointer.x, pointer.y, x, y, Math.min(v, 5));
+        else if (live) release(live);
+      }
     } else if (live) {
       release(live);
     }

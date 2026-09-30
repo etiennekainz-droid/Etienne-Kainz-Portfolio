@@ -15,11 +15,12 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
   curl of an evolving stream function whose coordinates are folded by a
   second wave field, so eddies stretch and wrap around each other) that
   swell and ease. Near dots shift with the pointer and with scrolling, and
-  the cursor presses the dust aside. A fast stroke cuts it like a blade
-  through a soft solid: a thin crack opens along the stroke with a
-  crack-tip (square-root) opening profile, the blade drags the grains along
-  and they spring back, and after a beat the crack closes from both tips
-  inward and leaves a hairline weld seam that fades. The cracks are painted
+  the cursor presses the dust aside. Moving the cursor (or a finger) cuts it
+  like a blade through a soft solid: a thin crack opens along the stroke
+  with a crack-tip (square-root) opening profile, the blade drags the grains
+  along and they spring back, the crack zips shut about a second behind a
+  blade that keeps moving, and once it stops the rest closes from both tips
+  inward. Every closed stretch leaves a hairline weld seam that fades. The cracks are painted
   each frame into a fine grid texture (signed distance to the crack,
   opening, seam, drag) that the vertex shader samples. Clicks and page
   changes send a ring through the dust.
