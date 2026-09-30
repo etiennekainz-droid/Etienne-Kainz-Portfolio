@@ -6,7 +6,7 @@
   var doc = document;
   var body = doc.body;
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var field = function () { return window.EKField || { setScene: function () {}, disperse: function () {} }; };
+  var field = function () { return window.EKField || { setScene: function () {}, pulse: function () {} }; };
 
   function qsa(selector, scope) {
     return Array.prototype.slice.call((scope || doc).querySelectorAll(selector));
@@ -240,8 +240,8 @@
   }
 
   // -------------------------------------------------------------- router
-  // Internal links swap <main> in place, so the field never restarts: it
-  // scatters the K for the change and lets it re-form on the new page.
+  // Internal links swap <main> in place, so the field never restarts; the
+  // change sends a ring through the dust from where the link was clicked.
   var navToken = 0;
   if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
 
@@ -261,12 +261,12 @@
     return url;
   }
 
-  function navigate(url, push) {
+  function navigate(url, push, x, y) {
     var token = ++navToken;
     setMenu(false);
     closeBox();
     body.classList.add("is-leaving");
-    field().disperse(true);
+    field().pulse(x, y);
     Promise.all([
       fetch(url.href, { credentials: "same-origin" }).then(function (response) {
         if (!response.ok) throw new Error("HTTP " + response.status);
@@ -290,7 +290,6 @@
       window.requestAnimationFrame(function () {
         window.requestAnimationFrame(function () { body.classList.remove("is-entering"); });
       });
-      field().disperse(false);
       var main = doc.querySelector("main");
       if (main) main.focus({ preventScroll: true });
     }).catch(function () {
@@ -308,7 +307,7 @@
       setMenu(false);
       return;
     }
-    navigate(url, true);
+    navigate(url, true, event.clientX || undefined, event.clientY || undefined);
   });
 
   window.addEventListener("popstate", function () {

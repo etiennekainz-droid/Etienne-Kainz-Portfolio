@@ -1,16 +1,22 @@
 /* Background field.
  *
- * One WebGL point cloud, drawn additively on black: fine dust spread over the
- * whole screen, and the K mark as a denser, breathing cloud inside it that
- * sheds particles into the dust and takes them back.
+ * One WebGL point cloud, drawn additively on black: fine dust over the whole
+ * screen in three depth layers. It is never still:
+ *   - currents: every dot is carried by the curl of a slowly evolving stream
+ *     function (a sum of travelling plane waves), so the dust swirls in
+ *     eddies like smoke, and the cores of the eddies, where vorticity peaks,
+ *     shimmer faintly;
+ *   - depth: near dots are larger, brighter and shift more with the pointer
+ *     and with scrolling;
+ *   - ripples: a click or tap sends a shock ring through the dust;
+ *   - the pointer: a moving cursor stirs the dust around it, and a fast
+ *     stroke slashes it.
  *
- * The pointer cuts through both. A coarse grid on the CPU holds, per cell,
- *   - a smooth displacement (the wake a moving pointer drags along), and
- *   - a cut: an opening amplitude plus the signed distance to the cut line.
- * Every cell is a spring-damper, so a cut bursts open and heals. The vertex
- * shader samples the grid at each particle: the sign of the distance tells it
- * which side of the cut it is on, the distance gradient which way to move, so
- * the two sides part cleanly along the line instead of smearing.
+ * The slash lives on a coarse CPU grid of spring-dampers holding, per cell,
+ * a wake (smooth displacement) and a cut (opening amplitude plus signed
+ * distance to the cut line). The vertex shader samples the grid: the sign of
+ * the distance says which side of the cut a dot is on, its gradient which way
+ * to move, so both sides part cleanly along the line, and the cut heals.
  */
 (function () {
   "use strict";
@@ -20,7 +26,7 @@
 
   var root = document.documentElement;
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var api = { setScene: function () {}, disperse: function () {} };
+  var api = { setScene: function () {}, pulse: function () {} };
   window.EKField = api;
 
   var gl = null;
@@ -36,98 +42,109 @@
   }
 
   var useDisp = gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS) > 0;
+  var RIPPLES = 4;
 
   // ---------------------------------------------------------------- shaders
   var VERT = [
     "precision highp float;",
-    "attribute vec4 aA;",          // xyz, kind (0 dust, 1 K outline, 2 K body)
+    "attribute vec4 aA;",          // x, y (0..1), depth (0..1), unused
     "attribute float aS;",         // seed 0..1
     "uniform vec2 uRes;",          // canvas size, CSS px
     "uniform float uDpr;",
     "uniform float uTime;",
     "uniform float uScroll;",
-    "uniform vec4 uK;",            // centre x, centre y, height px, intensity
-    "uniform vec3 uRot;",          // yaw, pitch, bob px
-    "uniform float uDust;",
-    "uniform float uDisperse;",
-    "uniform vec3 uMouse;",        // x, y, halo strength
+    "uniform float uDust;",        // overall intensity
+    "uniform float uFlow;",        // current strength (gusts raise it)
+    "uniform float uReveal;",      // intro radius, px (large = done)
+    "uniform vec2 uParallax;",     // smoothed pointer offset, -0.5..0.5
+    "uniform vec3 uMouse;",        // x, y, stir strength
+    "uniform vec4 uRip[" + RIPPLES + "];", // x, y, age s, strength
     "uniform vec2 uCell;",         // one grid cell, CSS px
     "uniform sampler2D uDisp;",
     "varying float vA;",
     "float h(float n) { return fract(sin(n) * 43758.5453123); }",
+    // Stream function psi = sum a sin(k.x + w t + f). Returns curl psi (the
+    // divergence-free current) and the vorticity -laplacian psi.
+    "vec3 flow(vec2 x, float t) {",
+    "  vec3 r = vec3(0.0);",
+    "  float ph;",
+    "  float c;",
+    "  float s;",
+    "#define WAVE(kx, ky, w, a, f) ph = kx * x.x + ky * x.y + w * t + f; c = cos(ph); s = sin(ph); r.xy += a * c * vec2(ky, -kx); r.z += a * (kx * kx + ky * ky) * s;",
+    "  WAVE( 2.1,  1.3, 0.100, 0.0130, 0.0)",
+    "  WAVE(-1.4,  2.4, 0.075, 0.0130, 1.7)",
+    "  WAVE( 0.9, -2.6, 0.085, 0.0100, 3.3)",
+    "  WAVE( 4.9, -3.1, 0.160, 0.0036, 4.1)",
+    "  WAVE( 2.7,  5.6, 0.140, 0.0036, 2.3)",
+    "  WAVE(-6.2, -2.2, 0.150, 0.0032, 5.9)",
+    "  WAVE(-9.3,  7.2, 0.260, 0.0010, 0.9)",
+    "  WAVE( 6.1, 11.4, 0.300, 0.0010, 5.3)",
+    "  return r;",
+    "}",
     "void main() {",
     "  float s = aS;",
     "  float t = uTime;",
-    "  vec2 p;",
-    "  float a;",
-    "  float size;",
-    "  if (aA.w < 0.5) {",
-    "    float d = aA.z;",
-    "    vec2 q = aA.xy;",
-    "    q += vec2(0.0022 + 0.0045 * d, -0.0011 - 0.0016 * d) * t;",
-    "    q.y -= uScroll / uRes.y * (0.03 + 0.1 * d);",
-    "    float w1 = t * (0.05 + 0.09 * s) + s * 61.0;",
-    "    float w2 = t * (0.04 + 0.08 * h(s * 7.3)) + s * 17.0;",
-    "    q += vec2(sin(w1), cos(w2)) * (0.002 + 0.006 * d);",
-    "    q = fract(q);",
-    "    p = q * uRes;",
-    "    size = 0.5 + 1.0 * d * d;",
-    "    a = (0.03 + 0.2 * d) * (0.55 + 0.45 * sin(t * (0.3 + 1.1 * h(s * 3.1)) + s * 97.0));",
-    "    if (s > 0.993) { a = a * 2.2 + 0.08; size *= 1.3; }",
-    "    a *= uDust;",
-    "  } else {",
-    "    vec3 k = aA.xyz;",
-    // A share of the K wanders far and dim: its edge frays into the dust.
-    "    float wanderer = step(0.62, h(s * 11.7));",
-    "    float amp = mix(0.004, 0.085, wanderer);",
-    // A slow wave of dissolution travels through the mark and reforms it.
-    "    float wave = sin(k.y * 4.2 + k.x * 2.3 - t * 0.28 + 1.3);",
-    "    amp *= 1.0 + 1.6 * smoothstep(0.5, 1.0, wave);",
-    "    amp *= 1.0 + 4.0 * uDisperse;",
-    "    vec3 o = vec3(",
-    "      sin(t * (0.13 + 0.21 * s) + s * 50.0),",
-    "      cos(t * (0.11 + 0.19 * h(s * 3.3)) + s * 31.0),",
-    "      sin(t * (0.09 + 0.15 * h(s * 5.9)) + s * 13.0));",
-    "    k += o * amp;",
-    "    vec3 dir = vec3(h(s * 13.1) - 0.5, h(s * 29.7) - 0.5, h(s * 47.3) - 0.5);",
-    "    k += dir * uDisperse * uDisperse * (0.5 + 1.5 * h(s * 5.1));",
-    "    float cy = cos(uRot.x); float sy = sin(uRot.x);",
-    "    k = vec3(cy * k.x + sy * k.z, k.y, -sy * k.x + cy * k.z);",
-    "    float cp = cos(uRot.y); float sp = sin(uRot.y);",
-    "    k = vec3(k.x, cp * k.y - sp * k.z, sp * k.y + cp * k.z);",
-    "    float persp = 2.6 / (2.6 - k.z);",
-    "    p = uK.xy + vec2(k.x, -k.y) * uK.z * persp + vec2(0.0, uRot.z);",
-    "    float outline = step(aA.w, 1.5);",
-    "    size = mix(0.85, 1.0, outline) * (0.7 + 0.6 * h(s * 17.9)) * persp;",
-    "    a = mix(0.065, 0.24, outline) * (0.7 + 0.3 * sin(t * (0.4 + 0.9 * s) + s * 60.0));",
-    "    a *= mix(1.0, 0.42, wanderer);",
-    "    a *= uK.w * (1.0 - 0.55 * uDisperse);",
+    "  float d = aA.z;",
+    "  vec2 q = aA.xy;",
+    // Slow drift, faster for near dots, plus scroll parallax.
+    "  q += vec2(0.0016 + 0.0034 * d, -0.0008 - 0.0012 * d) * t;",
+    "  q.y -= uScroll / uRes.y * (0.03 + 0.1 * d);",
+    "  q = fract(q);",
+    "  vec2 p = q * uRes;",
+    // Currents, evaluated in screen-height units so eddies stay round.
+    "  vec2 x = p / uRes.y;",
+    "  vec3 f = flow(x, t);",
+    "  p += f.xy * uRes.y * uFlow * (0.55 + 0.7 * d);",
+    "  p += uParallax * (d - 0.35) * 34.0;",
+    "  float size = 0.5 + 1.0 * d * d;",
+    "  float a = (0.019 + 0.135 * d) * (0.55 + 0.45 * sin(t * (0.3 + 1.1 * h(s * 3.1)) + s * 97.0));",
+    // Eddy cores shimmer: brighter where the vorticity peaks.
+    "  a *= 1.0 + 0.9 * smoothstep(0.12, 0.28, abs(f.z)) * (0.6 + 0.4 * sin(t * 0.7 + s * 30.0));",
+    "  if (s > 0.994) { a = a * 2.2 + 0.07; size *= 1.3; }",
+    "  a *= uDust;",
+    "  for (int i = 0; i < " + RIPPLES + "; i++) {",
+    "    vec4 r = uRip[i];",
+    "    if (r.w > 0.0) {",
+    "      vec2 dv = p - r.xy;",
+    "      float dist = length(dv) + 0.001;",
+    "      float front = r.z * 560.0;",
+    "      float ring = exp(-pow((dist - front) / 64.0, 2.0)) * r.w * exp(-r.z * 1.1);",
+    "      p += dv / dist * ring * (18.0 + 22.0 * d);",
+    "      a *= 1.0 + ring * 1.4;",
+    "    }",
     "  }",
     "#ifdef USE_DISP",
     "  vec2 uv = clamp(p / uRes, 0.0, 1.0);",
-    "  vec4 f = texture2D(uDisp, uv);",
-    "  vec2 e = f.rg * 2.0 - 1.0;",
+    "  vec4 g = texture2D(uDisp, uv);",
+    "  vec2 e = g.rg * 2.0 - 1.0;",
     "  vec2 disp = sign(e) * e * e * 160.0;",
-    "  float cut = f.b;",
+    "  float cut = g.b;",
     "  if (cut > 0.004) {",
     "    vec2 du = vec2(uCell.x / uRes.x, 0.0);",
-    "    vec2 dv = vec2(0.0, uCell.y / uRes.y);",
+    "    vec2 dvv = vec2(0.0, uCell.y / uRes.y);",
     "    vec2 n = vec2(texture2D(uDisp, uv + du).a - texture2D(uDisp, uv - du).a,",
-    "                  texture2D(uDisp, uv + dv).a - texture2D(uDisp, uv - dv).a);",
+    "                  texture2D(uDisp, uv + dvv).a - texture2D(uDisp, uv - dvv).a);",
     "    float nl = length(n);",
     "    if (nl > 0.00001) {",
-    "      float side = f.a >= 0.5 ? 1.0 : -1.0;",
+    "      float side = g.a >= 0.5 ? 1.0 : -1.0;",
     "      disp += n / nl * side * cut * 84.0 * (0.75 + 0.5 * h(s * 41.0));",
     "    }",
     "  }",
     "  p += disp * (0.85 + 0.3 * h(s * 71.3));",
-    "  a *= 1.0 + 1.4 * cut;",
+    "  a *= 1.0 + 1.6 * cut;",
     "#endif",
+    // The cursor pushes the dust aside and, while moving, stirs it round.
     "  vec2 dm = p - uMouse.xy;",
     "  float dl2 = dot(dm, dm);",
-    "  p += dm * inversesqrt(dl2 + 1.0) * uMouse.z * 12.0 * exp(-dl2 / 3000.0);",
-    "  vec2 c = p / uRes * 2.0 - 1.0;",
-    "  gl_Position = vec4(c.x, -c.y, 0.0, 1.0);",
+    "  float inv = inversesqrt(dl2 + 1.0);",
+    "  p += dm * inv * (4.0 + 10.0 * uMouse.z) * exp(-dl2 / 2600.0);",
+    "  p += vec2(-dm.y, dm.x) * inv * uMouse.z * 16.0 * exp(-dl2 / 9000.0);",
+    // Intro: the dust appears behind a front expanding from the centre.
+    "  float rd = length(p - uRes * vec2(0.5, 0.46));",
+    "  float edge = uReveal - rd;",
+    "  a *= smoothstep(-40.0, 60.0, edge) * (1.0 + 2.2 * exp(-edge * edge / 3000.0));",
+    "  vec2 cl = p / uRes * 2.0 - 1.0;",
+    "  gl_Position = vec4(cl.x, -cl.y, 0.0, 1.0);",
     "  float dev = size * uDpr;",
     "  gl_PointSize = max(dev, 1.0);",
     "  vA = a * min(dev, 1.0);",
@@ -181,109 +198,37 @@
   }
   gl.useProgram(program);
   var U = {};
-  ["uRes", "uDpr", "uTime", "uScroll", "uK", "uRot", "uDust", "uDisperse", "uMouse", "uCell", "uDisp"]
+  ["uRes", "uDpr", "uTime", "uScroll", "uDust", "uFlow", "uReveal", "uParallax", "uMouse", "uCell", "uDisp"]
     .forEach(function (name) { U[name] = gl.getUniformLocation(program, name); });
+  U.uRip = gl.getUniformLocation(program, "uRip[0]") || gl.getUniformLocation(program, "uRip");
 
   // -------------------------------------------------------------- particles
   var compact = Math.min(window.screen.width, window.screen.height) < 700;
-  // Dust per CSS px² of screen; the draw count follows the window, the buffer
-  // is sized for the whole screen so a resize never reallocates.
-  var DUST_DENSITY = compact ? 0.26 : 0.24;
+  // Dust per CSS px²; the draw count follows the window, the buffer is sized
+  // for the whole screen so a resize never reallocates.
+  var DUST_DENSITY = compact ? 0.3 : 0.28;
   var screenArea = Math.max(window.screen.width * window.screen.height, window.innerWidth * window.innerHeight);
-  var nDust = Math.min(compact ? 240000 : 900000, Math.round(screenArea * DUST_DENSITY));
-  var nK = compact ? 70000 : 190000;
-  var nKOutline = Math.round(nK * 0.62);
-  var buffer = gl.createBuffer();
-  var total = 0;
+  var nDust = Math.min(compact ? 260000 : 1000000, Math.round(screenArea * DUST_DENSITY));
 
-  function buildParticles(mask) {
-    total = nDust + (mask ? nK : 0);
-    var pos = new Float32Array(total * 4);
-    var seed = new Float32Array(total);
-    var i;
-    for (i = 0; i < nDust; i += 1) {
-      pos[i * 4] = Math.random();
-      pos[i * 4 + 1] = Math.random();
-      pos[i * 4 + 2] = Math.pow(Math.random(), 1.7);
-      pos[i * 4 + 3] = 0;
-      seed[i] = Math.random();
+  (function buildParticles() {
+    // Interleaved [x, y, depth, 0, seed], in random order, so drawing a
+    // prefix is a uniform subsample.
+    var data = new Float32Array(nDust * 5);
+    for (var i = 0; i < nDust; i += 1) {
+      var o = i * 5;
+      data[o] = Math.random();
+      data[o + 1] = Math.random();
+      data[o + 2] = Math.pow(Math.random(), 1.8);
+      data[o + 4] = Math.random();
     }
-    if (mask) {
-      for (i = 0; i < nK; i += 1) {
-        var outline = i < nKOutline;
-        var list = outline ? mask.outline : mask.body;
-        if (!list.length) list = mask.outline;
-        var index = list[(Math.random() * list.length) | 0];
-        var px = index % mask.w + Math.random();
-        var py = (index / mask.w | 0) + Math.random();
-        var j = nDust + i;
-        pos[j * 4] = (px - mask.w * 0.5) / mask.h;
-        pos[j * 4 + 1] = (mask.h * 0.5 - py) / mask.h;
-        pos[j * 4 + 2] = (Math.random() - 0.5) * (outline ? 0.05 : 0.03);
-        pos[j * 4 + 3] = outline ? 1 : 2;
-        seed[j] = Math.random();
-      }
-    }
-    // Interleave: [x, y, z, kind, seed]. Particles of each kind are in random
-    // order, so drawing a prefix of a range is a uniform subsample.
-    var data = new Float32Array(total * 5);
-    for (i = 0; i < total; i += 1) {
-      data[i * 5] = pos[i * 4];
-      data[i * 5 + 1] = pos[i * 4 + 1];
-      data[i * 5 + 2] = pos[i * 4 + 2];
-      data[i * 5 + 3] = pos[i * 4 + 3];
-      data[i * 5 + 4] = seed[i];
-    }
+    var buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 20, 0);
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 20, 16);
-  }
-
-  // The K: its strokes become the outline cloud, the regions they enclose
-  // (found by flood-filling the outside) the fainter body.
-  function sampleMark(image) {
-    var w = image.naturalWidth;
-    var h = image.naturalHeight;
-    var scratch = document.createElement("canvas");
-    scratch.width = w;
-    scratch.height = h;
-    var context = scratch.getContext("2d");
-    context.drawImage(image, 0, 0);
-    var alpha = context.getImageData(0, 0, w, h).data;
-    var n = w * h;
-    var solid = new Uint8Array(n);
-    for (var i = 0; i < n; i += 1) solid[i] = alpha[i * 4 + 3] > 127 ? 1 : 0;
-    var outside = new Uint8Array(n);
-    var queue = new Int32Array(n);
-    var head = 0;
-    var tail = 0;
-    function push(index) {
-      if (!solid[index] && !outside[index]) {
-        outside[index] = 1;
-        queue[tail++] = index;
-      }
-    }
-    for (var x = 0; x < w; x += 1) { push(x); push((h - 1) * w + x); }
-    for (var y = 0; y < h; y += 1) { push(y * w); push(y * w + w - 1); }
-    while (head < tail) {
-      var at = queue[head++];
-      var cx = at % w;
-      if (cx > 0) push(at - 1);
-      if (cx < w - 1) push(at + 1);
-      if (at >= w) push(at - w);
-      if (at < n - w) push(at + w);
-    }
-    var outlineList = [];
-    var bodyList = [];
-    for (var k = 0; k < n; k += 1) {
-      if (solid[k]) outlineList.push(k);
-      else if (!outside[k]) bodyList.push(k);
-    }
-    return { w: w, h: h, outline: outlineList, body: bodyList };
-  }
+  })();
 
   // ----------------------------------------------------------- cut grid
   var CELL = compact ? 10 : 12;
@@ -312,7 +257,6 @@
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gridActive = false;
-    gridDirty = true;
     encodeGrid();
   }
 
@@ -355,7 +299,7 @@
     var i1 = Math.min(grid.w - 1, Math.ceil((Math.max(x0, x1) + reach) / grid.cw));
     var j0 = Math.max(0, Math.floor((Math.min(y0, y1) - reach) / grid.ch));
     var j1 = Math.min(grid.h - 1, Math.ceil((Math.max(y0, y1) + reach) / grid.ch));
-    // Superlinear in speed: an ordinary pass nudges the dots, a flick cuts.
+    // Superlinear in speed: an ordinary pass stirs the dust, a flick cuts.
     var cutGain = (reduced ? 0.4 : 1.15) * Math.pow(speed, 1.6);
     for (var j = j0; j <= j1; j += 1) {
       var cy = (j + 0.5) * grid.ch;
@@ -404,7 +348,7 @@
       dY[i] += vy * dt;
       energy += a + Math.abs(av) + Math.abs(dX[i]) + Math.abs(dY[i]) + Math.abs(vx) + Math.abs(vy);
     }
-    if (energy < 0.02 * n * 0.01) {
+    if (energy < 0.0002 * n) {
       for (var z = 0; z < n; z += 1) {
         dX[z] = dY[z] = vX[z] = vY[z] = cutA[z] = cutV[z] = 0;
       }
@@ -419,33 +363,21 @@
   var visible = 1;
   var dpr = 1;
   var quality = 1;
-  var time = Math.random() * 100;
+  var time = Math.random() * 200;
   var last = 0;
   var frame = 0;
   var running = false;
   var ready = false;
 
   var scene = document.body.getAttribute("data-page") === "home" ? "home" : "page";
-  var kIntensity = 0;
-  var dustIntensity = 0;
-  var disperse = reduced ? 0 : 1;
-  var disperseTarget = 0;
-  var pointer = { x: -9999, y: -9999, sx: 0.5, sy: 0.5, halo: 0, active: false, t: 0, has: false };
+  var intensity = 0;
+  var gust = 0;
+  var reveal = reduced ? 1e5 : 0;
+  var ripples = [];
+  var rippleData = new Float32Array(RIPPLES * 4);
+  var pointer = { x: -9999, y: -9999, px: 0, py: 0, stir: 0, speed: 0, t: 0, has: false };
   var scrollY = window.scrollY || 0;
   var smoothScroll = scrollY;
-
-  function sceneTargets() {
-    var home = scene === "home";
-    return { k: home ? 1 : 0.42, dust: home ? 1 : 0.8 };
-  }
-
-  function kPlacement() {
-    if (width < 761) {
-      var hPhone = Math.min(visible * 0.7, width * 1.75);
-      return [width * 0.52, visible * 0.5, hPhone];
-    }
-    return [width * 0.47, visible * 0.48, visible * 0.9];
-  }
 
   function resize() {
     width = Math.max(1, canvas.clientWidth || window.innerWidth);
@@ -462,6 +394,12 @@
     allocGrid();
   }
 
+  function addRipple(x, y, strength) {
+    if (reduced) return;
+    ripples.push({ x: x, y: y, age: 0, strength: strength });
+    if (ripples.length > RIPPLES) ripples.shift();
+  }
+
   // ------------------------------------------------------------ rendering
   var frameAvg = 16;
   var slowFrames = 0;
@@ -473,7 +411,7 @@
     if (dt < 0.012) return; // ~60 fps is plenty for motion this slow
     last = now;
 
-    // Quality: sustained slow frames thin the cloud (never below 35 %).
+    // Quality: sustained slow frames thin the dust (never below 35 %).
     frameAvg += (dt * 1000 - frameAvg) * 0.05;
     if (frameAvg > 24) slowFrames += 1; else slowFrames = Math.max(0, slowFrames - 2);
     if (slowFrames > 90 && quality > 0.35) {
@@ -482,15 +420,17 @@
     }
 
     time += dt * (reduced ? 0.12 : 1);
-    if (time > 5000) time -= 5000;
-    var targets = sceneTargets();
-    var ease = 1 - Math.exp(-dt * 1.6);
-    kIntensity += (targets.k - kIntensity) * ease;
-    dustIntensity += (targets.dust - dustIntensity) * ease;
-    disperse += (disperseTarget - disperse) * (1 - Math.exp(-dt * (disperseTarget > disperse ? 6 : 1.4)));
+    if (time > 20000) time -= 20000;
+    var target = scene === "home" ? 1 : 0.72;
+    intensity += (target - intensity) * (1 - Math.exp(-dt * 1.4));
+    gust *= Math.exp(-dt * 0.9);
+    if (reveal < 1e5) {
+      reveal += dt * (320 + reveal * 1.1);
+      if (reveal > Math.sqrt(width * width + height * height) + 400) reveal = 1e5;
+    }
     smoothScroll += (scrollY - smoothScroll) * (1 - Math.exp(-dt * 6));
 
-    // Pointer: segments since the last frame cut the grid; the halo follows.
+    // Pointer: segments since the last frame cut the grid.
     if (useDisp && segments.length) {
       for (var s = 0; s < segments.length; s += 1) {
         var seg = segments[s];
@@ -500,17 +440,24 @@
     }
     if (useDisp && gridActive) stepGrid(dt);
     if (useDisp && gridDirty) encodeGrid();
-    pointer.halo += ((pointer.active ? 1 : 0) - pointer.halo) * (1 - Math.exp(-dt * 3));
+    pointer.speed *= Math.exp(-dt * 4);
+    pointer.stir += (Math.min(1, pointer.speed / 900) - pointer.stir) * (1 - Math.exp(-dt * 5));
     if (pointer.has) {
-      pointer.sx += (pointer.x / width - pointer.sx) * (1 - Math.exp(-dt * 1.2));
-      pointer.sy += (pointer.y / visible - pointer.sy) * (1 - Math.exp(-dt * 1.2));
+      pointer.px += ((pointer.x / width - 0.5) - pointer.px) * (1 - Math.exp(-dt * 1.5));
+      pointer.py += ((pointer.y / visible - 0.5) - pointer.py) * (1 - Math.exp(-dt * 1.5));
     }
 
-    var place = kPlacement();
-    var motion = reduced ? 0.2 : 1;
-    var yaw = Math.sin(time * 0.07) * 0.2 * motion + (pointer.sx - 0.5) * 0.14;
-    var pitch = Math.sin(time * 0.05 + 1.1) * 0.05 * motion + (pointer.sy - 0.5) * -0.08;
-    var bob = Math.sin(time * 0.31) * 5 * motion;
+    for (var r = ripples.length - 1; r >= 0; r -= 1) {
+      ripples[r].age += dt;
+      if (ripples[r].age > 3.2) ripples.splice(r, 1);
+    }
+    for (var q = 0; q < RIPPLES; q += 1) {
+      var ripple = ripples[q];
+      rippleData[q * 4] = ripple ? ripple.x : 0;
+      rippleData[q * 4 + 1] = ripple ? ripple.y : 0;
+      rippleData[q * 4 + 2] = ripple ? ripple.age : 0;
+      rippleData[q * 4 + 3] = ripple ? ripple.strength : 0;
+    }
 
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -520,23 +467,20 @@
     gl.uniform1f(U.uDpr, dpr);
     gl.uniform1f(U.uTime, time);
     gl.uniform1f(U.uScroll, smoothScroll);
-    gl.uniform4f(U.uK, place[0], place[1] + bob, place[2], kIntensity);
-    gl.uniform3f(U.uRot, yaw, pitch, 0);
-    gl.uniform1f(U.uDust, dustIntensity);
-    gl.uniform1f(U.uDisperse, disperse);
-    gl.uniform3f(U.uMouse, pointer.x, pointer.y, pointer.halo);
+    gl.uniform1f(U.uDust, intensity);
+    gl.uniform1f(U.uFlow, (reduced ? 0.4 : 1) * (1 + gust));
+    gl.uniform1f(U.uReveal, reveal);
+    gl.uniform2f(U.uParallax, pointer.px, pointer.py);
+    gl.uniform3f(U.uMouse, pointer.x, pointer.y, pointer.stir);
+    gl.uniform4fv(U.uRip, rippleData);
     gl.uniform2f(U.uCell, grid.cw, grid.ch);
     if (useDisp) {
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.uniform1i(U.uDisp, 0);
     }
-    var dustDraw = Math.min(nDust, Math.round(width * height * DUST_DENSITY * quality));
-    if (dustDraw > 0) gl.drawArrays(gl.POINTS, 0, dustDraw);
-    if (total > nDust) {
-      var kDraw = Math.round(nK * Math.max(0.5, quality));
-      gl.drawArrays(gl.POINTS, nDust, kDraw);
-    }
+    var count = Math.min(nDust, Math.round(width * height * DUST_DENSITY * quality));
+    if (count > 0) gl.drawArrays(gl.POINTS, 0, count);
     if (!ready) {
       ready = true;
       root.classList.add("field-ready");
@@ -561,19 +505,24 @@
     // Events arrive further apart on a busy device; a gap up to 300 ms still
     // counts as one stroke, with its speed measured over the real gap.
     if (pointer.has && now - pointer.t < 300 && pointer.x > -9000) {
-      segments.push([pointer.x, pointer.y, x, y, (now - pointer.t) / 1000]);
+      var seconds = Math.max(0.008, (now - pointer.t) / 1000);
+      var moved = Math.sqrt((x - pointer.x) * (x - pointer.x) + (y - pointer.y) * (y - pointer.y));
+      pointer.speed = Math.max(pointer.speed, moved / seconds);
+      segments.push([pointer.x, pointer.y, x, y, seconds]);
       if (segments.length > 64) segments.shift();
     }
     pointer.x = x;
     pointer.y = y;
     pointer.t = now;
     pointer.has = true;
-    pointer.active = true;
   }
 
   window.addEventListener("pointermove", function (event) {
     if (event.pointerType === "touch") return;
     pointAt(event.clientX, event.clientY, event.timeStamp || performance.now());
+  }, { passive: true });
+  window.addEventListener("pointerdown", function (event) {
+    addRipple(event.clientX, event.clientY, event.pointerType === "touch" ? 0.8 : 1);
   }, { passive: true });
   window.addEventListener("touchstart", function (event) {
     var touch = event.touches[0];
@@ -585,10 +534,9 @@
     var touch = event.touches[0];
     if (touch) pointAt(touch.clientX, touch.clientY, event.timeStamp || performance.now());
   }, { passive: true });
-  window.addEventListener("touchend", function () { pointer.active = false; }, { passive: true });
   document.addEventListener("mouseleave", function () {
-    pointer.active = false;
     pointer.has = false;
+    pointer.x = pointer.y = -9999;
   });
   window.addEventListener("scroll", function () { scrollY = window.scrollY || 0; }, { passive: true });
 
@@ -613,24 +561,13 @@
   api.setScene = function (name) {
     scene = name === "home" ? "home" : "page";
   };
-  // Page changes scatter the K into the dust and let it re-form.
-  api.disperse = function (on) {
-    disperseTarget = on && !reduced ? 0.6 : 0;
+  // Page changes: a strong ring from where the visitor clicked, and a gust
+  // through the currents.
+  api.pulse = function (x, y) {
+    addRipple(typeof x === "number" ? x : width * 0.5, typeof y === "number" ? y : visible * 0.5, 1.6);
+    if (!reduced) gust = Math.min(2.5, gust + 1.6);
   };
 
-  // ---------------------------------------------------------------- boot
   resize();
-  var mark = new Image();
-  mark.decoding = "async";
-  mark.onload = function () {
-    var sampled = null;
-    try { sampled = sampleMark(mark); } catch (error) { sampled = null; }
-    buildParticles(sampled);
-    start();
-  };
-  mark.onerror = function () {
-    buildParticles(null);
-    start();
-  };
-  mark.src = canvas.getAttribute("data-mark") || "assets/brand/k-mark.png";
+  start();
 })();
