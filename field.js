@@ -159,7 +159,7 @@
     "    p += vec2(n.y, -n.x) * drag * ok * exp(-r / 11.0);",
     // A faint lip on each face and, where the crack has closed, a hairline
     // weld seam.
-    "    a *= 1.0 + 1.1 * min(open / 3.0, 1.0) * exp(-r / 3.0) + 2.2 * g.b * ok * exp(-r / 2.0);",
+    "    a *= 1.0 + 1.1 * min(open / 3.0, 1.0) * exp(-r / 3.0) + 3.4 * g.b * ok * exp(-r / 2.3);",
     "  }",
     "#endif",
     // The cursor presses the dust aside, harder while it moves.
@@ -501,7 +501,7 @@
       if (tip > 0) o = c.amp[j] * Math.sqrt(Math.min(1, tip / TIP)) * opening(age) * rel;
       else if (healing && c.closed[j] < 0) c.closed[j] = t;
       c.open[j] = o;
-      var seam = c.closed[j] >= 0 ? 0.9 * Math.exp(-(t - c.closed[j]) / 0.8) : 0;
+      var seam = c.closed[j] >= 0 ? Math.exp(-(t - c.closed[j]) / 0.8) : 0;
       c.seam[j] = seam;
       if (seam > 0.02) alive = true;
       c.dr[j] = c.drag[j] * recoil(age) * Math.min(1, Math.min(s, L - s) / 20);
