@@ -8,15 +8,17 @@
  *     shimmer faintly;
  *   - depth: near dots are larger, brighter and shift more with the pointer
  *     and with scrolling;
- *   - ripples: a click or tap sends a shock ring through the dust;
- *   - the pointer: a moving cursor stirs the dust around it, and a fast
- *     stroke slashes it.
+ *   - ripples: a click or tap sends a ring through the dust;
+ *   - the pointer: the cursor presses the dust aside, and a fast stroke cuts
+ *     it like a blade through a soft solid.
  *
- * The slash lives on a coarse CPU grid of spring-dampers holding, per cell,
- * a wake (smooth displacement) and a cut (opening amplitude plus signed
- * distance to the cut line). The vertex shader samples the grid: the sign of
- * the distance says which side of the cut a dot is on, its gradient which way
- * to move, so both sides part cleanly along the line, and the cut heals.
+ * A cut is a crack along the stroke. Its faces part behind the blade with the
+ * square-root opening of a crack tip, the blade drags the grains along and
+ * they spring back, and after a beat the crack closes from both tips inward,
+ * leaving a weld seam that fades. The cracks are painted every frame into a
+ * fine grid texture (signed distance to the crack, opening, seam, drag); the
+ * vertex shader moves each dot off the line on its own side, so the cut stays
+ * a clean, thin line.
  */
 (function () {
   "use strict";
@@ -43,6 +45,9 @@
 
   var useDisp = gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS) > 0;
   var RIPPLES = 4;
+  var SDMAX = 40;   // px, signed-distance range stored per grid cell
+  var OMAX = 6;     // px, largest crack opening per face
+  var DRAGMAX = 5;  // px, largest drag along a cut
 
   // ---------------------------------------------------------------- shaders
   var VERT = [
@@ -123,49 +128,44 @@
     "      float dist = length(dv) + 0.001;",
     "      float front = r.z * 560.0;",
     "      float ring = exp(-pow((dist - front) / 64.0, 2.0)) * r.w * exp(-r.z * 1.1) * (1.0 - smoothstep(2.4, 3.2, r.z));",
-    "      p += dv / dist * ring * (18.0 + 22.0 * d);",
-    "      a *= 1.0 + ring * 1.4;",
+    "      p += dv / dist * ring * (14.0 + 16.0 * d);",
+    "      a *= 1.0 + ring * 0.9;",
     "    }",
     "  }",
     "#ifdef USE_DISP",
     "  vec2 uv = clamp(p / uRes, 0.0, 1.0);",
     "  vec4 g = texture2D(uDisp, uv);",
-    "  vec2 e = g.rg * 2.0 - 1.0;",
-    // Near dust is carried further than far dust, so inside an eddy the
-    // depth layers shear past each other and the swirl reads even over an
-    // even spread of dust; swept dust glows with how far it has travelled.
-    "  vec2 disp = sign(e) * e * e * 160.0 * (0.45 + 1.1 * d);",
-    "  a *= 1.0 + min(length(disp), 140.0) * 0.014;",
-    "  float cut = g.b;",
-    "  float knit = 0.0;",
-    "  if (cut > 0.004) {",
+    "  float drag = (g.a * 255.0 - 128.0) / 127.0 * " + DRAGMAX.toFixed(1) + ";",
+    "  if (g.g > 0.002 || g.b > 0.004 || abs(drag) > 0.03) {",
     "    vec2 du = vec2(uCell.x / uRes.x, 0.0);",
-    "    vec2 dvv = vec2(0.0, uCell.y / uRes.y);",
-    "    vec2 n = vec2(texture2D(uDisp, uv + du).a - texture2D(uDisp, uv - du).a,",
-    "                  texture2D(uDisp, uv + dvv).a - texture2D(uDisp, uv - dvv).a);",
-    "    float nl = length(n);",
-    "    if (nl > 0.00001) {",
-    "      vec2 nn = n / nl;",
-    "      float side = g.a >= 0.5 ? 1.0 : -1.0;",
-    // Each grain lets go at its own point of the close, so the seam frays
-    // and knits instead of sliding shut in one piece...
-    "      float cd = pow(cut, 0.55 + 0.9 * h(s * 41.0));",
-    "      disp += nn * side * cd * 84.0 * (0.75 + 0.5 * h(s * 17.0));",
-    // ...and, mid-close, grains near the seam slip along it as the two
-    // edges meet, like the teeth of a zip.
-    "      knit = 4.0 * cut * (1.0 - cut) * exp(-abs(g.a * 2.0 - 1.0) * 3.0);",
-    "      disp += vec2(-nn.y, nn.x) * knit * (h(s * 13.0) - 0.5) * 46.0;",
-    "    }",
+    "    vec2 dv = vec2(0.0, uCell.y / uRes.y);",
+    // The gradient of the signed distance is the crack normal. Where two
+    // cracks' fields meet, the distance jumps instead of running through
+    // zero; its gradient there is far from 1, and nothing moves.
+    "    vec2 gr = vec2(texture2D(uDisp, uv + du).r - texture2D(uDisp, uv - du).r,",
+    "                   texture2D(uDisp, uv + dv).r - texture2D(uDisp, uv - dv).r) * " + SDMAX.toFixed(1) + " / uCell;",
+    "    float gm = length(gr);",
+    "    float ok = smoothstep(0.3, 0.6, gm) * (1.0 - smoothstep(1.35, 1.9, gm));",
+    "    vec2 n = gr / max(gm, 0.0001);",
+    "    float sd = (g.r * 2.0 - 1.0) * " + SDMAX.toFixed(1) + ";",
+    "    float r = abs(sd);",
+    "    float open = g.g * " + OMAX.toFixed(1) + " * ok;",
+    // Each face moves off the line on its own side, most at the face and
+    // fading into the bulk, so the grains bank up along the lips. Every
+    // grain sits a little deeper or shallower in its face: the lips are
+    // granular, not ruled.
+    "    p += n * (sd >= 0.0 ? 1.0 : -1.0) * open * exp(-r / 16.0) * (0.9 + 0.2 * h(s * 41.0));",
+    // The blade drags both faces along the cut.
+    "    p += vec2(n.y, -n.x) * drag * ok * exp(-r / 11.0);",
+    // A faint lip on each face and, where the crack has closed, a hairline
+    // weld seam.
+    "    a *= 1.0 + 1.1 * min(open / 3.0, 1.0) * exp(-r / 3.0) + 2.2 * g.b * ok * exp(-r / 2.0);",
     "  }",
-    "  p += disp * (0.85 + 0.3 * h(s * 71.3));",
-    "  a *= 1.0 + 1.1 * cut + 2.2 * knit;",
     "#endif",
-    // The cursor pushes the dust aside and, while moving, stirs it round.
+    // The cursor presses the dust aside, harder while it moves.
     "  vec2 dm = p - uMouse.xy;",
     "  float dl2 = dot(dm, dm);",
-    "  float inv = inversesqrt(dl2 + 1.0);",
-    "  p += dm * inv * (4.0 + 10.0 * uMouse.z) * exp(-dl2 / 2600.0);",
-    "  p += vec2(-dm.y, dm.x) * inv * uMouse.z * 16.0 * exp(-dl2 / 9000.0);",
+    "  p += dm * inversesqrt(dl2 + 1.0) * (3.0 + 6.0 * uMouse.z) * exp(-dl2 / 2600.0);",
     // Intro: the dust appears behind a front expanding from the centre.
     "  float rd = length(p - uRes * vec2(0.5, 0.46));",
     "  float edge = uReveal - rd;",
@@ -264,289 +264,377 @@
     gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 20, 16);
   })();
 
-  // ------------------------------------------------------ fluid + cut grid
-  // A coarse grid over the screen carries two things the dust samples in the
-  // vertex shader:
-  //   - a small incompressible fluid (stable fluids with vorticity
-  //     confinement). The pointer drags the air along; the projection turns
-  //     that push into pairs of counter-rotating eddies, and each cell keeps
-  //     a displacement that the flow advects and adds to, relaxing home
-  //     without overshoot once the air settles. The dust swirls in the wake
-  //     instead of being shoved and snapped back;
-  //   - the cut of a fast stroke: an opening amplitude and the signed
-  //     distance to the cut line. The cut snaps open, holds for a beat, then
-  //     zips shut in the order it was made, each stretch closing on an
-  //     S-curve (a critically damped spring: no overshoot, no hard stop).
-  var CELL = compact ? 10 : 12;
-  var SDMAX = 48;          // px, signed-distance range stored per cell
-  var DMAX = 160;          // px, displacement range stored per cell
-  var CUT_HOLD = 0.22;     // s the cut stays open after it is made
-  var CUT_ZIP = 0.0011;    // s per px of stroke: how fast the zip runs
+  // ---------------------------------------------------------------- cracks
+  // A fast stroke cuts the dust like a blade through a soft solid. The cut is
+  // a crack along the stroke (the pointer samples smoothed into a curve and
+  // resampled every STEP px), and each point of it follows the mechanics of a
+  // cut in an elastic material:
+  //   - opening: the faces spring apart behind the blade with a little
+  //     overshoot, then hold. Toward either tip the opening falls off as the
+  //     square root of the distance to the tip, as at the tip of a crack in
+  //     linear elastic fracture mechanics, so the ends are sharp and a short
+  //     cut opens less than a long one;
+  //   - drag: the blade carries the grains along the cut, and they spring
+  //     back past rest before they settle;
+  //   - healing: a beat after the blade leaves, both tips run inward to meet
+  //     somewhere along the cut, closing the crack behind them, while the
+  //     faces relax. Each stretch that closes leaves a hairline weld seam,
+  //     which fades.
+  // Every frame the cracks are painted into a fine grid texture the vertex
+  // shader samples: per cell, the signed distance to the nearest crack (its
+  // zero set is the cut line, which linear filtering keeps sharp), the
+  // opening there, the seam, and the drag.
+  var CELL = compact ? 5 : 6;
+  var REACH = SDMAX;        // px either side of a crack that it moves
+  var SEAM_REACH = 12;      // px either side of a closed stretch
+  var CUT_SPEED = 0.9;      // px/ms: slower strokes only press the dust
+  var CRACK_MAX = 1100;     // px: a longer stroke starts a new crack
+  var TIP = compact ? 40 : 56; // px: the tip zone, where the opening grows
+  var HOLD = 0.4;           // s a crack stays open after the blade leaves
+  var STEP = 10;            // px between crack points
+  var MAX_CRACKS = 6;
   var grid = { w: 0, h: 0, cw: 1, ch: 1 };
-  var airU, airV, airU0, airV0, press, divg, curl, dX, dY, dX0, dY0, cutA, cutV, cutGoal, cutHold, sdist, texels;
-  var gridActive = false;
-  var gridDirty = true;
+  var best, texels, strip;
+  var painted = null;       // cells painted last frame
   var texture = gl.createTexture();
+  var cracks = [];
+  var live = null;          // the crack the blade is cutting now
+  var clock = 0;            // s, the cracks' own clock
+
+  function blank(k) {
+    var o = k * 4;
+    texels[o] = 255;        // far away, on the positive side
+    texels[o + 1] = 0;
+    texels[o + 2] = 0;
+    texels[o + 3] = 128;    // no drag
+  }
 
   function allocGrid() {
-    grid.w = Math.max(8, Math.min(256, Math.ceil(width / CELL)));
-    grid.h = Math.max(8, Math.min(256, Math.ceil(height / CELL)));
+    grid.w = Math.max(8, Math.min(512, Math.ceil(width / CELL)));
+    grid.h = Math.max(8, Math.min(512, Math.ceil(height / CELL)));
     grid.cw = width / grid.w;
     grid.ch = height / grid.h;
     var n = grid.w * grid.h;
-    airU = new Float32Array(n); airV = new Float32Array(n);
-    airU0 = new Float32Array(n); airV0 = new Float32Array(n);
-    press = new Float32Array(n); divg = new Float32Array(n); curl = new Float32Array(n);
-    dX = new Float32Array(n); dY = new Float32Array(n);
-    dX0 = new Float32Array(n); dY0 = new Float32Array(n);
-    cutA = new Float32Array(n); cutV = new Float32Array(n);
-    cutGoal = new Float32Array(n); cutHold = new Float32Array(n);
-    sdist = new Float32Array(n);
-    for (var i = 0; i < n; i += 1) sdist[i] = SDMAX;
+    best = new Float32Array(n);
+    best.fill(REACH * REACH);
     texels = new Uint8Array(n * 4);
+    strip = new Uint8Array(n * 4);
+    for (var k = 0; k < n; k += 1) blank(k);
+    painted = null;
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gridActive = false;
-    encodeGrid();
-  }
-
-  function encodeGrid() {
-    var n = grid.w * grid.h;
-    for (var i = 0; i < n; i += 1) {
-      var o = i * 4;
-      // sqrt encoding: fine steps near zero, where the dust settles home.
-      var ex = dX[i] / DMAX;
-      var ey = dY[i] / DMAX;
-      ex = ex > 0 ? Math.sqrt(Math.min(ex, 1)) : -Math.sqrt(Math.min(-ex, 1));
-      ey = ey > 0 ? Math.sqrt(Math.min(ey, 1)) : -Math.sqrt(Math.min(-ey, 1));
-      texels[o] = Math.round((ex * 0.5 + 0.5) * 255);
-      texels[o + 1] = Math.round((ey * 0.5 + 0.5) * 255);
-      texels[o + 2] = Math.round(Math.max(0, Math.min(1, cutA[i])) * 255);
-      texels[o + 3] = Math.round((Math.max(-1, Math.min(1, sdist[i] / SDMAX)) * 0.5 + 0.5) * 255);
-    }
-    gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, grid.w, grid.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, texels);
-    gridDirty = false;
   }
 
-  var segments = [];
+  function smooth(e0, e1, x) {
+    var u = x <= e0 ? 0 : x >= e1 ? 1 : (x - e0) / (e1 - e0);
+    return u * u * (3 - 2 * u);
+  }
 
-  // One pointer segment: drag the air along it and, if it is fast, cut.
-  // `stroked` is how far the stroke had already run, for the zip.
-  function applySegment(x0, y0, x1, y1, seconds, stroked) {
-    var sx = x1 - x0;
-    var sy = y1 - y0;
-    var length = Math.sqrt(sx * sx + sy * sy);
-    if (length < 0.5) return;
-    var speed = Math.min(4200, length / Math.max(seconds, 0.008)) / 1000;
-    if (speed < 0.08) return;
-    var tx = sx / length;
-    var ty = sy / length;
-    var nx = -ty;
-    var ny = tx;
-    var cutR = 16 + 6 * speed;
-    var wakeR = 34 + 14 * speed;
-    var reach = Math.max(wakeR * 2, SDMAX);
-    // The air is dragged at up to about half the pointer's speed (cells/s).
-    var push = speed * 1000 / CELL * 0.55;
-    // Superlinear in speed: an ordinary pass stirs the dust, a flick cuts.
-    var cutAdd = (reduced ? 0.35 : 1) * 0.5 * Math.pow(speed, 1.5);
-    var i0 = Math.max(0, Math.floor((Math.min(x0, x1) - reach) / grid.cw));
-    var i1 = Math.min(grid.w - 1, Math.ceil((Math.max(x0, x1) + reach) / grid.cw));
-    var j0 = Math.max(0, Math.floor((Math.min(y0, y1) - reach) / grid.ch));
-    var j1 = Math.min(grid.h - 1, Math.ceil((Math.max(y0, y1) + reach) / grid.ch));
-    for (var j = j0; j <= j1; j += 1) {
-      var cy = (j + 0.5) * grid.ch;
-      for (var i = i0; i <= i1; i += 1) {
-        var cx = (i + 0.5) * grid.cw;
-        var rx = cx - x0;
-        var ry = cy - y0;
-        var along = rx * tx + ry * ty;
-        var clampAlong = along < 0 ? 0 : along > length ? length : along;
-        var ox = rx - tx * clampAlong;
-        var oy = ry - ty * clampAlong;
-        var d2 = ox * ox + oy * oy;
-        if (d2 > reach * reach) continue;
-        var k = j * grid.w + i;
-        var ww = Math.exp(-d2 / (wakeR * wakeR));
-        if (ww > 0.01) {
-          airU[k] += (tx * push - airU[k]) * ww * 0.5;
-          airV[k] += (ty * push - airV[k]) * ww * 0.5;
-        }
-        var wc = Math.exp(-d2 / (cutR * cutR));
-        if (wc > 0.02 && cutAdd > 0.004) {
-          var across = ox * nx + oy * ny;
-          cutGoal[k] = Math.min(1.1, Math.max(cutGoal[k], cutA[k]) + wc * cutAdd);
-          // The zip: each stretch closes a beat after it was cut, later the
-          // further along the stroke it lies.
-          cutHold[k] = Math.max(cutHold[k], CUT_HOLD + Math.min(0.9, (stroked + clampAlong) * CUT_ZIP));
-          if (Math.abs(across) < SDMAX && (wc > 0.2 || cutA[k] < 0.05)) sdist[k] = across;
+  // Step response of a spring at zeta 0.55: the faces open and overshoot by
+  // about an eighth before they settle.
+  function opening(t) {
+    if (t <= 0) return 0;
+    if (t > 0.6) return 1;
+    return 1 - Math.exp(-14.3 * t) * (Math.cos(21.71 * t) + 0.659 * Math.sin(21.71 * t));
+  }
+
+  // Impulse response at zeta 0.45, scaled to peak at 1: dragged along, then
+  // back past rest by a fifth, then still.
+  function recoil(t) {
+    if (t <= 0 || t > 1) return 0;
+    return 1.96 * Math.exp(-8.1 * t) * Math.sin(16.07 * t);
+  }
+
+  function newCrack(x, y, v) {
+    return {
+      rx: [x], ry: [y], rt: [clock], rv: [v], last: clock, dirty: true,
+      n: 0, len: 0, heal: -1, T: 1, m: 0, pa: 0, pb: 0
+    };
+  }
+
+  // Smooth the pointer samples into quadratic curves through their midpoints
+  // (the crack runs along the stroke without the kinks of the event rate),
+  // then resample every STEP px of arc length.
+  function build(c) {
+    var rx = c.rx, ry = c.ry, rt = c.rt, rv = c.rv;
+    var k = rx.length;
+    var X = [rx[0]], Y = [ry[0]], T = [rt[0]], V = [rv[0]];
+    function mid(f, i) { return (f[i] + f[i + 1]) * 0.5; }
+    if (k === 2) {
+      X.push(rx[1]); Y.push(ry[1]); T.push(rt[1]); V.push(rv[1]);
+    } else {
+      X.push(mid(rx, 0)); Y.push(mid(ry, 0)); T.push(mid(rt, 0)); V.push(mid(rv, 0));
+      for (var i = 1; i < k - 1; i += 1) {
+        var ax = mid(rx, i - 1), ay = mid(ry, i - 1), bx = mid(rx, i), by = mid(ry, i);
+        var ta = mid(rt, i - 1), tb = mid(rt, i), va = mid(rv, i - 1), vb = mid(rv, i);
+        var m = Math.max(2, Math.ceil(Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)) / 3));
+        for (var q = 1; q <= m; q += 1) {
+          var u = q / m;
+          var w0 = (1 - u) * (1 - u), w1 = 2 * u * (1 - u), w2 = u * u;
+          X.push(w0 * ax + w1 * rx[i] + w2 * bx);
+          Y.push(w0 * ay + w1 * ry[i] + w2 * by);
+          T.push(ta + (tb - ta) * u);
+          V.push(va + (vb - va) * u);
         }
       }
+      X.push(rx[k - 1]); Y.push(ry[k - 1]); T.push(rt[k - 1]); V.push(rv[k - 1]);
     }
-    gridActive = true;
-  }
-
-  // A vortex in the air: solid-body core, Gaussian skirt (Lamb–Oseen-like).
-  // omega in rad/s, radius in px.
-  function swirl(x, y, omega, radius) {
-    if (!useDisp || reduced) return;
-    var R = radius / CELL;
-    var ci = x / grid.cw - 0.5;
-    var cj = y / grid.ch - 0.5;
-    var reachCells = Math.ceil(R * 2.4);
-    var i0 = Math.max(0, Math.floor(ci - reachCells));
-    var i1 = Math.min(grid.w - 1, Math.ceil(ci + reachCells));
-    var j0 = Math.max(0, Math.floor(cj - reachCells));
-    var j1 = Math.min(grid.h - 1, Math.ceil(cj + reachCells));
-    for (var j = j0; j <= j1; j += 1) {
-      for (var i = i0; i <= i1; i += 1) {
-        var rx = i - ci;
-        var ry = j - cj;
-        var f = omega * Math.exp(-(rx * rx + ry * ry) / (R * R));
-        var k = j * grid.w + i;
-        airU[k] -= ry * f;
-        airV[k] += rx * f;
+    var total = 0;
+    for (var d = 1; d < X.length; d += 1) total += Math.sqrt((X[d] - X[d - 1]) * (X[d] - X[d - 1]) + (Y[d] - Y[d - 1]) * (Y[d] - Y[d - 1]));
+    var n = Math.max(2, Math.ceil(total / STEP) + 1);
+    c.n = n;
+    c.len = total;
+    c.x = new Float32Array(n); c.y = new Float32Array(n); c.s = new Float32Array(n);
+    c.t = new Float32Array(n); c.amp = new Float32Array(n); c.drag = new Float32Array(n);
+    c.open = new Float32Array(n); c.dr = new Float32Array(n); c.seam = new Float32Array(n);
+    c.closed = new Float32Array(n).fill(-1);
+    var seg = 1, s0 = 0;
+    var sl = Math.sqrt((X[1] - X[0]) * (X[1] - X[0]) + (Y[1] - Y[0]) * (Y[1] - Y[0]));
+    for (var j = 0; j < n; j += 1) {
+      var s = j === n - 1 ? total : j * STEP;
+      while (s > s0 + sl && seg < X.length - 1) {
+        s0 += sl;
+        seg += 1;
+        sl = Math.sqrt((X[seg] - X[seg - 1]) * (X[seg] - X[seg - 1]) + (Y[seg] - Y[seg - 1]) * (Y[seg] - Y[seg - 1]));
+      }
+      var f = sl > 0 ? Math.min(1, Math.max(0, (s - s0) / sl)) : 1;
+      c.x[j] = X[seg - 1] + (X[seg] - X[seg - 1]) * f;
+      c.y[j] = Y[seg - 1] + (Y[seg] - Y[seg - 1]) * f;
+      c.s[j] = s;
+      c.t[j] = T[seg - 1] + (T[seg] - T[seg - 1]) * f;
+      var v = V[seg - 1] + (V[seg] - V[seg - 1]) * f;
+      // A faster blade opens a wider cut and drags harder; always fine.
+      c.amp[j] = Math.min(4.6, Math.max(1.8, 1 + 0.9 * v)) * (reduced ? 0.6 : 1);
+      c.drag[j] = reduced ? 0 : Math.min(4, 0.9 * v);
+    }
+    // For painting, runs of points that lie within half a pixel of a straight
+    // line (up to 60 px) merge into one segment: far fewer cells to visit,
+    // the same crack.
+    var knots = [0];
+    var from = 0;
+    for (var to = 2; to < n; to += 1) {
+      var ax = c.x[from], ay = c.y[from];
+      var lx = c.x[to] - ax, ly = c.y[to] - ay;
+      var ll = Math.sqrt(lx * lx + ly * ly);
+      var straight = ll <= 60;
+      for (var mi = from + 1; straight && mi < to; mi += 1) {
+        straight = Math.abs((c.x[mi] - ax) * ly - (c.y[mi] - ay) * lx) <= 0.5 * ll;
+      }
+      if (!straight) {
+        from = to - 1;
+        knots.push(from);
       }
     }
-    gridActive = true;
+    knots.push(n - 1);
+    c.knots = knots;
+    c.dirty = false;
   }
 
-  // Critically damped spring step, solved exactly (stable for any dt).
-  function settleCut(k, goal, omega, dt) {
-    var c1 = cutA[k] - goal;
-    var c2 = cutV[k] + omega * c1;
-    var e = Math.exp(-omega * dt);
-    cutA[k] = goal + (c1 + c2 * dt) * e;
-    cutV[k] = (c2 - omega * (c1 + c2 * dt)) * e;
+  function release(c) {
+    if (live === c) live = null;
+    if (c.dirty) build(c);
+    if (c.len < 12) {
+      var i = cracks.indexOf(c);
+      if (i >= 0) cracks.splice(i, 1);
+      return;
+    }
+    c.heal = clock + HOLD;
+    c.T = 1 + c.len / 1200 + Math.random() * 0.2;
+    c.m = c.len * (0.35 + 0.3 * Math.random());
+    c.pa = Math.random() * 6.283;
+    c.pb = Math.random() * 6.283;
   }
 
-  // Bilinear sample of a cell field at (x, y) in cell coordinates.
-  function sample(f, x, y) {
+  function cut(x0, y0, x1, y1, v) {
+    if (live && live.len > CRACK_MAX) release(live);
+    if (!live) {
+      live = newCrack(x0, y0, v);
+      cracks.push(live);
+      // Too many at once: the oldest start healing now, and quickly.
+      var waiting = 0;
+      for (var i = cracks.length - 2; i >= 0; i -= 1) {
+        waiting += 1;
+        if (waiting >= MAX_CRACKS && cracks[i].heal > clock) {
+          cracks[i].heal = clock;
+          cracks[i].T = Math.min(cracks[i].T, 0.6);
+        }
+      }
+      if (cracks.length > MAX_CRACKS + 4) cracks.shift();
+    }
+    live.rx.push(x1); live.ry.push(y1); live.rt.push(clock); live.rv.push(v);
+    live.last = clock;
+    live.dirty = true;
+  }
+
+  // Where the closing tip has run to, 0..1, at heal time u. The tips run on
+  // an S-curve with a slight stick-slip, each at its own phase.
+  function run(u, phase) {
+    u = Math.min(1, Math.max(0, u + 0.022 * Math.sin(31.4 * u + phase) * Math.sin(3.1416 * u)));
+    return u * u * u * (u * (u * 6 - 15) + 10);
+  }
+
+  // The crack's state now, per point. False once it has healed and its seam
+  // has faded.
+  function stepCrack(c, t) {
+    var L = c.len;
+    var a = 0;
+    var b = L;
+    var healing = c.heal >= 0 && t > c.heal;
+    var rel = 1;
+    if (healing) {
+      var u = (t - c.heal) / c.T;
+      a = run(u, c.pa) * c.m;
+      b = L - run(u, c.pb) * (L - c.m);
+      u = Math.min(1, u);
+      rel = 1 - 0.3 * u * u * (3 - 2 * u);
+    }
+    var alive = !healing || b > a;
+    for (var j = 0; j < c.n; j += 1) {
+      var s = c.s[j];
+      var tip = Math.min(s - a, b - s);
+      var age = t - c.t[j];
+      var o = 0;
+      if (tip > 0) o = c.amp[j] * Math.sqrt(Math.min(1, tip / TIP)) * opening(age) * rel;
+      else if (healing && c.closed[j] < 0) c.closed[j] = t;
+      c.open[j] = o;
+      var seam = c.closed[j] >= 0 ? 0.9 * Math.exp(-(t - c.closed[j]) / 0.8) : 0;
+      c.seam[j] = seam;
+      if (seam > 0.02) alive = true;
+      c.dr[j] = c.drag[j] * recoil(age) * Math.min(1, Math.min(s, L - s) / 20);
+    }
+    return alive;
+  }
+
+  // Paint one crack into the grid: every cell within reach of a segment that
+  // is nearer to it than to anything painted before takes its values.
+  function paint(c, box) {
+    var w = grid.w, cw = grid.cw, ch = grid.ch;
+    var X = c.x, Y = c.y, O = c.open, D = c.dr, E = c.seam, K = c.knots;
+    var last = K.length - 2;
+    for (var q = 0; q <= last; q += 1) {
+      var fa = K[q], fb = K[q + 1];
+      var reach = 0;
+      for (var m = fa; m <= fb; m += 1) {
+        if (O[m] > 0.01 || Math.abs(D[m]) > 0.02) { reach = REACH; break; }
+        if (E[m] > 0.01) reach = SEAM_REACH;
+      }
+      if (!reach) continue;
+      var x0 = X[fa], y0 = Y[fa];
+      var lx = X[fb] - x0, ly = Y[fb] - y0;
+      var l2 = lx * lx + ly * ly;
+      if (l2 < 1e-6) continue;
+      var sl = Math.sqrt(l2);
+      var span = fb - fa;
+      var ia = Math.max(0, Math.floor((Math.min(x0, x0 + lx) - reach) / cw));
+      var ib = Math.min(w - 1, Math.floor((Math.max(x0, x0 + lx) + reach) / cw));
+      var ja = Math.max(0, Math.floor((Math.min(y0, y0 + ly) - reach) / ch));
+      var jb = Math.min(grid.h - 1, Math.floor((Math.max(y0, y0 + ly) + reach) / ch));
+      if (ia > ib || ja > jb) continue;
+      var r2max = reach * reach;
+      for (var cj = ja; cj <= jb; cj += 1) {
+        var py = (cj + 0.5) * ch - y0;
+        for (var ci = ia; ci <= ib; ci += 1) {
+          var px = (ci + 0.5) * cw - x0;
+          var u = (px * lx + py * ly) / l2;
+          var beyond = 0;
+          if (u < 0) {
+            if (q === 0) beyond = -u * sl;
+            u = 0;
+          } else if (u > 1) {
+            if (q === last) beyond = (u - 1) * sl;
+            u = 1;
+          }
+          var ox = px - lx * u;
+          var oy = py - ly * u;
+          var d2 = ox * ox + oy * oy;
+          var k = cj * w + ci;
+          if (d2 >= r2max || d2 >= best[k]) continue;
+          best[k] = d2;
+          var r = Math.sqrt(d2);
+          // The values between the two crack points either side.
+          var fi = fa + u * span;
+          var j = fi | 0;
+          if (j >= fb) j = fb - 1;
+          var t = fi - j;
+          // Past either end of the crack, nothing but its field fading out.
+          var f = beyond > 0 ? Math.max(0, 1 - beyond / 6) : 1;
+          var op = (O[j] + (O[j + 1] - O[j]) * t) * f * (1 - smooth(22, 36, r));
+          var dg = (D[j] + (D[j + 1] - D[j]) * t) * f * (1 - smooth(18, 30, r));
+          var sm = (E[j] + (E[j + 1] - E[j]) * t) * f * (1 - smooth(5, 11, r));
+          var sd = lx * oy - ly * ox >= 0 ? r : -r;
+          var o = k * 4;
+          texels[o] = (Math.max(-1, Math.min(1, sd / SDMAX)) * 127.5 + 128) | 0;
+          texels[o + 1] = (Math.min(1, op / OMAX) * 255 + 0.5) | 0;
+          texels[o + 2] = (Math.min(1, sm) * 255 + 0.5) | 0;
+          texels[o + 3] = 128 + Math.round(Math.max(-1, Math.min(1, dg / DRAGMAX)) * 127);
+        }
+      }
+      if (!box.on) {
+        box.on = true;
+        box.i0 = ia; box.i1 = ib; box.j0 = ja; box.j1 = jb;
+      } else {
+        if (ia < box.i0) box.i0 = ia;
+        if (ib > box.i1) box.i1 = ib;
+        if (ja < box.j0) box.j0 = ja;
+        if (jb > box.j1) box.j1 = jb;
+      }
+    }
+  }
+
+  // Send the cells in a box to the texture.
+  function upload(b) {
     var w = grid.w;
-    x = x < 0 ? 0 : x > w - 1.001 ? w - 1.001 : x;
-    y = y < 0 ? 0 : y > grid.h - 1.001 ? grid.h - 1.001 : y;
-    var i = x | 0;
-    var j = y | 0;
-    var fx = x - i;
-    var fy = y - j;
-    var k = j * w + i;
-    return (f[k] * (1 - fx) + f[k + 1] * fx) * (1 - fy) + (f[k + w] * (1 - fx) + f[k + w + 1] * fx) * fy;
+    var bw = b.i1 - b.i0 + 1;
+    var bh = b.j1 - b.j0 + 1;
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    if (bw * bh > w * grid.h * 0.6) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, grid.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, texels);
+      return;
+    }
+    for (var j = 0; j < bh; j += 1) {
+      var from = ((b.j0 + j) * w + b.i0) * 4;
+      strip.set(texels.subarray(from, from + bw * 4), j * bw * 4);
+    }
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, b.i0, b.j0, bw, bh, gl.RGBA, gl.UNSIGNED_BYTE, strip.subarray(0, bw * bh * 4));
   }
 
-  function stepGrid(dt) {
+  function stepCracks() {
     var w = grid.w;
-    var h = grid.h;
-    var n = w * h;
     var i;
     var j;
-    var k;
-    // 1. Vorticity confinement keeps the eddies spinning and tight.
-    for (j = 1; j < h - 1; j += 1) {
-      for (i = 1; i < w - 1; i += 1) {
-        k = j * w + i;
-        curl[k] = 0.5 * ((airV[k + 1] - airV[k - 1]) - (airU[k + w] - airU[k - w]));
-      }
-    }
-    var eps = 5 * dt;
-    for (j = 2; j < h - 2; j += 1) {
-      for (i = 2; i < w - 2; i += 1) {
-        k = j * w + i;
-        var gx = Math.abs(curl[k + 1]) - Math.abs(curl[k - 1]);
-        var gy = Math.abs(curl[k + w]) - Math.abs(curl[k - w]);
-        var glen = Math.sqrt(gx * gx + gy * gy) + 1e-5;
-        airU[k] += gy / glen * curl[k] * eps;
-        airV[k] -= gx / glen * curl[k] * eps;
-      }
-    }
-    // 2. Projection: remove divergence (Gauss–Seidel, warm-started), so the
-    //    air neither piles the dust up nor tears holes in it.
-    for (j = 0; j < h; j += 1) {
-      for (i = 0; i < w; i += 1) {
-        k = j * w + i;
-        var uR = i < w - 1 ? airU[k + 1] : 0;
-        var uL = i > 0 ? airU[k - 1] : 0;
-        var vD = j < h - 1 ? airV[k + w] : 0;
-        var vU = j > 0 ? airV[k - w] : 0;
-        divg[k] = 0.5 * (uR - uL + vD - vU);
-        press[k] *= 0.8;
-      }
-    }
-    for (var it = 0; it < 14; it += 1) {
-      for (j = 0; j < h; j += 1) {
-        for (i = 0; i < w; i += 1) {
-          k = j * w + i;
-          var pc = press[k];
-          press[k] = ((i > 0 ? press[k - 1] : pc) + (i < w - 1 ? press[k + 1] : pc) +
-            (j > 0 ? press[k - w] : pc) + (j < h - 1 ? press[k + w] : pc) - divg[k]) * 0.25;
+    // Wipe what was painted last frame, paint the cracks as they are now,
+    // and send both regions.
+    if (painted) {
+      for (j = painted.j0; j <= painted.j1; j += 1) {
+        for (i = painted.i0; i <= painted.i1; i += 1) {
+          best[j * w + i] = REACH * REACH;
+          blank(j * w + i);
         }
       }
     }
-    for (j = 0; j < h; j += 1) {
-      for (i = 0; i < w; i += 1) {
-        k = j * w + i;
-        var pk = press[k];
-        airU[k] -= 0.5 * ((i < w - 1 ? press[k + 1] : pk) - (i > 0 ? press[k - 1] : pk));
-        airV[k] -= 0.5 * ((j < h - 1 ? press[k + w] : pk) - (j > 0 ? press[k - w] : pk));
+    var box = { on: false, i0: 0, i1: 0, j0: 0, j1: 0 };
+    for (var c = cracks.length - 1; c >= 0; c -= 1) {
+      var crack = cracks[c];
+      if (crack.dirty) build(crack);
+      if (!stepCrack(crack, clock) && crack !== live) {
+        cracks.splice(c, 1);
+        continue;
       }
+      paint(crack, box);
     }
-    // 3. Advect velocity and displacement along the flow (semi-Lagrangian);
-    //    the displacement also gathers the flow itself, then relaxes home.
-    var damp = Math.exp(-dt * 1.1);
-    var relax = Math.exp(-dt * 1.35);
-    var maxU = 0;
-    var maxD = 0;
-    for (j = 0; j < h; j += 1) {
-      for (i = 0; i < w; i += 1) {
-        k = j * w + i;
-        var bx = i - airU[k] * dt;
-        var by = j - airV[k] * dt;
-        airU0[k] = sample(airU, bx, by) * damp;
-        airV0[k] = sample(airV, bx, by) * damp;
-        var ddx = (sample(dX, bx, by) + airU[k] * grid.cw * dt) * relax;
-        var ddy = (sample(dY, bx, by) + airV[k] * grid.ch * dt) * relax;
-        dX0[k] = ddx > DMAX ? DMAX : ddx < -DMAX ? -DMAX : ddx;
-        dY0[k] = ddy > DMAX ? DMAX : ddy < -DMAX ? -DMAX : ddy;
-        var au = Math.abs(airU0[k]) + Math.abs(airV0[k]);
-        var ad = Math.abs(dX0[k]) + Math.abs(dY0[k]);
-        if (au > maxU) maxU = au;
-        if (ad > maxD) maxD = ad;
-      }
+    var both = box.on ? box : painted;
+    if (box.on && painted) {
+      both = {
+        i0: Math.min(box.i0, painted.i0), i1: Math.max(box.i1, painted.i1),
+        j0: Math.min(box.j0, painted.j0), j1: Math.max(box.j1, painted.j1)
+      };
     }
-    var swap = airU; airU = airU0; airU0 = swap;
-    swap = airV; airV = airV0; airV0 = swap;
-    swap = dX; dX = dX0; dX0 = swap;
-    swap = dY; dY = dY0; dY0 = swap;
-    // 4. The cut: open fast toward its goal while held, then zip shut.
-    var maxCut = 0;
-    var holding = false;
-    for (k = 0; k < n; k += 1) {
-      if (cutHold[k] > 0) {
-        cutHold[k] -= dt;
-        holding = true;
-        settleCut(k, cutGoal[k], 22, dt);
-      } else if (cutA[k] > 0.0005 || cutV[k] !== 0) {
-        cutGoal[k] = 0;
-        settleCut(k, 0, 5.5, dt);
-        if (cutA[k] < 0.0005 && Math.abs(cutV[k]) < 0.005) {
-          cutA[k] = cutV[k] = 0;
-          sdist[k] = SDMAX;
-        }
-      }
-      if (cutA[k] > maxCut) maxCut = cutA[k];
-    }
-    // Everything settled below a fraction of a pixel: rest.
-    if (!holding && maxCut < 0.0005 && maxU < 0.05 && maxD < 0.15) {
-      for (k = 0; k < n; k += 1) {
-        airU[k] = airV[k] = press[k] = dX[k] = dY[k] = cutA[k] = cutV[k] = cutGoal[k] = cutHold[k] = 0;
-        sdist[k] = SDMAX;
-      }
-      gridActive = false;
-    }
-    gridDirty = true;
+    if (both) upload(both);
+    painted = box.on ? box : null;
   }
 
   // --------------------------------------------------------------- state
@@ -567,9 +655,8 @@
   var gust = 0;
   var reveal = reduced ? 1e5 : 0;
   var ripples = [];
-  var spin = 1;
   var rippleData = new Float32Array(RIPPLES * 4);
-  var pointer = { x: -9999, y: -9999, px: 0, py: 0, stir: 0, speed: 0, t: 0, has: false, stroked: 0 };
+  var pointer = { x: -9999, y: -9999, px: 0, py: 0, stir: 0, speed: 0, t: 0, has: false };
   var scrollY = window.scrollY || 0;
   var smoothScroll = scrollY;
 
@@ -625,16 +712,10 @@
     }
     smoothScroll += (scrollY - smoothScroll) * (1 - Math.exp(-dt * 6));
 
-    // Pointer: segments since the last frame cut the grid.
-    if (useDisp && segments.length) {
-      for (var s = 0; s < segments.length; s += 1) {
-        var seg = segments[s];
-        applySegment(seg[0], seg[1], seg[2], seg[3], seg[4], seg[5]);
-      }
-      segments.length = 0;
-    }
-    if (useDisp && gridActive) stepGrid(dt);
-    if (useDisp && gridDirty) encodeGrid();
+    // Cracks: the blade has left once no fast movement has come for a beat.
+    clock += dt;
+    if (live && clock - live.last > 0.12) release(live);
+    if (useDisp && (cracks.length || painted)) stepCracks();
     pointer.speed *= Math.exp(-dt * 4);
     pointer.stir += (Math.min(1, pointer.speed / 900) - pointer.stir) * (1 - Math.exp(-dt * 5));
     if (pointer.has) {
@@ -700,19 +781,19 @@
 
   // -------------------------------------------------------------- input
   function pointAt(x, y, now) {
-    // Events arrive further apart on a busy device; a gap up to 300 ms still
-    // counts as one stroke, with its speed measured over the real gap.
+    // Events arrive further apart on a busy device, and closer on a fast
+    // mouse; a gap up to 300 ms still counts as one stroke, with its speed
+    // measured over the real gap.
     if (pointer.has && now - pointer.t < 300 && pointer.x > -9000) {
-      var seconds = Math.max(0.008, (now - pointer.t) / 1000);
+      var seconds = Math.max(0.002, (now - pointer.t) / 1000);
       var moved = Math.sqrt((x - pointer.x) * (x - pointer.x) + (y - pointer.y) * (y - pointer.y));
       pointer.speed = Math.max(pointer.speed, moved / seconds);
-      segments.push([pointer.x, pointer.y, x, y, seconds, pointer.stroked]);
-      if (segments.length > 64) segments.shift();
-      // A stroke is a run of fast movement; slowing down starts a new one,
-      // so the zip of a later cut never waits on an old path.
-      pointer.stroked = moved / seconds > 250 ? pointer.stroked + moved : 0;
-    } else {
-      pointer.stroked = 0;
+      // Fast enough, it cuts; slowing down lifts the blade.
+      var v = moved / seconds / 1000;
+      if (useDisp && v >= CUT_SPEED && moved > 1) cut(pointer.x, pointer.y, x, y, Math.min(v, 5));
+      else if (live) release(live);
+    } else if (live) {
+      release(live);
     }
     pointer.x = x;
     pointer.y = y;
@@ -726,9 +807,6 @@
   }, { passive: true });
   window.addEventListener("pointerdown", function (event) {
     addRipple(event.clientX, event.clientY, event.pointerType === "touch" ? 0.8 : 1);
-    // ...and a small eddy, alternating in sense, that the air carries off.
-    spin = -spin;
-    swirl(event.clientX, event.clientY, spin * 1.4, 90);
   }, { passive: true });
   window.addEventListener("touchstart", function (event) {
     var touch = event.touches[0];
@@ -773,9 +851,6 @@
     var px = typeof x === "number" ? x : width * 0.5;
     var py = typeof y === "number" ? y : visible * 0.5;
     addRipple(px, py, 1.6);
-    // A page change also spins a broad vortex into the air from the link.
-    spin = -spin;
-    swirl(px, py, spin * 2.4, 240);
     if (!reduced) gust = Math.min(2.5, gust + 1.6);
   };
 

@@ -14,14 +14,15 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
   three depth layers, seeded past every edge, carried by slow currents (the
   curl of an evolving stream function whose coordinates are folded by a
   second wave field, so eddies stretch and wrap around each other) that
-  swell and ease. Near dots shift with the pointer and with scrolling. The
-  pointer drives a small incompressible fluid on a coarse grid (stable fluids
-  with vorticity confinement): strokes roll up into eddies that swirl the
-  dust, which glows with how far it has been swept and relaxes home without
-  overshoot. A fast stroke cuts the dust: the cut snaps open, holds, then
-  zips shut in the order it was made, its grains knitting back along the
-  seam. Clicks send a ring and a small eddy; page changes a ring and a broad
-  vortex from the clicked link.
+  swell and ease. Near dots shift with the pointer and with scrolling, and
+  the cursor presses the dust aside. A fast stroke cuts it like a blade
+  through a soft solid: a thin crack opens along the stroke with a
+  crack-tip (square-root) opening profile, the blade drags the grains along
+  and they spring back, and after a beat the crack closes from both tips
+  inward and leaves a hairline weld seam that fades. The cracks are painted
+  each frame into a fine grid texture (signed distance to the crack,
+  opening, seam, drag) that the vertex shader samples. Clicks and page
+  changes send a ring through the dust.
 - `site.js` — menu, page changes (internal links swap `<main>` in place so the
   background never restarts), pictures revealing as they scroll in, project
   pages, and the lightbox.
