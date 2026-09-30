@@ -4,36 +4,29 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
 
 ## Structure
 
-- `index.html` — one-page portfolio with sections 01–06
-- `drawings.html` — 15-figure drawings and miscellaneous studies register
-- `aerial.html` — 21-photograph aerial archive
-- `flow-field.js` — the background: a live engineering test section rendered
-  on a glyph grid. Particle mechanisms (fan stage, gear train, wing section,
-  exploded shaft, terrain survey, gyroscope, ground-station dish, and a
-  thrust chamber that ignites during the opening scroll) move like the real
-  hardware; a Navier–Stokes smoke solver runs on the same grid with the
-  mechanisms as moving boundaries; glyphs follow detected edges and fade
-  hidden lines through a per-cell depth buffer; a drafting layer adds
-  chain-line axes, live dimensions, leaders, balloons, a sweeping section
-  cut, and live engineering plots (Cp, chamber pressure, mesh stiffness,
-  beam pattern, terrain profile). The same file is both the page-side host
-  and the engine: the host measures the document and forwards scroll,
-  pointer and layout, while the engine renders inside a Web Worker on an
-  OffscreenCanvas, so the simulation never competes with scrolling for the
-  main thread. Browsers without OffscreenCanvas (or `file://` pages) run
-  the engine in the page instead; `?field=inline` forces that path
-- `main.js` — loading sequence, navigation, motion, filtering, overlays, and
-  lightboxes; also the scroll governor, which adds weight to forward
-  scrolling when a visitor gets ahead of the moment the field is showing
-- `project-data.js` — project case-file content and original media mapping
-- `styles.css` — site-wide black/white editorial design system; content
-  panels are drawn as drafting sheets (knockout paper, registration marks,
-  sheet tags) so they read as part of the same drawing as the field
-- `assets/` — original images and PDFs, with paths unchanged
+- `index.html` — the home page: one screen, no scroll. Name, photo, short
+  bio, the four categories and contact.
+- `projects.html` — the seven projects; `project.html?p=<key>` shows one
+  project (text at the top, pictures below), rendered from `project-data.js`.
+- `drawings.html`, `aerial.html`, `certifications.html` — the other
+  categories, same layout: a short intro, then the pictures.
+- `field.js` — the background. One WebGL point cloud on black: fine dust over
+  the whole screen and the K mark as a denser cloud that frays into it. The
+  pointer cuts through both: a coarse grid of spring-dampers holds a wake and
+  a cut (opening amplitude plus signed distance to the cut line), sampled by
+  every particle in the vertex shader, so a fast stroke splits the dots along
+  its path and the cut heals. Page changes scatter the K and let it re-form.
+- `site.js` — menu, page changes (internal links swap `<main>` in place so the
+  background never restarts), pictures revealing as they scroll in, project
+  pages, and the lightbox.
+- `site.css` — all styles. Type is Geist / Geist Mono, self-hosted in
+  `assets/fonts/` (SIL Open Font License, `assets/fonts/OFL.txt`).
+- `project-data.js` — project text, tags and image lists.
+- `assets/` — images, fonts and project PDFs.
 
 ## Run locally
 
-Serve the folder over HTTP (the field's worker needs an HTTP origin):
+Serve the folder over HTTP (page changes use `fetch`):
 
 ```bash
 python3 -m http.server 8080
@@ -43,9 +36,8 @@ Then open `http://localhost:8080`.
 
 ## Deploy to GitHub Pages
 
-The repository has no build step. Publish from the repository root and keep
-`.nojekyll`. All local paths are relative, so the site works on a custom domain
-or a GitHub project-page subpath.
+No build step and no external dependencies. Publish from the repository root
+and keep `.nojekyll`. All paths are relative.
 
-The motion layer loads GSAP, ScrollTrigger, and Lenis from pinned CDN versions. Native scrolling remains available if a CDN is unavailable.
-`prefers-reduced-motion` shows a single still frame of the field (no solver).
+`prefers-reduced-motion` slows the field almost to a stop and turns off the
+page transitions; without WebGL the page shows the K mark as a faint still.
