@@ -34,13 +34,16 @@
       no: "2.3",
       title: "TMR-L v2.0 — Cruise Test Platform",
       status: "In progress",
-      meta: ["Fusion 360", "Cruise configuration", "Future CFD · FEA testbed"],
-      line: "The TMR-L, remade from the ground up in Fusion 360. Built for steady cruise rather than agility, " +
-        "it is the test platform for the CFD and FEA simulations to come.",
+      meta: ["Fusion 360", "750 mm · Ø90 · 350 mm span", "Cruise configuration", "Future CFD · FEA testbed"],
+      line: "The TMR-L, remade from the ground up in Fusion 360: 750 mm long, a Ø90 body and a 350 mm span. " +
+        "Built for steady cruise rather than agility, it is the test platform for the CFD and FEA simulations to come.",
       images: [
         ["assets/projects/tmr-l/flight-desert.webp", "Flight render — low over the dry lake", 2000, 1500],
         ["assets/projects/tmr-l/cruise-side.webp", "Cruise configuration — wings and tail from below", 2000, 1500],
         ["assets/projects/tmr-l/aft-view.webp", "Aft view — exhaust and tail surfaces", 2000, 1500],
+        ["assets/projects/tmr-l/drawing.png", "Technical drawing — 750 mm long, Ø90 body, 350 mm span, Rev. 2", 1966, 1388],
+        ["assets/projects/tmr-l/fusion-model.webp", "Fusion 360 — the fins set as a circular pattern of four", 2000, 1301],
+        ["assets/projects/tmr-l/cad-model.webp", "CAD model — body sections and nose cone", 2000, 1166],
         ["assets/projects/tmr-l/close-up.webp", "Close-up — wing and tail arrangement", 2000, 1500],
         ["assets/projects/tmr-l/backlit-pass.webp", "Backlit pass over the salt flat", 2000, 1500]
       ]
