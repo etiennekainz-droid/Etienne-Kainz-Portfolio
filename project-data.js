@@ -5,12 +5,13 @@
     "scissor-lift": {
       cover: "assets/projects/scissor-lift/sl-06.jpg",
       tags: "Design · Analysis",
-      short: "350 kg machine-design assembly with FKM structural verification.",
+      short: "350 kg lifting table, 30+ self-designed parts, strength verified to FKM and Roloff/Matek.",
       no: "2.2",
-      title: "Scissor Lift Table",
+      title: "Screw Jack Lifting Table",
       status: "Complete",
-      meta: ["PTC Creo Parametric 12", "Machine design", "FKM verification"],
-      line: "350 kg machine-design assembly with catalogue integration, ISO fits, production drawings, and FKM structural verification.",
+      meta: ["PTC Creo 12", "30+ self-designed parts", "FKM · Roloff/Matek", "Feb – Jun 2026"],
+      line: "A 350 kg lifting table with more than 30 self-designed parts: a Tr 28×5 trapezoidal spindle to DIN 103, " +
+        "strength verification to the FKM guideline and Roloff/Matek, and assembly and detail drawings with ISO tolerances in PTC Creo 12.",
       images: [
         ["assets/projects/scissor-lift/sl-06.jpg", "Assembly — raised position", 1800, 1176],
         ["assets/projects/scissor-lift/sl-01.jpg", "Assembly — lowered position", 2000, 1262],
@@ -27,23 +28,21 @@
       ]
     },
     "aerospace-platform": {
-      cover: "assets/projects/aerospace/photo.jpg",
+      cover: "assets/projects/tmr-l/flight-desert.webp",
       tags: "Design",
-      short: "Compact flight concept exploring high-authority aerodynamic braking.",
+      short: "Cruise airframe rebuilt in Fusion 360 — the testbed for upcoming CFD and FEA studies.",
       no: "2.3",
-      title: "Small High-Agility Aerospace Platform",
+      title: "TMR-L v2.0 — Cruise Test Platform",
       status: "In progress",
-      meta: ["Fusion 360", "Concept design", "Aerodynamic braking"],
-      line: "A compact flight platform and testbed for a high-authority, control-surface-based braking concept.",
+      meta: ["Fusion 360", "Cruise configuration", "Future CFD · FEA testbed"],
+      line: "The TMR-L, remade from the ground up in Fusion 360. Built for steady cruise rather than agility, " +
+        "it is the test platform for the CFD and FEA simulations to come.",
       images: [
-        ["assets/projects/aerospace/photo.jpg", "TMR-L concept — flight render", 1023, 610],
-        ["assets/projects/aerospace/collage.jpg", "Render set — flight and CAD views", 1600, 1488],
-        ["assets/projects/aerospace/cad-01.jpg", "CAD model — working grid 01", 2000, 1084],
-        ["assets/projects/aerospace/cad-02.jpg", "CAD model — working grid 02", 1600, 896],
-        ["assets/projects/aerospace/cad-03.jpg", "CAD model — working grid 03", 1772, 1096],
-        ["assets/projects/aerospace/cad-04.jpg", "CAD model — aft configuration", 2000, 1412],
-        ["assets/projects/aerospace/render-front.jpg", "Forward fuselage — detail render", 1148, 1148],
-        ["assets/projects/aerospace/flight.jpg", "Flight render — powered phase", 1600, 1600]
+        ["assets/projects/tmr-l/flight-desert.webp", "Flight render — low over the dry lake", 2000, 1500],
+        ["assets/projects/tmr-l/cruise-side.webp", "Cruise configuration — wings and tail from below", 2000, 1500],
+        ["assets/projects/tmr-l/aft-view.webp", "Aft view — exhaust and tail surfaces", 2000, 1500],
+        ["assets/projects/tmr-l/close-up.webp", "Close-up — wing and tail arrangement", 2000, 1500],
+        ["assets/projects/tmr-l/backlit-pass.webp", "Backlit pass over the salt flat", 2000, 1500]
       ]
     },
     "vtol-study": {
