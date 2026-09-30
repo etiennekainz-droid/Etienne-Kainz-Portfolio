@@ -2,438 +2,67 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="Etienne Kainz — Mechanical Engineering at TU Wien. Design, CFD, structures, and aerospace concept work.">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="description" content="Etienne Kainz — French-Austrian Mechanical Engineering student at TU Wien. Projects, drawings, aerial photography and certifications.">
   <meta name="author" content="Etienne Kainz">
-  <meta property="og:title" content="Etienne Kainz — Mechanical Engineering">
-  <meta property="og:description" content="Design / CFD / Structures">
+  <meta property="og:title" content="Etienne Kainz — Engineering Portfolio">
+  <meta property="og:description" content="Etienne Kainz — French-Austrian Mechanical Engineering student at TU Wien. Projects, drawings, aerial photography and certifications.">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://etiennekainz.com/">
   <meta property="og:image" content="https://etiennekainz.com/assets/brand/k-logo.jpg">
-  <title>Etienne Kainz — Mechanical Engineering</title>
+  <title>Etienne Kainz — Engineering Portfolio</title>
   <link rel="icon" type="image/jpeg" href="assets/brand/k-logo.jpg">
-  <link rel="preload" as="image" href="assets/brand/k-mark.png?v=3" fetchpriority="high">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&amp;family=Space+Grotesk:wght@400;500;600&amp;display=swap" rel="stylesheet">
-  <script>
-    // Arriving through a site transition: keep the wipe closed through first
-    // paint so it continues from the previous page instead of cutting to white.
-    (function (d, w) {
-      try {
-        var raw = w.sessionStorage.getItem("ek:wipe");
-        if (!raw) return;
-        w.sessionStorage.removeItem("ek:wipe");
-        var s = JSON.parse(raw);
-        var here = w.location.pathname.replace(/index\.html$/, "");
-        if (!s || Date.now() - s.t > 8000 || s.to !== here) return;
-        if (w.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-        d.documentElement.className += " is-arriving";
-        d.documentElement.setAttribute("data-arrive-no", s.no);
-        d.documentElement.setAttribute("data-arrive-name", s.name);
-      } catch (e) {}
-    })(document, window);
-  </script>
-  <link rel="stylesheet" href="styles.css?v=23">
+  <link rel="preload" href="assets/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="site.css?v=1">
 </head>
-<body class="home-page is-loading">
+<body data-page="home">
   <a class="skip-link" href="#main">Skip to content</a>
+  <canvas id="field" class="field" data-mark="assets/brand/k-mark.png" aria-hidden="true"></canvas>
 
-  <canvas id="flowField" class="flow-field" aria-hidden="true"></canvas>
-  <div class="field-vignette" aria-hidden="true"></div>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="Etienne Kainz — home"><img src="assets/brand/k-mark.png" alt="" width="407" height="900"></a>
+    <span class="site-header__rule" aria-hidden="true"></span>
+    <button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="menu"><span class="menu-toggle__lines" aria-hidden="true"></span><span class="menu-toggle__label">Menu</span></button>
+  </header>
 
-  <div class="loader" id="loader" role="status" aria-live="polite">
-    <div class="loader__field" id="loaderField" aria-hidden="true"></div>
-    <div class="loader__top micro">
-      <span>EK / INITIAL CONDITIONS</span>
-      <span id="loaderCounter">000%</span>
-    </div>
-    <div class="loader__core">
-      <p class="loader__label micro">MESHING FLOW DOMAIN</p>
-      <div class="loader__mark" aria-label="Etienne Kainz">EK</div>
-      <div class="loader__track"><i id="loaderProgress"></i></div>
-      <p class="loader__status micro" id="loaderStatus">GENERATING MESH</p>
-    </div>
-    <div class="loader__bottom micro">
-      <span>NAVIER–STOKES / LIVE SOLVER</span>
-      <span>VIENNA · 48.2082°N</span>
-    </div>
-  </div>
-
-  <div class="page-wipe" aria-hidden="true">
-    <span class="page-wipe__no">00</span>
-    <span class="page-wipe__name micro">Index</span>
-    <i></i>
-  </div>
-  <script>
-    (function (r) {
-      if (!/\bis-arriving\b/.test(r.className)) return;
-      var wipe = document.currentScript.previousElementSibling;
-      wipe.querySelector(".page-wipe__no").textContent = r.getAttribute("data-arrive-no");
-      wipe.querySelector(".page-wipe__name").textContent = r.getAttribute("data-arrive-name");
-    })(document.documentElement);
-  </script>
-
-  <div class="cursor cursor--dot" aria-hidden="true"></div>
-  <div class="cursor cursor--ring" aria-hidden="true"><span>VIEW</span></div>
-
-  <button class="menu-toggle" id="menuToggle" type="button" aria-controls="menuOverlay" aria-expanded="false">
-    <span class="menu-toggle__glyph" aria-hidden="true"><i></i><i></i></span>
-    <span class="menu-toggle__label" data-scramble="MENU">MENU</span>
-  </button>
-
-  <aside class="section-rail" aria-label="Current section">
-    <span class="section-rail__current" id="railCurrent">00</span>
-    <i class="section-rail__line"><b id="railProgress"></b></i>
-    <span class="section-rail__name" id="railName">INDEX</span>
-  </aside>
-
-  <div class="menu-overlay" id="menuOverlay" aria-hidden="true">
-    <div class="menu-overlay__meta micro">
-      <span>ETIENNE KAINZ</span>
-      <span>MECHANICAL ENGINEERING / TU WIEN</span>
-    </div>
-    <nav class="menu-nav" aria-label="Primary">
-      <a href="#about" data-menu-link><span>01</span><b>About</b><i>Profile / Ethos</i></a>
-      <a href="#projects" data-menu-link><span>02</span><b>Projects</b><i>Design / Analysis / Simulation</i></a>
-      <a href="drawings.html" data-transition-link data-menu-link><span>03</span><b>Drawings + Misc.</b><i>15 figures</i></a>
-      <a href="aerial.html" data-transition-link data-menu-link><span>04</span><b>Aerial</b><i>21 photographs</i></a>
-      <a href="#certifications" data-menu-link><span>05</span><b>Certifications</b><i>4 credentials</i></a>
-      <a href="#contact" data-menu-link><span>06</span><b>Contact</b><i>Open channel</i></a>
+  <div class="menu" id="menu" aria-hidden="true">
+    <nav aria-label="Primary">
+      <a href="./"><span>00</span>Index</a>
+      <a href="projects.html"><span>01</span>Projects</a>
+      <a href="drawings.html"><span>02</span>Drawings + Misc</a>
+      <a href="aerial.html"><span>03</span>Aerial Photography</a>
+      <a href="certifications.html"><span>04</span>Certifications</a>
     </nav>
-    <div class="menu-overlay__footer micro">
-      <a href="mailto:pro.kainz@icloud.com">PRO.KAINZ@ICLOUD.COM</a>
-      <span>PORTFOLIO / REV. E / 2026</span>
-    </div>
+    <div class="menu__foot"><a href="mailto:pro.kainz@icloud.com">pro.kainz@icloud.com</a><span>Vienna, Austria</span></div>
   </div>
 
-  <main id="main">
-    <section class="hero scene" id="home" data-field="0" data-section="00" data-title="Index">
-      <div class="hero__stage">
-        <div class="hero__meta micro" data-reveal="clip">
-          <span data-scramble="ENGINEERING PORTFOLIO">ENGINEERING PORTFOLIO</span>
-          <span>FIG. 00 / GENERAL ARRANGEMENT</span>
-        </div>
-        <div class="hero__wordmark" aria-label="Etienne Kainz">
-          <h1 class="wordmark wordmark--fill split-chars">EtienneKainz</h1>
-          <div class="wordmark wordmark--trace" aria-hidden="true">EtienneKainz</div>
-        </div>
-        <div class="hero__klogo" aria-hidden="true">
-          <img src="assets/brand/k-mark.png?v=3" alt="" width="407" height="900">
-          <img src="assets/brand/k-dissolve-1.png?v=6" alt="" width="407" height="900">
-          <img src="assets/brand/k-dissolve-2.png?v=6" alt="" width="407" height="900">
-          <img src="assets/brand/k-dissolve-3.png?v=6" alt="" width="407" height="900">
-          <img src="assets/brand/k-dissolve-4.png?v=6" alt="" width="407" height="900">
-          <img src="assets/brand/k-dissolve-5.png?v=6" alt="" width="407" height="900">
-        </div>
-        <div class="hero__subline sheet" data-sheet="GENERAL NOTE" data-reveal="rise">
-          <p>Mechanical Engineering — TU Wien · Design / CFD / Structures</p>
-        </div>
-        <div class="hero__coordinates micro" data-reveal="clip">
-          <span>48.2082° N</span>
-          <span>16.3738° E</span>
-          <span>SCROLL TO IGNITE</span>
-        </div>
-        <div class="hero__overture micro" aria-hidden="true">
-          <span>T–0 / IGNITION SEQUENCE</span>
-          <i></i>
-          <span>SCROLL TO THROTTLE</span>
-        </div>
-        <div class="scroll-cue" aria-hidden="true"><span>SCROLL</span><i></i></div>
+  <main id="main" class="home" tabindex="-1">
+    <h1 class="home__title shine"><span>Etienne Kainz —</span> <span>Engineering Portfolio</span></h1>
+    <div class="home__intro">
+      <img class="home__photo" src="assets/headshot/etienne.jpg?v=2" width="1170" height="1202" alt="Etienne Kainz">
+      <div class="home__bio">
+        <p>French-Austrian Mechanical Engineering student at TU&nbsp;Wien.</p>
+        <p>Driven by curiosity.</p>
       </div>
-    </section>
-
-    <section class="section about scene" id="about" data-field="1" data-section="01" data-title="About">
-      <header class="section-heading">
-        <div class="section-heading__index">
-          <span class="section-number" data-count="1">00</span>
-          <span class="micro" data-scramble="SEC—01">SEC—01</span>
-        </div>
-        <h2 class="split-lines">About</h2>
-      </header>
-
-      <div class="about__lead">
-        <p class="statement knockout split-lines">Mechanical Engineering student at TU Wien. Design, structural verification, CFD, and aerospace concept work. Hands-on with PTC Creo, CATIA V5, Fusion 360, and Python.</p>
-      </div>
-
-      <div class="about__grid">
-        <figure class="headshot media-reveal" data-reveal="media">
-          <div class="image-shell"><img width="1170" height="1202" src="assets/headshot/etienne.jpg?v=2" alt="Etienne Kainz" loading="lazy"></div>
-          <figcaption class="micro"><span>FIG. 01-A</span><span>E. KAINZ / VIENNA</span></figcaption>
-        </figure>
-
-        <div class="ethos sheet">
-          <div class="ethos__label micro" data-reveal="clip"><span>ETHOS / SPECIFICATION</span><span>REV. E</span></div>
-          <dl class="spec-table">
-            <div data-reveal="line"><dt>Discipline</dt><dd>Mechanical Engineering — TU Wien, B.Sc.</dd></div>
-            <div data-reveal="line"><dt>Core subjects</dt><dd>Mechanics&nbsp;· Thermodynamics&nbsp;· Fluid Mechanics</dd></div>
-            <div data-reveal="line"><dt>Tools</dt><dd>PTC Creo&nbsp;· CATIA V5&nbsp;· Fusion 360&nbsp;· Python</dd></div>
-            <div data-reveal="line"><dt>Methods</dt><dd>FKM verification&nbsp;· ISO tolerancing&nbsp;· Trade studies</dd></div>
-            <div data-reveal="line"><dt>Domains</dt><dd>Machine design&nbsp;· Flight dynamics&nbsp;· Aerospace concepts</dd></div>
-          </dl>
-        </div>
-      </div>
-
-      <div class="ticker" aria-label="Capabilities">
-        <div class="ticker__track">
-          <span>MECHANICAL DESIGN</span><i>+</i><span>STRUCTURAL VERIFICATION</span><i>±</i><span>CFD</span><i>+</i><span>FLIGHT DYNAMICS</span><i>+</i>
-          <span aria-hidden="true">MECHANICAL DESIGN</span><i aria-hidden="true">+</i><span aria-hidden="true">STRUCTURAL VERIFICATION</span><i aria-hidden="true">±</i><span aria-hidden="true">CFD</span><i aria-hidden="true">+</i><span aria-hidden="true">FLIGHT DYNAMICS</span><i aria-hidden="true">+</i>
-        </div>
-      </div>
-    </section>
-
-    <section class="section projects scene" id="projects" data-field="2" data-section="02" data-title="Projects">
-      <header class="section-heading">
-        <div class="section-heading__index">
-          <span class="section-number" data-count="2">00</span>
-          <span class="micro" data-scramble="SEC—02">SEC—02</span>
-        </div>
-        <h2 class="split-lines">Projects</h2>
-      </header>
-
-      <div class="projects__intro">
-        <p class="statement knockout split-lines">Seven studies across design, analysis, and simulation — reduced to their essential engineering signal.</p>
-        <div class="filter-bar sheet" role="group" aria-label="Filter projects" data-reveal="clip">
-          <button type="button" class="active" data-filter="all" aria-pressed="true">All <span>07</span></button>
-          <button type="button" data-filter="design" aria-pressed="false">Design <span>05</span></button>
-          <button type="button" data-filter="analysis" aria-pressed="false">Analysis <span>05</span></button>
-          <button type="button" data-filter="simulation" aria-pressed="false">Simulation <span>03</span></button>
-        </div>
-      </div>
-
-      <div class="project-index sheet" data-sheet="PROJECT SCHEDULE / 07 ITEMS" id="projectIndex">
-        <article class="project-row" data-category="design analysis" data-preview="assets/projects/rod-end/cad-iso.jpg" data-reveal="line">
-          <button class="project-trigger" type="button" data-project-open="rod-end">
-            <span class="project-row__no">2.1</span>
-            <span class="project-row__title">Rod End M14 — Reverse Engineering</span>
-            <span class="project-row__desc">Series part measured, sketched by hand, and rebuilt in Fusion 360 with a derived drawing.</span>
-            <span class="project-row__tags">DESIGN · ANALYSIS</span>
-            <span class="project-row__arrow" aria-hidden="true">↗</span>
-          </button>
-        </article>
-        <article class="project-row" data-category="design analysis" data-preview="assets/projects/scissor-lift/sl-06.jpg" data-reveal="line">
-          <button class="project-trigger" type="button" data-project-open="scissor-lift">
-            <span class="project-row__no">2.2</span>
-            <span class="project-row__title">Scissor Lift Table</span>
-            <span class="project-row__desc">350 kg machine-design assembly with FKM structural verification.</span>
-            <span class="project-row__tags">DESIGN · ANALYSIS</span>
-            <span class="project-row__arrow" aria-hidden="true">↗</span>
-          </button>
-        </article>
-        <article class="project-row" data-category="design" data-preview="assets/projects/aerospace/photo.jpg" data-reveal="line">
-          <button class="project-trigger" type="button" data-project-open="aerospace-platform">
-            <span class="project-row__no">2.3</span>
-            <span class="project-row__title">High-Agility Aerospace Platform</span>
-            <span class="project-row__desc">Compact flight concept exploring high-authority aerodynamic braking.</span>
-            <span class="project-row__tags">DESIGN</span>
-            <span class="project-row__arrow" aria-hidden="true">↗</span>
-          </button>
-        </article>
-        <article class="project-row" data-category="analysis simulation" data-preview="assets/projects/vtol/uav-render.png" data-reveal="line">
-          <button class="project-trigger" type="button" data-project-open="vtol-study">
-            <span class="project-row__no">2.4</span>
-            <span class="project-row__title">VTOL Propulsion Trade Study</span>
-            <span class="project-row__desc">Quad-rotor and tilt-rotor architectures evaluated for a small ISR UAV.</span>
-            <span class="project-row__tags">ANALYSIS · SIMULATION</span>
-            <span class="project-row__arrow" aria-hidden="true">↗</span>
-          </button>
-        </article>
-        <article class="project-row" data-category="design simulation" data-preview="assets/projects/aim174b/aim-03.jpg" data-reveal="line">
-          <button class="project-trigger" type="button" data-project-open="aim174b">
-            <span class="project-row__no">2.5</span>
-            <span class="project-row__title">AIM-174B — CAD Reconstruction</span>
-            <span class="project-row__desc">Watertight airframe surface model, CFD mesh, and printed scale study.</span>
-            <span class="project-row__tags">DESIGN · SIMULATION</span>
-            <span class="project-row__arrow" aria-hidden="true">↗</span>
-          </button>
-        </article>
-        <article class="project-row" data-category="simulation analysis" data-preview="assets/projects/rocket-sim/results.png" data-reveal="line">
-          <button class="project-trigger" type="button" data-project-open="rocket-sim">
-            <span class="project-row__no">2.6</span>
-            <span class="project-row__title">Two-Stage Rocket Simulation</span>
-            <span class="project-row__desc">Python ascent model with drag, mass variation, staging, and q-gating.</span>
-            <span class="project-row__tags">SIMULATION · ANALYSIS</span>
-            <span class="project-row__arrow" aria-hidden="true">↗</span>
-          </button>
-        </article>
-        <article class="project-row" data-category="design analysis" data-preview="assets/projects/rocket-design/presentation.jpg" data-reveal="line">
-          <button class="project-trigger" type="button" data-project-open="rocket-design">
-            <span class="project-row__no">2.7</span>
-            <span class="project-row__title">Introduction to Rocket Design</span>
-            <span class="project-row__desc">Thrust chamber geometry, nozzle sizing, and turbopump fundamentals.</span>
-            <span class="project-row__tags">DESIGN · ANALYSIS</span>
-            <span class="project-row__arrow" aria-hidden="true">↗</span>
-          </button>
-        </article>
-      </div>
-      <figure class="project-preview" id="projectPreview" aria-hidden="true">
-        <img src="assets/projects/scissor-lift/sl-06.jpg" alt="">
-        <figcaption class="micro">OPEN CASE / 01—07</figcaption>
-      </figure>
-    </section>
-
-    <section class="section archive-teaser drawings-teaser scene" id="drawings" data-field="3" data-section="03" data-title="Drawings + Misc.">
-      <header class="section-heading">
-        <div class="section-heading__index">
-          <span class="section-number" data-count="3">00</span>
-          <span class="micro" data-scramble="SEC—03">SEC—03</span>
-        </div>
-        <h2 class="split-lines">Drawings + Misc.</h2>
-      </header>
-      <a class="teaser-card" href="drawings.html" data-transition-link data-cursor="open" data-reveal="media">
-        <div class="teaser-card__image">
-          <img width="1280" height="919" src="assets/drawings/dwg-01.jpg" alt="Spindle technical drawing" loading="lazy">
-        </div>
-        <div class="teaser-card__top micro"><span>DETAIL / ASSEMBLY / CONCEPT</span><span>15 FIGURES</span></div>
-        <div class="teaser-card__title"><span>Enter drawings + misc.</span><i>↗</i></div>
-        <div class="teaser-card__index" aria-hidden="true">03</div>
-      </a>
-    </section>
-
-    <section class="section archive-teaser aerial-teaser scene" id="aerial" data-field="4" data-section="04" data-title="Aerial">
-      <header class="section-heading">
-        <div class="section-heading__index">
-          <span class="section-number" data-count="4">00</span>
-          <span class="micro" data-scramble="SEC—04">SEC—04</span>
-        </div>
-        <h2 class="split-lines">Aerial</h2>
-      </header>
-      <a class="teaser-card teaser-card--reverse" href="aerial.html" data-transition-link data-cursor="open" data-reveal="media">
-        <div class="teaser-card__image">
-          <img width="1152" height="1152" src="assets/aerial/aerial-01.jpg" alt="Aerial landscape photograph" loading="lazy">
-        </div>
-        <div class="teaser-card__top micro"><span>FIELD / TRAVEL RECORD</span><span>21 PHOTOGRAPHS</span></div>
-        <div class="teaser-card__title"><span>Open aerial archive</span><i>↗</i></div>
-        <div class="teaser-card__index" aria-hidden="true">04</div>
-      </a>
-    </section>
-
-    <section class="section certifications scene" id="certifications" data-field="5" data-section="05" data-title="Certifications">
-      <header class="section-heading">
-        <div class="section-heading__index">
-          <span class="section-number" data-count="5">00</span>
-          <span class="micro" data-scramble="SEC—05">SEC—05</span>
-        </div>
-        <h2 class="split-lines">Certifications</h2>
-      </header>
-      <div class="credential-list sheet" data-sheet="CERTIFICATE REGISTER / 04">
-        <article class="credential" data-reveal="line">
-          <button type="button" data-lightbox-group="cert-quantum">
-            <span class="credential__no">5.1</span>
-            <span class="credential__issuer">CU Boulder · Coursera</span>
-            <strong>Quantum Mechanics for Engineers — Specialization</strong>
-            <span class="credential__date">2026</span>
-            <i aria-hidden="true">+</i>
-          </button>
-          <div class="credential__media" aria-hidden="true">
-            <img width="1000" height="202" src="assets/certs/cu-boulder.png" alt="">
-            <img width="600" height="600" src="assets/certs/fig-quantum.png" alt="">
-          </div>
-        </article>
-        <article class="credential" data-reveal="line">
-          <button type="button" data-lightbox-group="cert-solidworks">
-            <span class="credential__no">5.2</span>
-            <span class="credential__issuer">Dassault Systèmes</span>
-            <strong>SOLIDWORKS Foundations: Sketching and Extrusion</strong>
-            <span class="credential__date">AUG 2025</span>
-            <i aria-hidden="true">+</i>
-          </button>
-          <div class="credential__media" aria-hidden="true">
-            <img width="1920" height="1080" src="assets/certs/fig-solidworks.png" alt="">
-            <img width="1024" height="288" class="credential__logo" src="assets/certs/solidworks.png" alt="">
-          </div>
-        </article>
-        <article class="credential" data-reveal="line">
-          <button type="button" data-lightbox-group="cert-math">
-            <span class="credential__no">5.3</span>
-            <span class="credential__issuer">HKUST</span>
-            <strong>Mathematics for Engineers</strong>
-            <span class="credential__date">JUN 2025</span>
-            <i aria-hidden="true">+</i>
-          </button>
-          <div class="credential__media" aria-hidden="true">
-            <img width="640" height="360" src="assets/certs/hkust.jpg" alt="">
-            <img width="1024" height="843" src="assets/certs/fig-math.jpg" alt="">
-          </div>
-        </article>
-        <article class="credential" data-reveal="line">
-          <button type="button" data-lightbox-group="cert-oilgas">
-            <span class="credential__no">5.4</span>
-            <span class="credential__issuer">Duke · Nicholas School</span>
-            <strong>Oil &amp; Gas Industry Operations and Markets</strong>
-            <span class="credential__date">MAR 2025</span>
-            <i aria-hidden="true">+</i>
-          </button>
-          <div class="credential__media" aria-hidden="true">
-            <img width="1189" height="670" src="assets/certs/duke.jpg" alt="">
-            <img width="2000" height="1339" src="assets/certs/fig-oilgas.jpg" alt="">
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <section class="section contact scene" id="contact" data-field="6" data-section="06" data-title="Contact">
-      <header class="section-heading">
-        <div class="section-heading__index">
-          <span class="section-number" data-count="6">00</span>
-          <span class="micro" data-scramble="SEC—06">SEC—06</span>
-        </div>
-        <h2 class="split-lines">Contact</h2>
-      </header>
-      <p class="contact__prompt micro" data-scramble="OPEN CHANNEL / VIENNA">OPEN CHANNEL / VIENNA</p>
-      <a class="contact__mail knockout split-lines" href="mailto:pro.kainz@icloud.com" data-cursor="open">pro.kainz@icloud.com</a>
-
-      <dl class="document-meta sheet" data-sheet="TITLE BLOCK">
-        <div data-reveal="line"><dt>Name</dt><dd>Etienne Kainz</dd></div>
-        <div data-reveal="line"><dt>Affiliation</dt><dd>TU Wien — Mechanical Engineering</dd></div>
-        <div data-reveal="line"><dt>Document</dt><dd>Portfolio&nbsp;· Rev. E</dd></div>
-      </dl>
-    </section>
+    </div>
+    <nav class="home__nav" aria-label="Portfolio">
+      <a href="projects.html"><span>Projects</span><i>07</i></a>
+      <a href="drawings.html"><span>Drawings + Misc</span><i>15</i></a>
+      <a href="aerial.html"><span>Aerial Photography</span><i>21</i></a>
+      <a href="certifications.html"><span>Certifications</span><i>04</i></a>
+    </nav>
+    <p class="home__contact"><span class="label">Contact</span><a href="mailto:pro.kainz@icloud.com">pro.kainz@icloud.com</a></p>
   </main>
 
-  <footer class="site-footer">
-    <div class="site-footer__grid">
-      <div>
-        <span class="micro">SECTIONS</span>
-        <a href="#about">01 / About</a>
-        <a href="#projects">02 / Projects</a>
-        <a href="#contact">06 / Contact</a>
-      </div>
-      <div>
-        <span class="micro">ARCHIVES</span>
-        <a href="drawings.html" data-transition-link>03 / Drawings + Misc.</a>
-        <a href="aerial.html" data-transition-link>04 / Aerial</a>
-        <a href="#certifications">05 / Certifications</a>
-      </div>
-      <div>
-        <span class="micro">CONNECT</span>
-        <a href="mailto:pro.kainz@icloud.com">Email ↗</a>
-        <span>Vienna, Austria</span>
-        <span>© Etienne Kainz 2026</span>
-      </div>
-    </div>
-    <div class="site-footer__wordmark" aria-hidden="true">EK<span>2026</span></div>
-  </footer>
-
-  <div class="project-overlay" id="projectOverlay" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="projectOverlayTitle" data-lenis-prevent>
-    <button class="overlay-close" type="button" id="projectOverlayClose"><span>CLOSE</span><i aria-hidden="true"></i></button>
-    <div class="project-overlay__counter micro"><span id="projectOverlayNo">2.1</span><span>PROJECT FILE</span></div>
-    <div class="project-overlay__content" id="projectOverlayContent"></div>
+  <div class="lightbox" id="lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Image viewer">
+    <button class="lightbox__close" type="button" data-lightbox-close>Close</button>
+    <button class="lightbox__nav lightbox__nav--prev" type="button" data-lightbox-prev aria-label="Previous image">←</button>
+    <figure><img src="data:," alt=""><figcaption class="label"><span data-lightbox-caption></span><span data-lightbox-count></span></figcaption></figure>
+    <button class="lightbox__nav lightbox__nav--next" type="button" data-lightbox-next aria-label="Next image">→</button>
   </div>
 
-  <div class="lightbox" id="lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Image viewer" data-lenis-prevent>
-    <button class="lightbox__close" type="button" id="lightboxClose" aria-label="Close image viewer">CLOSE</button>
-    <button class="lightbox__nav lightbox__nav--prev" type="button" id="lightboxPrev" aria-label="Previous image">←</button>
-    <figure><img id="lightboxImage" src="" alt=""><figcaption id="lightboxCaption"></figcaption></figure>
-    <button class="lightbox__nav lightbox__nav--next" type="button" id="lightboxNext" aria-label="Next image">→</button>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
-  <script src="project-data.js?v=8"></script>
-  <script src="flow-field.js?v=6"></script>
-  <script src="main.js?v=23"></script>
+  <script src="project-data.js?v=9"></script>
+  <script src="field.js?v=1"></script>
+  <script src="site.js?v=1"></script>
 </body>
 </html>

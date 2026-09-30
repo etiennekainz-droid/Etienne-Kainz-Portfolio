@@ -2,180 +2,79 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="Technical drawings, engineering concepts, and miscellaneous studies by Etienne Kainz.">
-  <title>Drawings + Misc. — Etienne Kainz</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="description" content="Detail and assembly drawings, manufacturing concepts and hand sketches by Etienne Kainz.">
+  <meta name="author" content="Etienne Kainz">
+  <meta property="og:title" content="Drawings + Misc — Etienne Kainz">
+  <meta property="og:description" content="Detail and assembly drawings, manufacturing concepts and hand sketches by Etienne Kainz.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://etiennekainz.com/assets/brand/k-logo.jpg">
+  <title>Drawings + Misc — Etienne Kainz</title>
   <link rel="icon" type="image/jpeg" href="assets/brand/k-logo.jpg">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&amp;family=Space+Grotesk:wght@400;500;600&amp;display=swap" rel="stylesheet">
-  <script>
-    // Arriving through a site transition: keep the wipe closed through first
-    // paint so it continues from the previous page instead of cutting to white.
-    (function (d, w) {
-      try {
-        var raw = w.sessionStorage.getItem("ek:wipe");
-        if (!raw) return;
-        w.sessionStorage.removeItem("ek:wipe");
-        var s = JSON.parse(raw);
-        var here = w.location.pathname.replace(/index\.html$/, "");
-        if (!s || Date.now() - s.t > 8000 || s.to !== here) return;
-        if (w.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-        d.documentElement.className += " is-arriving";
-        d.documentElement.setAttribute("data-arrive-no", s.no);
-        d.documentElement.setAttribute("data-arrive-name", s.name);
-      } catch (e) {}
-    })(document, window);
-  </script>
-  <link rel="stylesheet" href="styles.css?v=23">
+  <link rel="preload" href="assets/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="site.css?v=1">
 </head>
-<body class="gallery-page drawings-page">
-  <a class="skip-link" href="#galleryMain">Skip to content</a>
-  <canvas id="flowField" class="flow-field" aria-hidden="true"></canvas>
-  <div class="field-vignette" aria-hidden="true"></div>
-  <div class="page-wipe" aria-hidden="true">
-    <span class="page-wipe__no">03</span>
-    <span class="page-wipe__name micro">Drawings + Misc.</span>
-    <i></i>
-  </div>
-  <script>
-    (function (r) {
-      if (!/\bis-arriving\b/.test(r.className)) return;
-      var wipe = document.currentScript.previousElementSibling;
-      wipe.querySelector(".page-wipe__no").textContent = r.getAttribute("data-arrive-no");
-      wipe.querySelector(".page-wipe__name").textContent = r.getAttribute("data-arrive-name");
-    })(document.documentElement);
-  </script>
-  <div class="cursor cursor--dot" aria-hidden="true"></div>
-  <div class="cursor cursor--ring" aria-hidden="true"><span>VIEW</span></div>
+<body data-page="drawings">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <canvas id="field" class="field" data-mark="assets/brand/k-mark.png" aria-hidden="true"></canvas>
 
-  <button class="menu-toggle" id="menuToggle" type="button" aria-controls="menuOverlay" aria-expanded="false">
-    <span class="menu-toggle__glyph" aria-hidden="true"><i></i><i></i></span>
-    <span class="menu-toggle__label" data-scramble="MENU">MENU</span>
-  </button>
-  <aside class="section-rail" aria-label="Current section">
-    <span class="section-rail__current" id="railCurrent">03</span>
-    <i class="section-rail__line"><b id="railProgress"></b></i>
-    <span class="section-rail__name" id="railName">DRAWINGS + MISC.</span>
-  </aside>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="Etienne Kainz — home"><img src="assets/brand/k-mark.png" alt="" width="407" height="900"></a>
+    <span class="site-header__rule" aria-hidden="true"></span>
+    <button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="menu"><span class="menu-toggle__lines" aria-hidden="true"></span><span class="menu-toggle__label">Menu</span></button>
+  </header>
 
-  <div class="menu-overlay" id="menuOverlay" aria-hidden="true">
-    <div class="menu-overlay__meta micro"><span>ETIENNE KAINZ</span><span>MECHANICAL ENGINEERING / TU WIEN</span></div>
-    <nav class="menu-nav" aria-label="Primary">
-      <a href="index.html#about" data-transition-link data-menu-link><span>01</span><b>About</b><i>Profile / Ethos</i></a>
-      <a href="index.html#projects" data-transition-link data-menu-link><span>02</span><b>Projects</b><i>Design / Analysis / Simulation</i></a>
-      <a href="drawings.html" data-transition-link data-menu-link aria-current="page"><span>03</span><b>Drawings + Misc.</b><i>15 figures</i></a>
-      <a href="aerial.html" data-transition-link data-menu-link><span>04</span><b>Aerial</b><i>21 photographs</i></a>
-      <a href="index.html#certifications" data-transition-link data-menu-link><span>05</span><b>Certifications</b><i>4 credentials</i></a>
-      <a href="index.html#contact" data-transition-link data-menu-link><span>06</span><b>Contact</b><i>Open channel</i></a>
+  <div class="menu" id="menu" aria-hidden="true">
+    <nav aria-label="Primary">
+      <a href="./"><span>00</span>Index</a>
+      <a href="projects.html"><span>01</span>Projects</a>
+      <a href="drawings.html"><span>02</span>Drawings + Misc</a>
+      <a href="aerial.html"><span>03</span>Aerial Photography</a>
+      <a href="certifications.html"><span>04</span>Certifications</a>
     </nav>
-    <div class="menu-overlay__footer micro"><a href="mailto:pro.kainz@icloud.com">PRO.KAINZ@ICLOUD.COM</a><span>PORTFOLIO / REV. E / 2026</span></div>
+    <div class="menu__foot"><a href="mailto:pro.kainz@icloud.com">pro.kainz@icloud.com</a><span>Vienna, Austria</span></div>
   </div>
 
-  <main class="gallery-main" id="galleryMain">
-    <section class="gallery-hero scene" data-field="3" data-section="03" data-title="Drawings + Misc.">
-      <div class="gallery-hero__top micro" data-reveal="clip">
-        <span data-scramble="REGISTER / 15 FIGURES">REGISTER / 15 FIGURES</span>
-        <span>DETAIL · ASSEMBLY · CONCEPT</span>
-      </div>
-      <h1 class="split-chars">Drawings + Misc.</h1>
-      <div class="gallery-hero__bottom sheet" data-reveal="rise">
-        <p>Detail and assembly drawings, manufacturing concepts, and hand-worked engineering sketches.</p>
-        <span class="micro">FIG. 03 / TECHNICAL REGISTER</span>
-      </div>
-    </section>
-
-    <section class="gallery-register" aria-labelledby="drawingRegister">
-      <header class="gallery-register__head micro" data-reveal="clip">
-        <h2 id="drawingRegister">DRAWINGS + MISC.</h2>
-        <span>15 / 15</span>
-      </header>
-      <div class="drawing-grid">
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="Spindle — detail drawing, CAD" data-reveal="media">
-          <div class="gallery-card__media"><img width="1280" height="919" src="assets/drawings/dwg-01.jpg" alt="Spindle — detail drawing, CAD" loading="eager" decoding="async"></div>
-          <figcaption><span>FIG. 03.01</span><span>SPINDLE — DETAIL DRAWING</span></figcaption>
-        </figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="Shaft — hand-drafted detail drawing, TU Wien" data-reveal="media">
-          <div class="gallery-card__media"><img width="1280" height="719" src="assets/drawings/dwg-02.jpg" alt="Shaft — hand-drafted detail drawing, TU Wien" loading="eager" decoding="async"></div>
-          <figcaption><span>FIG. 03.02</span><span>SHAFT — HAND DRAWING</span></figcaption>
-        </figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="Bolted joint — hand-drafted study with parts list" data-reveal="media">
-          <div class="gallery-card__media"><img width="1280" height="719" src="assets/drawings/dwg-03.jpg" alt="Bolted joint — hand-drafted study with parts list" loading="lazy" decoding="async"></div>
-          <figcaption><span>FIG. 03.03</span><span>BOLTED JOINT — HAND DRAWING</span></figcaption>
-        </figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="Flange — hand-drafted detail drawing" data-reveal="media">
-          <div class="gallery-card__media"><img width="1280" height="719" src="assets/drawings/dwg-04.jpg" alt="Flange — hand-drafted detail drawing" loading="lazy" decoding="async"></div>
-          <figcaption><span>FIG. 03.04</span><span>FLANGE — HAND DRAWING</span></figcaption>
-        </figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="Kainz Technologies TMR-L — dimensioned drawing" data-reveal="media">
-          <div class="gallery-card__media"><img width="1280" height="916" src="assets/drawings/dwg-05.png" alt="Kainz Technologies TMR-L — dimensioned drawing" loading="lazy" decoding="async"></div>
-          <figcaption><span>FIG. 03.05</span><span>TMR-L — DIMENSIONED DRAWING</span></figcaption>
-        </figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="Shaft — digital concept sketch with tolerances" data-reveal="media">
-          <div class="gallery-card__media"><img width="659" height="370" src="assets/drawings/dwg-06.png" alt="Shaft — digital concept sketch with tolerances" loading="lazy" decoding="async"></div>
-          <figcaption><span>FIG. 03.06</span><span>SHAFT — DIGITAL SKETCH</span></figcaption>
-        </figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="Casting study — CAD model and mold sketches" data-reveal="media">
-          <div class="gallery-card__media"><img width="1280" height="1280" src="assets/drawings/dwg-07.jpg" alt="Casting study — CAD model and mold sketches" loading="lazy" decoding="async"></div>
-          <figcaption><span>FIG. 03.07</span><span>CASTING STUDY</span></figcaption>
-        </figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="Funnel — CAD model, section planes" data-reveal="media">
-          <div class="gallery-card__media"><img width="1280" height="719" src="assets/drawings/dwg-08.png" alt="Funnel — CAD model, section planes" loading="lazy" decoding="async"></div>
-          <figcaption><span>FIG. 03.08</span><span>FUNNEL — CAD MODEL</span></figcaption>
-        </figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="BLDC stator — hardware study" data-reveal="media">
-          <div class="gallery-card__media"><img width="1259" height="1259" src="assets/drawings/dwg-09.jpg" alt="BLDC stator — hardware study" loading="lazy" decoding="async"></div>
-          <figcaption><span>FIG. 03.09</span><span>STATOR — HARDWARE STUDY</span></figcaption>
-        </figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="Kainz Technologies TMR-L — concept render" data-reveal="media">
-          <div class="gallery-card__media"><img width="1600" height="1145" src="assets/drawings/dwg-10.jpg" alt="Kainz Technologies TMR-L — concept render" loading="lazy" decoding="async"></div>
-          <figcaption><span>FIG. 03.10</span><span>TMR-L — CONCEPT RENDER</span></figcaption>
-        </figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="Casting concept — hand sketch" data-reveal="media">
-          <div class="gallery-card__media"><img width="2000" height="1125" src="assets/drawings/dwg-11.jpg" alt="Casting concept — hand sketch" loading="lazy" decoding="async"></div>
-          <figcaption><span>FIG. 03.11</span><span>CASTING — HAND SKETCH</span></figcaption>
-        </figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="Manufacturing and physics concept — hand sketch" data-reveal="media">
-          <div class="gallery-card__media"><img width="2000" height="1116" src="assets/drawings/dwg-12.jpg" alt="Manufacturing and physics concept — hand sketch" loading="lazy" decoding="async"></div>
-          <figcaption><span>FIG. 03.12</span><span>MANUFACTURING CONCEPT</span></figcaption>
-        </figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="Manufacturing processes — hand-drawn mind map" data-reveal="media">
-          <div class="gallery-card__media"><img width="2600" height="1950" src="assets/drawings/dwg-13.jpg" alt="Manufacturing processes — hand-drawn mind map" loading="lazy" decoding="async"></div>
-          <figcaption><span>FIG. 03.13</span><span>MANUFACTURING — MIND MAP</span></figcaption>
-        </figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="Sand casting — pattern, core box, and mould sections by hand" data-reveal="media">
-          <div class="gallery-card__media"><img width="1191" height="1684" src="assets/drawings/dwg-14.jpg" alt="Sand casting — pattern, core box, and mould sections by hand" loading="lazy" decoding="async"></div>
-          <figcaption><span>FIG. 03.14</span><span>SAND CASTING — MOULD STUDIES</span></figcaption>
-        </figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="drawings" data-caption="Rod end M14 — dimensioned hand drawing with partial section" data-reveal="media">
-          <div class="gallery-card__media"><img width="2089" height="1170" src="assets/drawings/dwg-15.jpg" alt="Rod end M14 — dimensioned hand drawing with partial section" loading="lazy" decoding="async"></div>
-          <figcaption><span>FIG. 03.15</span><span>ROD END M14 — HAND DRAWING</span></figcaption>
-        </figure>
-      </div>
-    </section>
+  <main id="main" class="page" tabindex="-1">
+    <header class="page-head">
+      <div class="page-head__meta label"><span>02</span><span>15 figures</span></div>
+      <h1 class="shine">Drawings + Misc</h1>
+      <p>Detail and assembly drawings, manufacturing concepts and hand-worked sketches — by hand and in CAD.</p>
+    </header>
+    <div class="gallery gallery--drawings">
+        <figure class="item" data-reveal data-lightbox data-caption="Spindle — detail drawing, CAD"><div class="item__media"><img src="assets/drawings/dwg-01.jpg" width="1280" height="919" alt="Spindle — detail drawing, CAD" loading="eager" decoding="async"></div><figcaption class="label"><span>01</span><span>Spindle — detail drawing, CAD</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Shaft — hand-drafted detail drawing, TU Wien"><div class="item__media"><img src="assets/drawings/dwg-02.jpg" width="1280" height="719" alt="Shaft — hand-drafted detail drawing, TU Wien" loading="eager" decoding="async"></div><figcaption class="label"><span>02</span><span>Shaft — hand-drafted detail drawing, TU Wien</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Bolted joint — hand-drafted study with parts list"><div class="item__media"><img src="assets/drawings/dwg-03.jpg" width="1280" height="719" alt="Bolted joint — hand-drafted study with parts list" loading="lazy" decoding="async"></div><figcaption class="label"><span>03</span><span>Bolted joint — hand-drafted study with parts list</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Flange — hand-drafted detail drawing"><div class="item__media"><img src="assets/drawings/dwg-04.jpg" width="1280" height="719" alt="Flange — hand-drafted detail drawing" loading="lazy" decoding="async"></div><figcaption class="label"><span>04</span><span>Flange — hand-drafted detail drawing</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Kainz Technologies TMR-L — dimensioned drawing"><div class="item__media"><img src="assets/drawings/dwg-05.png" width="1280" height="916" alt="Kainz Technologies TMR-L — dimensioned drawing" loading="lazy" decoding="async"></div><figcaption class="label"><span>05</span><span>Kainz Technologies TMR-L — dimensioned drawing</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Shaft — digital concept sketch with tolerances"><div class="item__media"><img src="assets/drawings/dwg-06.png" width="659" height="370" alt="Shaft — digital concept sketch with tolerances" loading="lazy" decoding="async"></div><figcaption class="label"><span>06</span><span>Shaft — digital concept sketch with tolerances</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Casting study — CAD model and mold sketches"><div class="item__media"><img src="assets/drawings/dwg-07.jpg" width="1280" height="1280" alt="Casting study — CAD model and mold sketches" loading="lazy" decoding="async"></div><figcaption class="label"><span>07</span><span>Casting study — CAD model and mold sketches</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Funnel — CAD model, section planes"><div class="item__media"><img src="assets/drawings/dwg-08.png" width="1280" height="719" alt="Funnel — CAD model, section planes" loading="lazy" decoding="async"></div><figcaption class="label"><span>08</span><span>Funnel — CAD model, section planes</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="BLDC stator — hardware study"><div class="item__media"><img src="assets/drawings/dwg-09.jpg" width="1259" height="1259" alt="BLDC stator — hardware study" loading="lazy" decoding="async"></div><figcaption class="label"><span>09</span><span>BLDC stator — hardware study</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Kainz Technologies TMR-L — concept render"><div class="item__media"><img src="assets/drawings/dwg-10.jpg" width="1600" height="1145" alt="Kainz Technologies TMR-L — concept render" loading="lazy" decoding="async"></div><figcaption class="label"><span>10</span><span>Kainz Technologies TMR-L — concept render</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Casting concept — hand sketch"><div class="item__media"><img src="assets/drawings/dwg-11.jpg" width="2000" height="1125" alt="Casting concept — hand sketch" loading="lazy" decoding="async"></div><figcaption class="label"><span>11</span><span>Casting concept — hand sketch</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Manufacturing and physics concept — hand sketch"><div class="item__media"><img src="assets/drawings/dwg-12.jpg" width="2000" height="1116" alt="Manufacturing and physics concept — hand sketch" loading="lazy" decoding="async"></div><figcaption class="label"><span>12</span><span>Manufacturing and physics concept — hand sketch</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Manufacturing processes — hand-drawn mind map"><div class="item__media"><img src="assets/drawings/dwg-13.jpg" width="2600" height="1950" alt="Manufacturing processes — hand-drawn mind map" loading="lazy" decoding="async"></div><figcaption class="label"><span>13</span><span>Manufacturing processes — hand-drawn mind map</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Sand casting — pattern, core box, and mould sections by hand"><div class="item__media"><img src="assets/drawings/dwg-14.jpg" width="1191" height="1684" alt="Sand casting — pattern, core box, and mould sections by hand" loading="lazy" decoding="async"></div><figcaption class="label"><span>14</span><span>Sand casting — pattern, core box, and mould sections by hand</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Rod end M14 — dimensioned hand drawing with partial section"><div class="item__media"><img src="assets/drawings/dwg-15.jpg" width="2089" height="1170" alt="Rod end M14 — dimensioned hand drawing with partial section" loading="lazy" decoding="async"></div><figcaption class="label"><span>15</span><span>Rod end M14 — dimensioned hand drawing with partial section</span></figcaption></figure>
+    </div>
+      <nav class="page-end" aria-label="More">
+        <a href="projects.html"><span class="label">Previous</span><span class="page-end__title">Projects</span></a>
+        <a class="page-end__next" href="aerial.html"><span class="label">Next</span><span class="page-end__title">Aerial Photography</span></a>
+      </nav>
+      <footer class="site-foot label"><a href="mailto:pro.kainz@icloud.com">pro.kainz@icloud.com</a><span>© Etienne Kainz 2026</span></footer>
   </main>
 
-  <footer class="site-footer">
-    <div class="site-footer__grid">
-      <div><span class="micro">RETURN</span><a href="index.html" data-transition-link>00 / Index</a><a href="index.html#projects" data-transition-link>02 / Projects</a></div>
-      <div><span class="micro">NEXT ARCHIVE</span><a href="aerial.html" data-transition-link>04 / Aerial photography</a><span>21 photographs</span></div>
-      <div><span class="micro">CONNECT</span><a href="mailto:pro.kainz@icloud.com">Email ↗</a><span>© Etienne Kainz 2026</span></div>
-    </div>
-    <div class="site-footer__wordmark" aria-hidden="true">03<span>DRAWINGS + MISC.</span></div>
-  </footer>
-
-  <div class="lightbox" id="lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Image viewer" data-lenis-prevent>
-    <button class="lightbox__close" type="button" id="lightboxClose" aria-label="Close image viewer">CLOSE</button>
-    <button class="lightbox__nav lightbox__nav--prev" type="button" id="lightboxPrev" aria-label="Previous image">←</button>
-    <figure><img id="lightboxImage" src="" alt=""><figcaption id="lightboxCaption"></figcaption></figure>
-    <button class="lightbox__nav lightbox__nav--next" type="button" id="lightboxNext" aria-label="Next image">→</button>
+  <div class="lightbox" id="lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Image viewer">
+    <button class="lightbox__close" type="button" data-lightbox-close>Close</button>
+    <button class="lightbox__nav lightbox__nav--prev" type="button" data-lightbox-prev aria-label="Previous image">←</button>
+    <figure><img src="data:," alt=""><figcaption class="label"><span data-lightbox-caption></span><span data-lightbox-count></span></figcaption></figure>
+    <button class="lightbox__nav lightbox__nav--next" type="button" data-lightbox-next aria-label="Next image">→</button>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
-  <script src="flow-field.js?v=6"></script>
-  <script src="main.js?v=23"></script>
+  <script src="project-data.js?v=9"></script>
+  <script src="field.js?v=1"></script>
+  <script src="site.js?v=1"></script>
 </body>
 </html>

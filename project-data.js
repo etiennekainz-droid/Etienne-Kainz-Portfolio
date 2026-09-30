@@ -3,6 +3,9 @@
 
   window.PORTFOLIO_PROJECTS = {
     "scissor-lift": {
+      cover: "assets/projects/scissor-lift/sl-06.jpg",
+      tags: "Design · Analysis",
+      short: "350 kg machine-design assembly with FKM structural verification.",
       no: "2.2",
       title: "Scissor Lift Table",
       status: "Complete",
@@ -24,6 +27,9 @@
       ]
     },
     "aerospace-platform": {
+      cover: "assets/projects/aerospace/photo.jpg",
+      tags: "Design",
+      short: "Compact flight concept exploring high-authority aerodynamic braking.",
       no: "2.3",
       title: "Small High-Agility Aerospace Platform",
       status: "In progress",
@@ -41,6 +47,9 @@
       ]
     },
     "vtol-study": {
+      cover: "assets/projects/vtol/uav-render.png",
+      tags: "Analysis · Simulation",
+      short: "Quad-rotor and tilt-rotor architectures evaluated for a small ISR UAV.",
       no: "2.4",
       title: "Propulsion Architecture Trade Study — Small VTOL ISR UAV",
       status: "Complete",
@@ -60,6 +69,9 @@
       ]
     },
     "aim174b": {
+      cover: "assets/projects/aim174b/aim-03.jpg",
+      tags: "Design · Simulation",
+      short: "Watertight airframe surface model, CFD mesh, and printed scale study.",
       no: "2.5",
       title: "AIM-174B Missile — CAD",
       status: "Complete",
@@ -79,6 +91,9 @@
       ]
     },
     "rocket-sim": {
+      cover: "assets/projects/rocket-sim/results.png",
+      tags: "Simulation · Analysis",
+      short: "Python ascent model with drag, mass variation, staging, and q-gating.",
       no: "2.6",
       title: "Two-Stage Rocket Simulation",
       status: "Complete",
@@ -94,6 +109,9 @@
       ]
     },
     "rocket-design": {
+      cover: "assets/projects/rocket-design/presentation.jpg",
+      tags: "Design · Analysis",
+      short: "Thrust chamber geometry, nozzle sizing, and turbopump fundamentals.",
       no: "2.7",
       title: "Introduction to Rocket Design",
       status: "Complete",
@@ -107,6 +125,9 @@
       ]
     },
     "rod-end": {
+      cover: "assets/projects/rod-end/cad-iso.jpg",
+      tags: "Design · Analysis",
+      short: "Series part measured, sketched by hand, and rebuilt in Fusion 360 with a derived drawing.",
       no: "2.1",
       title: "Rod End M14 — Reverse Engineering",
       status: "Complete",
@@ -124,22 +145,9 @@
     }
   };
 
-  window.PORTFOLIO_LIGHTBOX_GROUPS = {
-    "cert-quantum": [
-      ["assets/certs/cu-boulder.png", "University of Colorado Boulder"],
-      ["assets/certs/fig-quantum.png", "Quantum Mechanics for Engineers — |ψ|² course figure"]
-    ],
-    "cert-solidworks": [
-      ["assets/certs/fig-solidworks.png", "SOLIDWORKS Foundations — assembly environment"],
-      ["assets/certs/solidworks.png", "Dassault Systèmes"]
-    ],
-    "cert-math": [
-      ["assets/certs/hkust.jpg", "The Hong Kong University of Science and Technology"],
-      ["assets/certs/fig-math.jpg", "Mathematics for Engineers — linear algebra course figure"]
-    ],
-    "cert-oilgas": [
-      ["assets/certs/duke.jpg", "Duke Nicholas School of the Environment"],
-      ["assets/certs/fig-oilgas.jpg", "Oil & Gas Operations and Markets — offshore operations"]
-    ]
-  };
+  // Display order; the list and project pages number them 01–07.
+  window.PORTFOLIO_PROJECT_ORDER = [
+    "rod-end", "scissor-lift", "aerospace-platform", "vtol-study",
+    "aim174b", "rocket-sim", "rocket-design"
+  ];
 })();

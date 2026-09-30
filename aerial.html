@@ -2,141 +2,85 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="Aerial and drone photography by Etienne Kainz.">
-  <title>Aerial — Etienne Kainz</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="description" content="Aerial and drone photography by Etienne Kainz across Europe and South America.">
+  <meta name="author" content="Etienne Kainz">
+  <meta property="og:title" content="Aerial Photography — Etienne Kainz">
+  <meta property="og:description" content="Aerial and drone photography by Etienne Kainz across Europe and South America.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://etiennekainz.com/assets/brand/k-logo.jpg">
+  <title>Aerial Photography — Etienne Kainz</title>
   <link rel="icon" type="image/jpeg" href="assets/brand/k-logo.jpg">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&amp;family=Space+Grotesk:wght@400;500;600&amp;display=swap" rel="stylesheet">
-  <script>
-    // Arriving through a site transition: keep the wipe closed through first
-    // paint so it continues from the previous page instead of cutting to white.
-    (function (d, w) {
-      try {
-        var raw = w.sessionStorage.getItem("ek:wipe");
-        if (!raw) return;
-        w.sessionStorage.removeItem("ek:wipe");
-        var s = JSON.parse(raw);
-        var here = w.location.pathname.replace(/index\.html$/, "");
-        if (!s || Date.now() - s.t > 8000 || s.to !== here) return;
-        if (w.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-        d.documentElement.className += " is-arriving";
-        d.documentElement.setAttribute("data-arrive-no", s.no);
-        d.documentElement.setAttribute("data-arrive-name", s.name);
-      } catch (e) {}
-    })(document, window);
-  </script>
-  <link rel="stylesheet" href="styles.css?v=23">
+  <link rel="preload" href="assets/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="site.css?v=1">
 </head>
-<body class="gallery-page aerial-page">
-  <a class="skip-link" href="#galleryMain">Skip to content</a>
-  <canvas id="flowField" class="flow-field" aria-hidden="true"></canvas>
-  <div class="field-vignette" aria-hidden="true"></div>
-  <div class="page-wipe" aria-hidden="true">
-    <span class="page-wipe__no">04</span>
-    <span class="page-wipe__name micro">Aerial</span>
-    <i></i>
-  </div>
-  <script>
-    (function (r) {
-      if (!/\bis-arriving\b/.test(r.className)) return;
-      var wipe = document.currentScript.previousElementSibling;
-      wipe.querySelector(".page-wipe__no").textContent = r.getAttribute("data-arrive-no");
-      wipe.querySelector(".page-wipe__name").textContent = r.getAttribute("data-arrive-name");
-    })(document.documentElement);
-  </script>
-  <div class="cursor cursor--dot" aria-hidden="true"></div>
-  <div class="cursor cursor--ring" aria-hidden="true"><span>VIEW</span></div>
+<body data-page="aerial">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <canvas id="field" class="field" data-mark="assets/brand/k-mark.png" aria-hidden="true"></canvas>
 
-  <button class="menu-toggle" id="menuToggle" type="button" aria-controls="menuOverlay" aria-expanded="false">
-    <span class="menu-toggle__glyph" aria-hidden="true"><i></i><i></i></span>
-    <span class="menu-toggle__label" data-scramble="MENU">MENU</span>
-  </button>
-  <aside class="section-rail" aria-label="Current section">
-    <span class="section-rail__current" id="railCurrent">04</span>
-    <i class="section-rail__line"><b id="railProgress"></b></i>
-    <span class="section-rail__name" id="railName">AERIAL</span>
-  </aside>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="Etienne Kainz — home"><img src="assets/brand/k-mark.png" alt="" width="407" height="900"></a>
+    <span class="site-header__rule" aria-hidden="true"></span>
+    <button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="menu"><span class="menu-toggle__lines" aria-hidden="true"></span><span class="menu-toggle__label">Menu</span></button>
+  </header>
 
-  <div class="menu-overlay" id="menuOverlay" aria-hidden="true">
-    <div class="menu-overlay__meta micro"><span>ETIENNE KAINZ</span><span>MECHANICAL ENGINEERING / TU WIEN</span></div>
-    <nav class="menu-nav" aria-label="Primary">
-      <a href="index.html#about" data-transition-link data-menu-link><span>01</span><b>About</b><i>Profile / Ethos</i></a>
-      <a href="index.html#projects" data-transition-link data-menu-link><span>02</span><b>Projects</b><i>Design / Analysis / Simulation</i></a>
-      <a href="drawings.html" data-transition-link data-menu-link><span>03</span><b>Drawings + Misc.</b><i>15 figures</i></a>
-      <a href="aerial.html" data-transition-link data-menu-link aria-current="page"><span>04</span><b>Aerial</b><i>21 photographs</i></a>
-      <a href="index.html#certifications" data-transition-link data-menu-link><span>05</span><b>Certifications</b><i>4 credentials</i></a>
-      <a href="index.html#contact" data-transition-link data-menu-link><span>06</span><b>Contact</b><i>Open channel</i></a>
+  <div class="menu" id="menu" aria-hidden="true">
+    <nav aria-label="Primary">
+      <a href="./"><span>00</span>Index</a>
+      <a href="projects.html"><span>01</span>Projects</a>
+      <a href="drawings.html"><span>02</span>Drawings + Misc</a>
+      <a href="aerial.html"><span>03</span>Aerial Photography</a>
+      <a href="certifications.html"><span>04</span>Certifications</a>
     </nav>
-    <div class="menu-overlay__footer micro"><a href="mailto:pro.kainz@icloud.com">PRO.KAINZ@ICLOUD.COM</a><span>PORTFOLIO / REV. E / 2026</span></div>
+    <div class="menu__foot"><a href="mailto:pro.kainz@icloud.com">pro.kainz@icloud.com</a><span>Vienna, Austria</span></div>
   </div>
 
-  <main class="gallery-main" id="galleryMain">
-    <section class="gallery-hero scene" data-field="4" data-section="04" data-title="Aerial">
-      <div class="gallery-hero__top micro" data-reveal="clip">
-        <span data-scramble="ARCHIVE / 21 PHOTOGRAPHS">ARCHIVE / 21 PHOTOGRAPHS</span>
-        <span>FIELD · TRAVEL RECORD</span>
-      </div>
-      <h1 class="split-chars">Aerial</h1>
-      <div class="gallery-hero__bottom sheet" data-reveal="rise">
-        <p>Aerial and drone photography across Austria, Germany, France, Brazil, Peru, Chile, Colombia, Bolivia, and Panama.</p>
-        <span class="micro">FIG. 04 / FLIGHT REGISTER</span>
-      </div>
-    </section>
-
-    <section class="gallery-register" aria-labelledby="aerialRegister">
-      <header class="gallery-register__head micro" data-reveal="clip">
-        <h2 id="aerialRegister">AERIAL REGISTER</h2>
-        <span>21 / 21</span>
-      </header>
-      <div class="aerial-grid">
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 01/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-01.jpg" alt="Aerial photograph 01" loading="eager" decoding="async"></div><figcaption><span>FIG. 04.01</span><span>AERIAL / 01</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 02/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-02.jpg" alt="Aerial photograph 02" loading="eager" decoding="async"></div><figcaption><span>FIG. 04.02</span><span>AERIAL / 02</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 03/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-03.jpg" alt="Aerial photograph 03" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.03</span><span>AERIAL / 03</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 04/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-04.jpg" alt="Aerial photograph 04" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.04</span><span>AERIAL / 04</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 05/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-05.jpg" alt="Aerial photograph 05" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.05</span><span>AERIAL / 05</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 06/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-06.jpg" alt="Aerial photograph 06" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.06</span><span>AERIAL / 06</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 07/21" data-reveal="media"><div class="gallery-card__media"><img width="1118" height="1118" src="assets/aerial/aerial-07.jpg" alt="Aerial photograph 07" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.07</span><span>AERIAL / 07</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 08/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-08.jpg" alt="Aerial photograph 08" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.08</span><span>AERIAL / 08</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 09/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-09.jpg" alt="Aerial photograph 09" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.09</span><span>AERIAL / 09</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 10/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-10.jpg" alt="Aerial photograph 10" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.10</span><span>AERIAL / 10</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 11/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-11.jpg" alt="Aerial photograph 11" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.11</span><span>AERIAL / 11</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 12/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-12.jpg" alt="Aerial photograph 12" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.12</span><span>AERIAL / 12</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 13/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-13.jpg" alt="Aerial photograph 13" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.13</span><span>AERIAL / 13</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 14/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-14.jpg" alt="Aerial photograph 14" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.14</span><span>AERIAL / 14</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 15/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-15.jpg" alt="Aerial photograph 15" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.15</span><span>AERIAL / 15</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 16/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-16.jpg" alt="Aerial photograph 16" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.16</span><span>AERIAL / 16</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 17/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-17.jpg" alt="Aerial photograph 17" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.17</span><span>AERIAL / 17</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 18/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-18.jpg" alt="Aerial photograph 18" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.18</span><span>AERIAL / 18</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 19/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-19.jpg" alt="Aerial photograph 19" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.19</span><span>AERIAL / 19</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 20/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-20.jpg" alt="Aerial photograph 20" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.20</span><span>AERIAL / 20</span></figcaption></figure>
-        <figure class="gallery-card" tabindex="0" role="button" data-gallery-group="aerial" data-caption="Aerial photograph 21/21" data-reveal="media"><div class="gallery-card__media"><img width="1152" height="1152" src="assets/aerial/aerial-21.jpg" alt="Aerial photograph 21" loading="lazy" decoding="async"></div><figcaption><span>FIG. 04.21</span><span>AERIAL / 21</span></figcaption></figure>
-      </div>
-    </section>
+  <main id="main" class="page" tabindex="-1">
+    <header class="page-head">
+      <div class="page-head__meta label"><span>03</span><span>21 photographs</span></div>
+      <h1 class="shine">Aerial Photography</h1>
+      <p>Drone photography from Austria, Germany, France, Brazil, Peru, Chile, Colombia, Bolivia and Panama.</p>
+    </header>
+    <div class="gallery gallery--aerial">
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 01"><div class="item__media"><img src="assets/aerial/aerial-01.jpg" width="1152" height="1152" alt="Aerial photograph 01" loading="eager" decoding="async"></div><figcaption class="label"><span>01</span><span>Aerial photograph 01</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 02"><div class="item__media"><img src="assets/aerial/aerial-02.jpg" width="1152" height="1152" alt="Aerial photograph 02" loading="eager" decoding="async"></div><figcaption class="label"><span>02</span><span>Aerial photograph 02</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 03"><div class="item__media"><img src="assets/aerial/aerial-03.jpg" width="1152" height="1152" alt="Aerial photograph 03" loading="lazy" decoding="async"></div><figcaption class="label"><span>03</span><span>Aerial photograph 03</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 04"><div class="item__media"><img src="assets/aerial/aerial-04.jpg" width="1152" height="1152" alt="Aerial photograph 04" loading="lazy" decoding="async"></div><figcaption class="label"><span>04</span><span>Aerial photograph 04</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 05"><div class="item__media"><img src="assets/aerial/aerial-05.jpg" width="1152" height="1152" alt="Aerial photograph 05" loading="lazy" decoding="async"></div><figcaption class="label"><span>05</span><span>Aerial photograph 05</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 06"><div class="item__media"><img src="assets/aerial/aerial-06.jpg" width="1152" height="1152" alt="Aerial photograph 06" loading="lazy" decoding="async"></div><figcaption class="label"><span>06</span><span>Aerial photograph 06</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 07"><div class="item__media"><img src="assets/aerial/aerial-07.jpg" width="1118" height="1118" alt="Aerial photograph 07" loading="lazy" decoding="async"></div><figcaption class="label"><span>07</span><span>Aerial photograph 07</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 08"><div class="item__media"><img src="assets/aerial/aerial-08.jpg" width="1152" height="1152" alt="Aerial photograph 08" loading="lazy" decoding="async"></div><figcaption class="label"><span>08</span><span>Aerial photograph 08</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 09"><div class="item__media"><img src="assets/aerial/aerial-09.jpg" width="1152" height="1152" alt="Aerial photograph 09" loading="lazy" decoding="async"></div><figcaption class="label"><span>09</span><span>Aerial photograph 09</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 10"><div class="item__media"><img src="assets/aerial/aerial-10.jpg" width="1152" height="1152" alt="Aerial photograph 10" loading="lazy" decoding="async"></div><figcaption class="label"><span>10</span><span>Aerial photograph 10</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 11"><div class="item__media"><img src="assets/aerial/aerial-11.jpg" width="1152" height="1152" alt="Aerial photograph 11" loading="lazy" decoding="async"></div><figcaption class="label"><span>11</span><span>Aerial photograph 11</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 12"><div class="item__media"><img src="assets/aerial/aerial-12.jpg" width="1152" height="1152" alt="Aerial photograph 12" loading="lazy" decoding="async"></div><figcaption class="label"><span>12</span><span>Aerial photograph 12</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 13"><div class="item__media"><img src="assets/aerial/aerial-13.jpg" width="1152" height="1152" alt="Aerial photograph 13" loading="lazy" decoding="async"></div><figcaption class="label"><span>13</span><span>Aerial photograph 13</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 14"><div class="item__media"><img src="assets/aerial/aerial-14.jpg" width="1152" height="1152" alt="Aerial photograph 14" loading="lazy" decoding="async"></div><figcaption class="label"><span>14</span><span>Aerial photograph 14</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 15"><div class="item__media"><img src="assets/aerial/aerial-15.jpg" width="1152" height="1152" alt="Aerial photograph 15" loading="lazy" decoding="async"></div><figcaption class="label"><span>15</span><span>Aerial photograph 15</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 16"><div class="item__media"><img src="assets/aerial/aerial-16.jpg" width="1152" height="1152" alt="Aerial photograph 16" loading="lazy" decoding="async"></div><figcaption class="label"><span>16</span><span>Aerial photograph 16</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 17"><div class="item__media"><img src="assets/aerial/aerial-17.jpg" width="1152" height="1152" alt="Aerial photograph 17" loading="lazy" decoding="async"></div><figcaption class="label"><span>17</span><span>Aerial photograph 17</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 18"><div class="item__media"><img src="assets/aerial/aerial-18.jpg" width="1152" height="1152" alt="Aerial photograph 18" loading="lazy" decoding="async"></div><figcaption class="label"><span>18</span><span>Aerial photograph 18</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 19"><div class="item__media"><img src="assets/aerial/aerial-19.jpg" width="1152" height="1152" alt="Aerial photograph 19" loading="lazy" decoding="async"></div><figcaption class="label"><span>19</span><span>Aerial photograph 19</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 20"><div class="item__media"><img src="assets/aerial/aerial-20.jpg" width="1152" height="1152" alt="Aerial photograph 20" loading="lazy" decoding="async"></div><figcaption class="label"><span>20</span><span>Aerial photograph 20</span></figcaption></figure>
+        <figure class="item" data-reveal data-lightbox data-caption="Aerial photograph 21"><div class="item__media"><img src="assets/aerial/aerial-21.jpg" width="1152" height="1152" alt="Aerial photograph 21" loading="lazy" decoding="async"></div><figcaption class="label"><span>21</span><span>Aerial photograph 21</span></figcaption></figure>
+    </div>
+      <nav class="page-end" aria-label="More">
+        <a href="drawings.html"><span class="label">Previous</span><span class="page-end__title">Drawings + Misc</span></a>
+        <a class="page-end__next" href="certifications.html"><span class="label">Next</span><span class="page-end__title">Certifications</span></a>
+      </nav>
+      <footer class="site-foot label"><a href="mailto:pro.kainz@icloud.com">pro.kainz@icloud.com</a><span>© Etienne Kainz 2026</span></footer>
   </main>
 
-  <footer class="site-footer">
-    <div class="site-footer__grid">
-      <div><span class="micro">RETURN</span><a href="index.html" data-transition-link>00 / Index</a><a href="index.html#projects" data-transition-link>02 / Projects</a></div>
-      <div><span class="micro">PREVIOUS ARCHIVE</span><a href="drawings.html" data-transition-link>03 / Drawings + Misc.</a><span>15 figures</span></div>
-      <div><span class="micro">CONNECT</span><a href="mailto:pro.kainz@icloud.com">Email ↗</a><span>© Etienne Kainz 2026</span></div>
-    </div>
-    <div class="site-footer__wordmark" aria-hidden="true">04<span>AERIAL REGISTER</span></div>
-  </footer>
-
-  <div class="lightbox" id="lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Image viewer" data-lenis-prevent>
-    <button class="lightbox__close" type="button" id="lightboxClose" aria-label="Close image viewer">CLOSE</button>
-    <button class="lightbox__nav lightbox__nav--prev" type="button" id="lightboxPrev" aria-label="Previous image">←</button>
-    <figure><img id="lightboxImage" src="" alt=""><figcaption id="lightboxCaption"></figcaption></figure>
-    <button class="lightbox__nav lightbox__nav--next" type="button" id="lightboxNext" aria-label="Next image">→</button>
+  <div class="lightbox" id="lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Image viewer">
+    <button class="lightbox__close" type="button" data-lightbox-close>Close</button>
+    <button class="lightbox__nav lightbox__nav--prev" type="button" data-lightbox-prev aria-label="Previous image">←</button>
+    <figure><img src="data:," alt=""><figcaption class="label"><span data-lightbox-caption></span><span data-lightbox-count></span></figcaption></figure>
+    <button class="lightbox__nav lightbox__nav--next" type="button" data-lightbox-next aria-label="Next image">→</button>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
-  <script src="flow-field.js?v=6"></script>
-  <script src="main.js?v=23"></script>
+  <script src="project-data.js?v=9"></script>
+  <script src="field.js?v=1"></script>
+  <script src="site.js?v=1"></script>
 </body>
 </html>
