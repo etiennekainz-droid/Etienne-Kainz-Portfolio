@@ -29,7 +29,7 @@
 
   var root = document.documentElement;
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var api = { setScene: function () {}, pulse: function () {} };
+  var api = { setScene: function () {}, pulse: function () {}, ripple: function () {} };
   window.EKField = api;
 
   var gl = null;
@@ -889,6 +889,10 @@
     var py = typeof y === "number" ? y : visible * 0.5;
     addRipple(px, py, 1.6);
     if (!reduced) gust = Math.min(2.5, gust + 1.6);
+  };
+  // A softer ring and no gust: the home page's preview cards being dealt.
+  api.ripple = function (x, y, strength) {
+    addRipple(x, y, strength);
   };
 
   resize();
