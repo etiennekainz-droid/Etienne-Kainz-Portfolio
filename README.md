@@ -25,12 +25,17 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
   opening, seam, drag) that the vertex shader samples. Clicks and page
   changes send a ring through the dust.
 - `site.js` — menu, page changes (internal links swap `<main>` in place so the
-  background never restarts), pictures revealing as they scroll in, project
-  pages, and the lightbox.
+  background never restarts), pictures revealing as they scroll in, the home
+  page's preview cards, project pages, and the lightbox. Pointing at a
+  category on the home page deals six of its pictures out of the label as a
+  loose pile (springs per card, tilting into their motion); on touch a tap
+  plays the pile for about a second, then opens the page.
 - `site.css` — all styles. Type is Geist / Geist Mono, self-hosted in
   `assets/fonts/` (SIL Open Font License, `assets/fonts/OFL.txt`).
 - `project-data.js` — project text, tags and image lists.
-- `assets/` — images, fonts and project PDFs.
+- `assets/` — images, fonts and project PDFs. `assets/thumbs/` holds the
+  preview cards, six hand-picked pictures per category listed in
+  `tools/thumbs.py`; rebuild them with `python3 tools/thumbs.py` (needs Pillow).
 
 ## Run locally
 
