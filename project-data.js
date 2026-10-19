@@ -28,24 +28,31 @@
       ]
     },
     "aerospace-platform": {
-      cover: "assets/projects/tmr-l/flight-desert.webp",
-      tags: "Design",
-      short: "Cruise airframe rebuilt in Fusion 360 — the testbed for upcoming CFD and FEA studies.",
+      cover: "assets/projects/tmr-l/v3-side.webp",
+      tags: "Design · Simulation",
+      short: "A cruise airframe taken from v1.0 to v3.0 in Fusion 360 — CFD found the drag sources, the redesign removed them.",
       no: "2.3",
-      title: "TMR-L v2.0 — Cruise Test Platform",
-      status: "In progress",
-      meta: ["Fusion 360", "750 mm · Ø90 · 350 mm span", "Cruise configuration", "Future CFD · FEA testbed"],
-      line: "The TMR-L, remade from the ground up in Fusion 360: 750 mm long, a Ø90 body and a 350 mm span. " +
-        "Built for steady cruise rather than agility, it is the test platform for the CFD and FEA simulations to come.",
+      title: "TMR-L v3.0 — Cruise Test Platform",
+      status: "Complete",
+      meta: ["Fusion 360", "CFD", "750 mm · Ø90 · 350 mm span", "v1.0 → v2.0 → v3.0", "2026"],
+      line: [
+        "Iterative aerodynamic design of a small flight platform, from CAD to CFD-driven optimisation. " +
+          "v1.0 was an agile testbed with canards and large tail surfaces, but the canards' vortices disturbed the main wing and added drag in cruise.",
+        "v2.0 was rebuilt in Fusion 360 for calm, efficient cruise: 750 mm long, a Ø90 body, a 350 mm swept mid wing and a double tail row. " +
+          "Dropping the canards and moving tail area aft put the neutral point behind the centre of gravity. " +
+          "CFD at about 115 m/s then showed three flaws: steps between body sections acting as stagnation points, a thick trailing edge shedding a strong wake, " +
+          "and a wide tail gap leaving the rear fin in slowed flow.",
+        "v3.0 fixes all three: flush, tangent-continuous body sections, sharpened trailing edges and wing tips, a close-coupled tandem tail and a boat-tail to cut base drag. " +
+          "The flow now stays attached, with one clean stagnation point at the ogive and a narrow, symmetric wake."
+      ],
       images: [
-        ["assets/projects/tmr-l/flight-desert.webp", "Flight render — low over the dry lake", 2000, 1500],
-        ["assets/projects/tmr-l/cruise-side.webp", "Cruise configuration — wings and tail from below", 2000, 1500],
-        ["assets/projects/tmr-l/aft-view.webp", "Aft view — exhaust and tail surfaces", 2000, 1500],
-        ["assets/projects/tmr-l/drawing.png", "Technical drawing — 750 mm long, Ø90 body, 350 mm span, Rev. 2", 1966, 1388],
-        ["assets/projects/tmr-l/fusion-model.webp", "Fusion 360 — the fins set as a circular pattern of four", 2000, 1301],
-        ["assets/projects/tmr-l/cad-model.webp", "CAD model — body sections and nose cone", 2000, 1166],
-        ["assets/projects/tmr-l/close-up.webp", "Close-up — wing and tail arrangement", 2000, 1500],
-        ["assets/projects/tmr-l/backlit-pass.webp", "Backlit pass over the salt flat", 2000, 1500]
+        ["assets/projects/tmr-l/v3-side.webp", "Final design v3.0 — flush body, sharpened profiles, close-coupled tail", 2000, 1500],
+        ["assets/projects/tmr-l/cfd-v3.webp", "CFD v3.0 — pressure and velocity: attached flow and a narrow wake", 1280, 900],
+        ["assets/projects/tmr-l/cfd-v2-findings.webp", "CFD v2.0 — fault diagnosis: body steps, thick trailing edge, tail gap (DE)", 2000, 1284],
+        ["assets/projects/tmr-l/drawing.png", "v2.0 — technical drawing: 750 mm long, Ø90 body, 350 mm span, Rev. 2", 1966, 1388],
+        ["assets/projects/tmr-l/fusion-model.webp", "v2.0 — Fusion 360, the fins set as a circular pattern of four", 2000, 1301],
+        ["assets/projects/tmr-l/flight-desert.webp", "v2.0 — flight render low over the dry lake", 2000, 1500],
+        ["assets/projects/tmr-l/backlit-pass.webp", "v2.0 — backlit pass over the salt flat", 2000, 1500]
       ]
     },
     "vtol-study": {

@@ -606,6 +606,10 @@ main {
   letter-spacing: -.005em;
 }
 
+.page-head__text p + p {
+  margin-top: 1em;
+}
+
 .page-head__tags {
   display: flex;
   flex-wrap: wrap;
