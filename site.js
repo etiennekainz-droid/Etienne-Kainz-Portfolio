@@ -104,7 +104,7 @@
         '<div class="item__media"><img src="' + escapeHtml(cover) + '" alt="" loading="' + (index < 2 ? "eager" : "lazy") + '" decoding="async"></div>' +
         '<div class="item__caption label"><span>' + pad(index + 1) + '</span><span>' + escapeHtml(p.tags || "") + '</span></div>' +
         '<h2>' + escapeHtml(p.title) + '<span class="item__arrow" aria-hidden="true">↗</span></h2>' +
-        '<p>' + escapeHtml(p.short || p.line) + '</p></a>';
+        '<p>' + escapeHtml(p.short || [].concat(p.line)[0]) + '</p></a>';
     }).join("");
   }
 
@@ -131,7 +131,7 @@
       '<header class="page-head">' +
         '<div class="page-head__meta label"><a href="projects.html">← Projects</a><span>' + pad(index + 1) + ' / ' + pad(keys.length) + '</span><span>' + escapeHtml(p.status || "") + '</span></div>' +
         '<h1 class="shine">' + escapeHtml(p.title) + '</h1>' +
-        '<p>' + escapeHtml(p.line) + '</p>' +
+        '<div class="page-head__text">' + [].concat(p.line).map(function (text) { return '<p>' + escapeHtml(text) + '</p>'; }).join("") + '</div>' +
         (tags ? '<div class="page-head__tags label">' + tags + '</div>' : "") +
         (docs ? '<div class="page-head__docs label">' + docs + '</div>' : "") +
       '</header>' +
