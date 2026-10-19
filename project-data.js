@@ -30,25 +30,18 @@
     "aerospace-platform": {
       cover: "assets/projects/tmr-l/v3-side.webp",
       tags: "Design · Simulation",
-      short: "A cruise airframe taken from v1.0 to v3.0 in Fusion 360 — CFD found the drag sources, the redesign removed them.",
+      short: "750 mm cruise airframe in Fusion 360, redesigned after CFD of v2.0 showed three drag sources.",
       no: "2.3",
       title: "TMR-L v3.0 — Cruise Test Platform",
       status: "Complete",
-      meta: ["Fusion 360", "CFD", "750 mm · Ø90 · 350 mm span", "v1.0 → v2.0 → v3.0", "2026"],
-      line: [
-        "Iterative aerodynamic design of a small flight platform, from CAD to CFD-driven optimisation. " +
-          "v1.0 was an agile testbed with canards and large tail surfaces, but the canards' vortices disturbed the main wing and added drag in cruise.",
-        "v2.0 was rebuilt in Fusion 360 for calm, efficient cruise: 750 mm long, a Ø90 body, a 350 mm swept mid wing and a double tail row. " +
-          "Dropping the canards and moving tail area aft put the neutral point behind the centre of gravity. " +
-          "CFD at about 115 m/s then showed three flaws: steps between body sections acting as stagnation points, a thick trailing edge shedding a strong wake, " +
-          "and a wide tail gap leaving the rear fin in slowed flow.",
-        "v3.0 fixes all three: flush, tangent-continuous body sections, sharpened trailing edges and wing tips, a close-coupled tandem tail and a boat-tail to cut base drag. " +
-          "The flow now stays attached, with one clean stagnation point at the ogive and a narrow, symmetric wake."
-      ],
+      meta: ["Fusion 360", "CFD", "750 mm · Ø90 · 350 mm span", "2026"],
+      line: "Cruise test platform modelled in Fusion 360: 750 mm long, Ø90 body, 350 mm span. " +
+        "CFD of v2.0 at about 115 m/s showed three drag sources: steps between the body sections, a thick wing trailing edge, " +
+        "and a tail gap that left the rear fin in the wake. v3.0 has a flush body, sharp trailing edges and a close-coupled tail.",
       images: [
-        ["assets/projects/tmr-l/v3-side.webp", "Final design v3.0 — flush body, sharpened profiles, close-coupled tail", 2000, 1500],
-        ["assets/projects/tmr-l/cfd-v3.webp", "CFD v3.0 — pressure and velocity: attached flow and a narrow wake", 1280, 900],
-        ["assets/projects/tmr-l/cfd-v2-findings.webp", "CFD v2.0 — fault diagnosis: body steps, thick trailing edge, tail gap (DE)", 2000, 1284],
+        ["assets/projects/tmr-l/v3-side.webp", "v3.0 — side view", 2000, 1500],
+        ["assets/projects/tmr-l/cfd-v3.webp", "CFD v3.0 — pressure and velocity field", 1280, 900],
+        ["assets/projects/tmr-l/cfd-v2-findings.webp", "CFD v2.0 — problem areas marked (DE)", 2000, 1284],
         ["assets/projects/tmr-l/drawing.png", "v2.0 — technical drawing: 750 mm long, Ø90 body, 350 mm span, Rev. 2", 1966, 1388],
         ["assets/projects/tmr-l/fusion-model.webp", "v2.0 — Fusion 360, the fins set as a circular pattern of four", 2000, 1301],
         ["assets/projects/tmr-l/flight-desert.webp", "v2.0 — flight render low over the dry lake", 2000, 1500],
