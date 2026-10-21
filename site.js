@@ -596,6 +596,17 @@
   var navToken = 0;
   if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
 
+  // Visits: GoatCounter (count.js, loaded on every page) counts the page a
+  // visitor lands on. Page changes made here never reload, so each one is
+  // counted too, referred by the page it came from as a reload would be.
+  var lastView = window.location.href;
+
+  function countView() {
+    var counter = window.goatcounter;
+    if (counter && counter.count) counter.count({ referrer: lastView });
+    lastView = window.location.href;
+  }
+
   function wait(ms) {
     return new Promise(function (resolve) { setTimeout(resolve, ms); });
   }
@@ -637,6 +648,7 @@
       doc.querySelector("main").replaceWith(doc.importNode(nextMain, true));
       window.scrollTo(0, 0);
       initPage();
+      countView();
       body.classList.remove("is-leaving");
       // One frame in the entering state, then let the transition run.
       window.requestAnimationFrame(function () {

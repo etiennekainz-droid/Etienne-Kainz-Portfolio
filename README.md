@@ -37,6 +37,14 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
   preview cards, six hand-picked pictures per category listed in
   `tools/thumbs.py`; rebuild them with `python3 tools/thumbs.py` (needs Pillow).
 
+## Visits
+
+GoatCounter (no cookies) counts visits per day, pages, referrers and countries
+at https://eckainz.goatcounter.com. Every page loads its `count.js`; `site.js`
+counts the in-place page changes too. Localhost is never counted. To keep your
+own visits out, open `https://etiennekainz.com/#toggle-goatcounter` once in
+each browser you use.
+
 ## Run locally
 
 Serve the folder over HTTP (page changes use `fetch`):
