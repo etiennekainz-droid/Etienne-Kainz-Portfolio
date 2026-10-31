@@ -487,7 +487,8 @@ main {
   opacity: .34;
 }
 
-/* .is-dealt: a tapped label while its preview cards play (touch, site.js). */
+/* .is-dealt: the label whose preview cards are held after a first click
+   (site.js); the others stay back, even under the pointer. */
 .home__nav a:hover,
 .home__nav a:focus-visible,
 .home__nav a.is-dealt {
@@ -505,6 +506,18 @@ main {
 .home__nav a:focus-visible::before,
 .home__nav a.is-dealt::before {
   transform: none;
+}
+
+.home__nav.is-dealing a:not(.is-dealt):hover {
+  opacity: .62;
+}
+
+.home__nav.is-dealing a:not(.is-dealt):hover > * {
+  transform: none;
+}
+
+.home__nav.is-dealing a:not(.is-dealt):hover::before {
+  transform: scaleX(0);
 }
 
 .home__nav a:focus-visible {
@@ -623,6 +636,47 @@ main {
   font: 500 9px/1 var(--mono);
   letter-spacing: .14em;
   mix-blend-mode: difference;
+}
+
+/* A held hand: its cards and the hint under it open the category. */
+.deck.is-held .deck__card {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.deck__hint {
+  position: absolute;
+  z-index: 20;
+  top: 0;
+  left: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  background: rgba(0, 0, 0, .78);
+  color: #fff;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: opacity .35s var(--ease), background .3s var(--ease), color .3s var(--ease);
+}
+
+.deck__hint.is-on {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: pointer;
+  animation: hint-pulse 1.8s ease-in-out infinite;
+}
+
+.deck__hint.is-on:hover {
+  background: #fff;
+  color: #000;
+}
+
+@keyframes hint-pulse {
+  50% {
+    border-color: rgba(255, 255, 255, .95);
+  }
 }
 
 @media (max-width: 760px) {

@@ -235,8 +235,9 @@
   // shuffles the same cards instead of swapping them out. Every card is a
   // damped spring (position, turn, scale, opacity) that tilts and catches the
   // light as it moves; the hand drifts, leans after the pointer and slowly
-  // opens out while it is held. On touch a tap plays the hand, then the page
-  // changes; a second tap goes straight there.
+  // opens out. A category opens in two steps: the first click (or tap) holds
+  // its hand on screen, the second click on the label, a card or the hint
+  // under the pile opens the page. A click elsewhere or Escape lets go.
   var DECK_SIZE = 6; // tools/thumbs.py writes this many cards per category
   // The pile around its centre, in card widths and heights, and each card's
   // turn in degrees; later cards lie on top.
@@ -244,15 +245,17 @@
     [-0.66, -0.40, -13], [0.34, -0.52, 6], [0.84, 0.06, 14],
     [-0.36, 0.34, -7], [0.42, 0.46, 9], [-0.04, -0.02, -2]
   ];
-  var DECK_HOLD = 1150; // touch: how long the hand plays before the page changes
+  var DECK_GROW = 1200; // touch: ms a tapped hand takes to open out
   var deck = reduced ? null : makeDeck();
 
   function makeDeck() {
     var layer = null;
+    var hint = null;
     var cards = [];
     var size = { w: 0, h: 0 };
     var mode = "idle"; // idle | open | launch
     var touch = false;
+    var held = false;
     var current = null;
     var openedAt = 0;
     var anchor = { x: 0, y: 0 };
@@ -261,9 +264,7 @@
     var running = false;
     var last = 0;
     var hideTimer = 0;
-    var goTimer = 0;
     var launchTimer = 0;
-    var pending = null;
     var pressType = "";
     var loaded = {};
 
@@ -301,13 +302,34 @@
         el.className = "deck__card";
         el.innerHTML = '<img alt=""><img alt=""><span>' + pad(i + 1) + "</span>";
         layer.appendChild(el);
-        cards.push({
-          el: el, imgs: el.querySelectorAll("img"), front: 0, src: "",
+        var card = {
+          el: el, imgs: el.querySelectorAll("img"), front: 0, src: "", hot: false,
           x: 0, y: 0, r: 0, s: 0.3, o: 0, vx: 0, vy: 0, vr: 0, vs: 0, vo: 0,
           k: 240 - i * 16, phase: i * 1.7, wake: 0
-        });
+        };
+        cards.push(card);
+        el.addEventListener("click", openHeld);
+        // A held hand: the card under the pointer lifts out of the pile.
+        el.addEventListener("pointerenter", lift.bind(null, card, true));
+        el.addEventListener("pointerleave", lift.bind(null, card, false));
       }
+      hint = doc.createElement("div");
+      hint.className = "deck__hint label";
+      hint.addEventListener("click", openHeld);
+      layer.appendChild(hint);
       body.appendChild(layer);
+    }
+
+    function lift(card, on, event) {
+      if (event.pointerType === "touch") return;
+      card.hot = on && held;
+      card.el.style.zIndex = card.hot ? "10" : "";
+    }
+
+    // Open the held category: a click on one of its cards or on the hint.
+    function openHeld(event) {
+      if (!held || !current || mode !== "open") return;
+      navigate(new URL(current.href, window.location.href), true, event.clientX, event.clientY);
     }
 
     // Cross-fade a card to a new picture once it has decoded.
@@ -327,8 +349,9 @@
       else swap();
     }
 
-    // Where the hand settles. Two columns: the open space under the list.
-    // One column, and every tap: above the label, over the intro.
+    // Where the hand settles: off the list, so a held hand (whose cards take
+    // clicks) never lies over another label. Two columns: the open space
+    // under the list. One column: above the list, over the intro.
     function place(link) {
       size.w = cards[0].el.offsetWidth;
       size.h = size.w * 0.75;
@@ -337,19 +360,24 @@
       var index = Array.prototype.indexOf.call(link.parentNode.children, link);
       var vw = window.innerWidth;
       var vh = window.innerHeight;
+      var wide = vw > 760;
       var pileW = size.w * (touch ? 3.1 : 2.7); // a tapped hand opens out wider
-      var pileH = size.h * 2.5;
+      var pileH = size.h * (touch ? 2.9 : 2.5);
       anchor.x = rect.left + Math.min(rect.width * 0.18, 36);
       anchor.y = rect.top + rect.height / 2;
-      if (!touch && vw > 760) {
+      if (wide) {
         stage.x = list.left + pileW / 2 + index * size.w * 0.08;
         stage.y = list.bottom + pileH / 2 + 34 + index * 8;
       } else {
-        stage.x = rect.left + pileW / 2 + rect.width * 0.35;
-        stage.y = rect.top - pileH * 0.56;
+        stage.x = vw / 2;
+        stage.y = list.top - pileH / 2 - 6;
       }
       stage.x = clamp(stage.x, pileW / 2 + 10, vw - pileW / 2 - 10);
       stage.y = clamp(stage.y, 76 + pileH / 2, vh - pileH / 2 - 12);
+      // The hint: under the pile in two columns, on its lower edge in one,
+      // where it covers neither the title nor the labels.
+      var hy = wide ? stage.y + size.h * (touch ? 1.4 : 1.2) : stage.y + size.h * 0.95;
+      hint.style.transform = "translate(" + stage.x.toFixed(1) + "px," + hy.toFixed(1) + "px) translate(-50%, -50%)";
     }
 
     // Each card's goal this frame: x, y, turn, scale, opacity.
@@ -361,8 +389,8 @@
       if (mode === "launch") {
         return [stage.x + slot[0] * size.w * 2.6, stage.y + slot[1] * size.h * 2.6, slot[2] * 2.2, 1.3, 0];
       }
-      var held = Math.min((now - openedAt) / (touch ? DECK_HOLD : 2600), 1);
-      var grow = 1 - Math.pow(1 - held, 3);
+      var age = Math.min((now - openedAt) / (touch ? DECK_GROW : 2600), 1);
+      var grow = 1 - Math.pow(1 - age, 3);
       var spread = 0.94 + grow * (touch ? 0.34 : 0.14);
       var x = stage.x + slot[0] * size.w * spread + Math.sin(now * 0.0011 + card.phase) * 4;
       var y = stage.y + slot[1] * size.h * spread + Math.cos(now * 0.0009 + card.phase) * 5;
@@ -371,7 +399,12 @@
         x += clamp((pointer.x - stage.x) * depth, -60, 60);
         y += clamp((pointer.y - stage.y) * depth, -22, 22);
       }
-      return [x, y, slot[2] + Math.sin(now * 0.0007 + card.phase) * 1.8, 1 + grow * (touch ? 0.16 : 0.05), 1];
+      var scale = 1 + grow * (touch ? 0.16 : 0.05);
+      if (card.hot) {
+        y -= size.h * 0.12;
+        scale += 0.12;
+      }
+      return [x, y, card.hot ? 0 : slot[2] + Math.sin(now * 0.0007 + card.phase) * 1.8, scale, 1];
     }
 
     function spring(card, key, vel, to, k, zeta, dt) {
@@ -437,7 +470,6 @@
       var fresh = mode !== "open";
       current = link;
       touch = byTouch;
-      setDealt(touch ? link : null);
       place(link);
       var list = sources(key);
       cards.forEach(function (card, i) {
@@ -468,30 +500,60 @@
       run();
     }
 
+    function unhold() {
+      held = false;
+      setDealt(null);
+      cards.forEach(function (card) {
+        card.hot = false;
+        card.el.style.zIndex = "";
+      });
+      if (layer) layer.classList.remove("is-held");
+      if (hint) hint.classList.remove("is-on");
+    }
+
     function close() {
       clearTimeout(hideTimer);
-      clearTimeout(goTimer);
-      pending = null;
       if (mode !== "open") return;
       mode = "idle";
       current = null;
       touch = false;
       pointer.on = false;
-      setDealt(null);
+      unhold();
     }
 
     function closeSoon() {
       clearTimeout(hideTimer);
-      hideTimer = setTimeout(close, 110);
+      if (!held) hideTimer = setTimeout(close, 110);
+    }
+
+    // First click on a category: deal its hand if it is not already out and
+    // keep it there, cards clickable, with the hint showing the way on.
+    function hold(link, byTouch, x, y) {
+      open(link, byTouch);
+      held = true;
+      setDealt(link);
+      layer.classList.add("is-held");
+      hint.textContent = (touch ? "Tap" : "Click") + " again to open ↗";
+      hint.classList.add("is-on");
+      cards.forEach(function (card, i) {
+        setTimeout(function () {
+          if (current !== link || !held) return;
+          card.vs += 1.1;
+          card.vy -= 160;
+        }, i * 30);
+      });
+      field().ripple(x || anchor.x, y || anchor.y, 0.8);
     }
 
     // The page is changing: throw the hand outward as <main> fades.
     function launch() {
       clearTimeout(hideTimer);
-      clearTimeout(goTimer);
       if (mode !== "open") return;
       mode = "launch";
       pointer.on = false;
+      held = false;
+      layer.classList.remove("is-held");
+      hint.classList.remove("is-on");
       clearTimeout(launchTimer);
       launchTimer = setTimeout(function () {
         if (mode !== "launch") return;
@@ -501,25 +563,14 @@
       }, 700);
     }
 
-    function go() {
-      clearTimeout(goTimer);
-      var next = pending;
-      pending = null;
-      if (next) navigate(next.url, true, next.x, next.y);
-    }
-
-    // Touch: a tap on a category plays its hand first. Returns true if it
-    // took the click.
+    // A click on a category label. The first one holds the hand and returns
+    // true (taken); a second click on the held label returns false, so the
+    // router opens the page. Keyboard Enter (detail 0) opens straight away:
+    // focus already shows the hand.
     function intercept(link, url, event) {
-      if (pressType !== "touch" || event.detail === 0 || !link.matches(".home__nav a[data-preview]")) return false;
-      pending = { url: url, x: event.clientX, y: event.clientY };
-      if (touch && current === link && mode === "open") {
-        go();
-        return true;
-      }
-      open(link, true);
-      clearTimeout(goTimer);
-      goTimer = setTimeout(go, DECK_HOLD);
+      if (event.detail === 0 || !link.matches(".home__nav a[data-preview]")) return false;
+      if (held && current === link && mode === "open") return false;
+      hold(link, pressType === "touch", event.clientX, event.clientY);
       return true;
     }
 
@@ -527,17 +578,17 @@
       pressType = event.pointerType;
       var link = navLink(event.target);
       if (link) preload(link.getAttribute("data-preview"));
-      else if (touch && mode === "open") close(); // a tap elsewhere calls it off
+      else if (held && !(event.target.closest && event.target.closest(".deck"))) close(); // a click elsewhere lets go
     }, true);
 
     doc.addEventListener("pointerover", function (event) {
-      if (event.pointerType === "touch") return;
+      if (event.pointerType === "touch" || held) return;
       var link = navLink(event.target);
       if (link) open(link, false);
     });
 
     doc.addEventListener("pointerout", function (event) {
-      if (event.pointerType === "touch" || touch || mode !== "open") return;
+      if (event.pointerType === "touch" || held || touch || mode !== "open") return;
       var from = navLink(event.target);
       if (from && navLink(event.relatedTarget) !== from) closeSoon();
     });
@@ -551,6 +602,7 @@
 
     doc.addEventListener("focusin", function (event) {
       var link = navLink(event.target);
+      if (held) return;
       try {
         if (link && link.matches(":focus-visible")) open(link, false);
       } catch (error) { /* no :focus-visible: skip keyboard previews */ }
@@ -558,6 +610,10 @@
 
     doc.addEventListener("focusout", function (event) {
       if (!touch && navLink(event.target)) closeSoon();
+    });
+
+    doc.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && held) close();
     });
 
     window.addEventListener("resize", function () {

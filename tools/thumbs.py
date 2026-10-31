@@ -19,11 +19,11 @@ from PIL import Image, ImageOps
 
 PICKS = {  # six each, in step with DECK_SIZE in site.js
     "projects": [
-        "assets/projects/rocket-sim/code.png",
+        "assets/projects/scissor-lift/sl-06.jpg",
         "assets/projects/rod-end/cad-iso.jpg",
         "assets/projects/aim174b/model-photo.jpg",
         "assets/projects/vtol/uav-render.png",
-        "assets/projects/scissor-lift/sl-06.jpg",
+        "assets/projects/nc-01/back-lit.webp",
         ("assets/projects/tmr-l/cfd-v3.webp", (0.133, 0.069, 0.836, 0.819)),
     ],
     "drawings": [

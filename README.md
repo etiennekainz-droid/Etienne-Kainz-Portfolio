@@ -6,7 +6,7 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
 
 - `index.html` — the home page: one screen, no scroll. Name, photo, short
   bio, the four categories and contact.
-- `projects.html` — the seven projects; `project.html?p=<key>` shows one
+- `projects.html` — the eight projects; `project.html?p=<key>` shows one
   project (text at the top, pictures below), rendered from `project-data.js`.
 - `drawings.html`, `aerial.html`, `certifications.html` — the other
   categories, same layout: a short intro, then the pictures.
@@ -28,8 +28,9 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
   background never restarts), pictures revealing as they scroll in, the home
   page's preview cards, project pages, and the lightbox. Pointing at a
   category on the home page deals six of its pictures out of the label as a
-  loose pile (springs per card, tilting into their motion); on touch a tap
-  plays the pile for about a second, then opens the page.
+  loose pile (springs per card, tilting into their motion). A category opens
+  in two steps: the first click or tap holds its pile, the second (on the
+  label, a card or the hint under the pile) opens the page.
 - `site.css` — all styles. Type is Geist / Geist Mono, self-hosted in
   `assets/fonts/` (SIL Open Font License, `assets/fonts/OFL.txt`).
 - `project-data.js` — project text, tags and image lists.
