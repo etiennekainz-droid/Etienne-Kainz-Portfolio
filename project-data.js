@@ -154,30 +154,27 @@
       meta: ["Fusion 360", "45 × 45 × 13.3 mm · 23.7 g", "12 parts · ISO 2768-mK", "2026"],
       line: "Wall-mounted night light for getting up at night without switching on the room lights. " +
         "Pressing the front switches twelve red 625\u00a0nm LEDs, which shine through four diffusers onto the wall. " +
-        "45\u00a0×\u00a045\u00a0×\u00a013.3\u00a0mm, 23.7\u00a0g, 300\u00a0mAh LiPo cell charged over USB-C; 12 parts, snap-fit button, four thread-forming screws.",
+        "45\u00a0×\u00a045\u00a0×\u00a013.3\u00a0mm, 23.7\u00a0g. The 300\u00a0mAh LiPo cell is sized for about one year per charge and is charged over USB-C; 12 parts, snap-fit button, four thread-forming screws.",
       images: [
         ["assets/projects/nc-01/drawing-1.webp", "Assembly drawing, sheet 1 — sections A–A and B–B, details X, Y, Z, parts list (DE)", 3000, 2121],
         ["assets/projects/nc-01/drawing-2.webp", "Assembly drawing, sheet 2 — exploded view and isometric quarter section (DE)", 3000, 2121],
         ["assets/projects/nc-01/back-lit.webp", "Back — LEDs on, VHB adhesive pad", 1414, 752],
-        ["assets/projects/nc-01/cad-internals.webp", "Fusion 360 — main board and USB-C with the button hidden", 2000, 1401],
+        ["assets/projects/nc-01/wall-glow.webp", "Visualisation — on the wall, LEDs on", 2000, 1209],
         ["assets/projects/nc-01/front.webp", "Front — the whole face is the button", 2000, 1210],
-        ["assets/projects/nc-01/split.webp", "Section — housing, button and back cover", 2000, 1213],
-        ["assets/projects/nc-01/corner.webp", "Corner — countersunk screw and diffuser", 2000, 1064],
-        ["assets/projects/nc-01/pcb.webp", "Main board, 0.8 mm FR4", 2000, 1064],
-        ["assets/projects/nc-01/back.webp", "Back cover — red diffusers and screws", 2000, 1157],
-        ["assets/projects/nc-01/section-dark.webp", "Section, side view", 2000, 1064],
-        ["assets/projects/nc-01/usb-c.webp", "USB-C charging port", 2000, 1064],
-        ["assets/projects/nc-01/internals.webp", "Internals — LiPo cell, LED flex ring and diffusers", 2000, 1064],
         ["assets/projects/nc-01/side.webp", "Side — 13.3 mm deep", 2000, 1064],
-        ["assets/projects/nc-01/cad-model.webp", "Fusion 360 — the assembly, 12 parts", 2000, 1393],
-        ["assets/projects/nc-01/back-studio.webp", "Back — studio render", 2000, 1064],
+        ["assets/projects/nc-01/back.webp", "Back cover — red diffusers and screws", 2000, 1157],
+        ["assets/projects/nc-01/back-studio.webp", "Back, straight on", 2000, 1064],
+        ["assets/projects/nc-01/corner.webp", "Corner — countersunk screw and diffuser", 2000, 1064],
+        ["assets/projects/nc-01/usb-c.webp", "USB-C charging port", 2000, 1064],
         ["assets/projects/nc-01/housing.webp", "Housing, PC/ABS", 2000, 1064],
-        ["assets/projects/nc-01/split-side.webp", "Section, side", 1434, 1466],
-        ["assets/projects/nc-01/cad-screw.webp", "Fusion 360 — screw boss in the back cover", 2000, 1392],
-        ["assets/projects/nc-01/front-studio.webp", "Front — studio render", 2000, 1064],
-        ["assets/projects/nc-01/section-side.webp", "Section — board, cell and back cover", 2000, 1064],
-        ["assets/projects/nc-01/back-cover.webp", "Back cover with adhesive base", 2000, 1064],
-        ["assets/projects/nc-01/cad-housing.webp", "Fusion 360 — housing", 2000, 1439]
+        ["assets/projects/nc-01/split.webp", "Section — housing, button and back cover", 2000, 1213],
+        ["assets/projects/nc-01/section-dark.webp", "Section, side view", 2000, 1064],
+        ["assets/projects/nc-01/internals.webp", "Internals — LiPo cell, LED flex ring and diffusers", 2000, 1064],
+        ["assets/projects/nc-01/pcb.webp", "Main board, 0.8 mm FR4", 2000, 1064],
+        ["assets/projects/nc-01/cad-model.webp", "Fusion 360 — the assembly, 12 parts", 2000, 1393],
+        ["assets/projects/nc-01/cad-internals.webp", "Fusion 360 — main board and USB-C with the button hidden", 2000, 1401],
+        ["assets/projects/nc-01/cad-housing.webp", "Fusion 360 — housing", 2000, 1439],
+        ["assets/projects/nc-01/cad-screw.webp", "Fusion 360 — screw boss in the back cover", 2000, 1392]
       ]
     }
   };
