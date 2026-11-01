@@ -88,12 +88,12 @@
   var data = window.PORTFOLIO_PROJECTS || {};
   var order = window.PORTFOLIO_PROJECT_ORDER || Object.keys(data);
 
-  function figure(src, caption, w, h, index, eager) {
+  function figure(src, caption, w, h, eager) {
     var size = w && h ? ' width="' + w + '" height="' + h + '"' : "";
     return '<figure class="item" data-reveal data-lightbox data-caption="' + escapeHtml(caption) + '">' +
       '<div class="item__media"><img src="' + escapeHtml(src) + '"' + size + ' alt="' + escapeHtml(caption) +
       '" loading="' + (eager ? "eager" : "lazy") + '" decoding="async"></div>' +
-      '<figcaption class="label"><span>' + pad(index + 1) + '</span><span>' + escapeHtml(caption) + '</span></figcaption></figure>';
+      '<figcaption class="label">' + escapeHtml(caption) + '</figcaption></figure>';
   }
 
   function renderProjectList(scope) {
@@ -104,7 +104,6 @@
       var cover = p.cover || p.images[0][0];
       return '<a class="item item--project" data-reveal href="project.html?p=' + encodeURIComponent(key) + '">' +
         '<div class="item__media"><img src="' + escapeHtml(cover) + '" alt="" loading="' + (index < 2 ? "eager" : "lazy") + '" decoding="async"></div>' +
-        '<div class="item__caption label"><span>' + pad(index + 1) + '</span><span>' + escapeHtml(p.tags || "") + '</span></div>' +
         '<h2>' + escapeHtml(p.title) + '<span class="item__arrow" aria-hidden="true">↗</span></h2>' +
         '<p>' + escapeHtml(p.short || [].concat(p.line)[0]) + '</p></a>';
     }).join("");
@@ -123,7 +122,6 @@
     }
     var p = data[key];
     doc.title = p.title + " — Etienne Kainz";
-    var tags = (p.meta || []).map(function (m) { return "<span>" + escapeHtml(m) + "</span>"; }).join("");
     var docs = (p.docs || []).map(function (d) {
       return '<a href="' + escapeHtml(d[0]) + '" target="_blank" rel="noopener"><span>PDF</span>' + escapeHtml(d[1]) + ' ↗</a>';
     }).join("");
@@ -131,14 +129,13 @@
     var prev = keys[(index - 1 + keys.length) % keys.length];
     holder.innerHTML =
       '<header class="page-head">' +
-        '<div class="page-head__meta label"><a href="projects.html">← Projects</a><span>' + pad(index + 1) + ' / ' + pad(keys.length) + '</span><span>' + escapeHtml(p.status || "") + '</span></div>' +
+        '<div class="page-head__meta label"><a href="projects.html">← Projects</a></div>' +
         '<h1 class="shine">' + escapeHtml(p.title) + '</h1>' +
         '<div class="page-head__text">' + [].concat(p.line).map(function (text) { return '<p>' + escapeHtml(text) + '</p>'; }).join("") + '</div>' +
-        (tags ? '<div class="page-head__tags label">' + tags + '</div>' : "") +
         (docs ? '<div class="page-head__docs label">' + docs + '</div>' : "") +
       '</header>' +
       '<div class="gallery gallery--drawings">' +
-        p.images.map(function (img, i) { return figure(img[0], img[1], img[2], img[3], i, i < 2); }).join("") +
+        p.images.map(function (img, i) { return figure(img[0], img[1], img[2], img[3], i < 2); }).join("") +
       '</div>' +
       '<nav class="page-end" aria-label="More projects">' +
         '<a href="project.html?p=' + encodeURIComponent(prev) + '"><span class="label">Previous</span><span class="page-end__title">' + escapeHtml(data[prev].title) + '</span></a>' +
@@ -239,6 +236,7 @@
   // its hand on screen, the second click on the label, a card or the hint
   // under the pile opens the page. A click elsewhere or Escape lets go.
   var DECK_SIZE = 6; // tools/thumbs.py writes this many cards per category
+  var DECK_VERSION = 2; // bump after rebuilding the cards, so no cached old ones show
   // The pile around its centre, in card widths and heights, and each card's
   // turn in degrees; later cards lie on top.
   var DECK_SLOTS = [
@@ -276,9 +274,15 @@
       return target && target.closest ? target.closest(".home__nav a[data-preview]") : null;
     }
 
+    // The home page is fading out or gone. A pointer still drifting over its
+    // labels then must not deal a fresh hand: nothing would ever take it back.
+    function away() {
+      return body.classList.contains("is-leaving") || body.getAttribute("data-page") !== "home";
+    }
+
     function sources(key) {
       var list = [];
-      for (var i = 1; i <= DECK_SIZE; i++) list.push("assets/thumbs/" + key + "-" + i + ".webp");
+      for (var i = 1; i <= DECK_SIZE; i++) list.push("assets/thumbs/" + key + "-" + i + ".webp?v=" + DECK_VERSION);
       return list;
     }
 
@@ -300,7 +304,7 @@
       for (var i = 0; i < DECK_SIZE; i++) {
         var el = doc.createElement("div");
         el.className = "deck__card";
-        el.innerHTML = '<img alt=""><img alt=""><span>' + pad(i + 1) + "</span>";
+        el.innerHTML = '<img alt=""><img alt="">';
         layer.appendChild(el);
         var card = {
           el: el, imgs: el.querySelectorAll("img"), front: 0, src: "", hot: false,
@@ -415,6 +419,7 @@
     function frame(now) {
       var dt = Math.min((now - last) / 1000, 1 / 30);
       last = now;
+      if (mode === "open" && current && !current.isConnected) close(); // its page was swapped out
       var settled = mode === "idle";
       cards.forEach(function (card, i) {
         var g = goal(card, i, now);
@@ -568,7 +573,7 @@
     // router opens the page. Keyboard Enter (detail 0) opens straight away:
     // focus already shows the hand.
     function intercept(link, url, event) {
-      if (event.detail === 0 || !link.matches(".home__nav a[data-preview]")) return false;
+      if (event.detail === 0 || away() || !link.matches(".home__nav a[data-preview]")) return false;
       if (held && current === link && mode === "open") return false;
       hold(link, pressType === "touch", event.clientX, event.clientY);
       return true;
@@ -582,7 +587,7 @@
     }, true);
 
     doc.addEventListener("pointerover", function (event) {
-      if (event.pointerType === "touch" || held) return;
+      if (event.pointerType === "touch" || held || away()) return;
       var link = navLink(event.target);
       if (link) open(link, false);
     });
@@ -602,7 +607,7 @@
 
     doc.addEventListener("focusin", function (event) {
       var link = navLink(event.target);
-      if (held) return;
+      if (held || away()) return;
       try {
         if (link && link.matches(":focus-visible")) open(link, false);
       } catch (error) { /* no :focus-visible: skip keyboard previews */ }

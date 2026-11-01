@@ -120,8 +120,8 @@
     "  float a = (0.019 + 0.135 * d) * (0.55 + 0.45 * sin(t * (0.3 + 1.1 * h(s * 3.1)) + s * 97.0));",
     // Eddy cores shimmer: brighter where the vorticity peaks.
     "  a *= 1.0 + 0.9 * smoothstep(0.12, 0.28, abs(f.z)) * (0.6 + 0.4 * sin(t * 0.7 + s * 30.0));",
-    "  if (s > 0.994) { a = a * 2.2 + 0.07; size *= 1.3; }",
-    "  a *= uDust;",
+    "  if (s > 0.992) { a = a * 2.2 + 0.07; size *= 1.3; }",
+    "  a *= uDust * 1.1;",
     "  for (int i = 0; i < " + RIPPLES + "; i++) {",
     "    vec4 r = uRip[i];",
     "    if (r.w > 0.0) {",
@@ -173,18 +173,25 @@
     "  a *= smoothstep(-40.0, 60.0, edge) * (1.0 + 2.2 * exp(-edge * edge / 3000.0));",
     "  vec2 cl = p / uRes * 2.0 - 1.0;",
     "  gl_Position = vec4(cl.x, -cl.y, 0.0, 1.0);",
+    // Each grain is a gaussian spot, never narrower than half a device pixel,
+    // so it glides across the pixel grid instead of snapping from one pixel to
+    // the next (which made slow dust crawl and flicker). The sprite spans 2.5
+    // sigma either side; the spot carries the light of a disc of its size.
     "  float dev = size * uDpr;",
-    "  gl_PointSize = max(dev, 1.0);",
-    "  vA = a * min(dev, 1.0);",
+    "  float sig = max(0.5, 0.3 * dev);",
+    "  gl_PointSize = 5.0 * sig;",
+    "  vA = a * 0.55 * min(dev, 1.0) * max(dev * dev, 1.0) / (5.382 * sig * sig);",
     "}"
   ].join("\n");
 
+  // The gaussian over the sprite, cut at its rim (2.5 sigma) and lowered to
+  // reach zero there, so no pixel pops in or out at the edge.
   var FRAG = [
     "precision mediump float;",
     "varying float vA;",
     "void main() {",
     "  vec2 c = gl_PointCoord - 0.5;",
-    "  float v = vA * (1.0 - smoothstep(0.1, 0.25, dot(c, c)));",
+    "  float v = vA * max(exp(-12.5 * dot(c, c)) - 0.0439, 0.0) * 1.0459;",
     "  gl_FragColor = vec4(v, v, v, 1.0);",
     "}"
   ].join("\n");
@@ -235,7 +242,7 @@
   // Dust per CSS px², over the window plus its margin; the draw count follows
   // the window, the buffer is sized for the whole screen (either way up) so a
   // resize or rotation never reallocates.
-  var DUST_DENSITY = compact ? 0.5 : 0.48;
+  var DUST_DENSITY = compact ? 0.64 : 0.62;
   function margin(h) {
     return Math.round(h * 0.14 + 28);
   }
@@ -243,7 +250,7 @@
   var screenH = Math.max(window.screen.height, window.innerHeight);
   var screenPad = margin(Math.max(screenW, screenH));
   var screenArea = (screenW + 2 * screenPad) * (screenH + 2 * screenPad);
-  var nDust = Math.min(compact ? 480000 : 2000000, Math.round(screenArea * DUST_DENSITY));
+  var nDust = Math.min(compact ? 620000 : 2600000, Math.round(screenArea * DUST_DENSITY));
 
   (function buildParticles() {
     // Interleaved [x, y, depth, 0, seed], in random order, so drawing a

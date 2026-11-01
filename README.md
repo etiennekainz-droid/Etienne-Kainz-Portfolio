@@ -6,14 +6,18 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
 
 - `index.html` — the home page: one screen, no scroll. Name, photo, short
   bio, the four categories and contact.
-- `projects.html` — the eight projects; `project.html?p=<key>` shows one
+- `projects.html` — the projects; `project.html?p=<key>` shows one
   project (text at the top, pictures below), rendered from `project-data.js`.
 - `drawings.html`, `aerial.html`, `certifications.html` — the other
-  categories, same layout: a short intro, then the pictures.
+  categories, same layout: a short intro, then the pictures. The Drawings +
+  Misc and Aerial Photography pages show exactly what is in the matching media
+  folders, in a shuffled order that keeps pictures of the same kind, project
+  or format apart and puts tall pictures in the narrow slots.
 - `field.js` — the background. One WebGL point cloud on black: fine dust in
-  three depth layers, seeded past every edge, carried by slow currents (the
-  curl of an evolving stream function whose coordinates are folded by a
-  second wave field, so eddies stretch and wrap around each other) that
+  three depth layers, each grain drawn as a small gaussian spot so it glides
+  between pixels instead of snapping, seeded past every edge, carried by slow
+  currents (the curl of an evolving stream function whose coordinates are
+  folded by a second wave field, so eddies stretch and wrap around each other) that
   swell and ease. Near dots shift with the pointer and with scrolling, and
   the cursor presses the dust aside. Moving the cursor (or a finger) cuts it
   like a blade through a soft solid: a thin crack opens along the stroke
@@ -36,7 +40,8 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
 - `project-data.js` — project text, tags and image lists.
 - `assets/` — images, fonts and project PDFs. `assets/thumbs/` holds the
   preview cards, six hand-picked pictures per category listed in
-  `tools/thumbs.py`; rebuild them with `python3 tools/thumbs.py` (needs Pillow).
+  `tools/thumbs.py`; rebuild them with `python3 tools/thumbs.py` (needs Pillow)
+  and bump `DECK_VERSION` in `site.js`.
 
 ## Visits
 

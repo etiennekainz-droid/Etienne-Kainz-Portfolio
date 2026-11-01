@@ -4,12 +4,8 @@
   window.PORTFOLIO_PROJECTS = {
     "scissor-lift": {
       cover: "assets/projects/scissor-lift/sl-06.jpg",
-      tags: "Design · Analysis",
       short: "350 kg lifting table, 30+ self-designed parts, strength verified to FKM and Roloff/Matek.",
-      no: "2.2",
       title: "Screw Jack Lifting Table",
-      status: "Complete",
-      meta: ["PTC Creo 12", "30+ self-designed parts", "FKM · Roloff/Matek", "Feb – Jun 2026"],
       line: "A 350 kg lifting table with more than 30 self-designed parts: a Tr 28×5 trapezoidal spindle to DIN 103, " +
         "strength verification to the FKM guideline and Roloff/Matek, and assembly and detail drawings with ISO tolerances in PTC Creo 12.",
       images: [
@@ -27,35 +23,33 @@
         ["assets/projects/scissor-lift/sl-12.jpg", "Flange — reference check", 1280, 1280]
       ]
     },
-    "aerospace-platform": {
-      cover: "assets/projects/tmr-l/v3-side.webp",
-      tags: "Design · Simulation",
-      short: "750 mm cruise airframe in Fusion 360, redesigned after CFD of v2.0 showed three drag sources.",
-      no: "2.3",
-      title: "TMR-L v3.0 — Cruise Test Platform",
-      status: "Complete",
-      meta: ["Fusion 360", "CFD", "750 mm · Ø90 · 350 mm span", "2026"],
-      line: "Cruise test platform modelled in Fusion 360: 750 mm long, Ø90 body, 350 mm span. " +
-        "CFD of v2.0 at about 115 m/s showed three drag sources: steps between the body sections, a thick wing trailing edge, " +
-        "and a tail gap that left the rear fin in the wake. v3.0 has a flush body, sharp trailing edges and a close-coupled tail.",
+    "countershaft": {
+      cover: "assets/projects/countershaft/render-gears.webp",
+      short: "Countershaft for a helical manual gearbox: four gears in module 3 on one 420 mm part in case-hardened 16MnCr5.",
+      title: "Gearbox Countershaft VGW-0001",
+      line: [
+        "Countershaft for a manual gearbox with helical gears, modelled in Fusion 360. One 420 mm part in case-hardened 16MnCr5, 7.39 kg, " +
+          "carries four gears in normal module 3: the 33-tooth constant-mesh gear, gears of 26 and 22 teeth at a 25° left-hand helix, " +
+          "and a straight-cut 13-tooth pinion for first and reverse with a +0.25 profile shift.",
+        "The A2 manufacturing drawing gives the full gear data at DIN 3961 quality 6, Ø30 k6 bearing seats at Ra 0.4, " +
+          "DIN 509 undercuts, ISO 6411 centre holes and a DIN 471 circlip groove, toleranced to ISO 8015 and ISO 2768-mK."
+      ],
       images: [
-        ["assets/projects/tmr-l/v3-side.webp", "v3.0 — side view", 2000, 1500],
-        ["assets/projects/tmr-l/cfd-v3.webp", "CFD v3.0 — pressure and velocity field", 1280, 900],
-        ["assets/projects/tmr-l/cfd-v2-findings.webp", "CFD v2.0 — problem areas marked (DE)", 2000, 1284],
-        ["assets/projects/tmr-l/drawing.png", "v2.0 — technical drawing: 750 mm long, Ø90 body, 350 mm span, Rev. 2", 1966, 1388],
-        ["assets/projects/tmr-l/fusion-model.webp", "v2.0 — Fusion 360, the fins set as a circular pattern of four", 2000, 1301],
-        ["assets/projects/tmr-l/flight-desert.webp", "v2.0 — flight render low over the dry lake", 2000, 1500],
-        ["assets/projects/tmr-l/backlit-pass.webp", "v2.0 — backlit pass over the salt flat", 2000, 1500]
+        ["assets/projects/countershaft/render-gears.webp", "Render — the helical gears and the straight-cut pinion", 2000, 1341],
+        ["assets/projects/countershaft/drawing.webp", "Manufacturing drawing — A2, 1:1, sections, details and gear data (DE)", 3000, 2121],
+        ["assets/projects/countershaft/render-iso.webp", "Render — the whole countershaft", 1733, 1038],
+        ["assets/projects/countershaft/fusion-gears.webp", "Fusion 360 — helical gears and the straight-cut pinion", 2000, 1391],
+        ["assets/projects/countershaft/render-end.webp", "Render — along the axis, the gears stepping down behind the journal", 1250, 1357],
+        ["assets/projects/countershaft/fusion-journal.webp", "Fusion 360 — Ø30 k6 bearing journal with centre hole", 2000, 1391],
+        ["assets/projects/countershaft/render-side.webp", "Render — side view", 2000, 1421],
+        ["assets/projects/countershaft/mesh.webp", "Mesh view — gear Z1 selected", 2000, 1353],
+        ["assets/projects/countershaft/render-length.webp", "Render — full length, 420 mm", 2000, 1071]
       ]
     },
     "vtol-study": {
       cover: "assets/projects/vtol/uav-render.png",
-      tags: "Analysis · Simulation",
       short: "Quad-rotor and tilt-rotor architectures evaluated for a small ISR UAV.",
-      no: "2.4",
       title: "Propulsion Architecture Trade Study — Small VTOL ISR UAV",
-      status: "Complete",
-      meta: ["Trade study", "CFD", "Quad-rotor vs. tilt-rotor"],
       line: "Candidate propulsion architectures compared for a small vertical-takeoff ISR platform.",
       docs: [
         ["assets/docs/vtol-propulsion-architecture.pdf", "VTOL propulsion architecture"],
@@ -70,36 +64,10 @@
         ["assets/projects/vtol/ref-flight.jpg", "VTOL transition-flight reference", 680, 454]
       ]
     },
-    "aim174b": {
-      cover: "assets/projects/aim174b/aim-03.jpg",
-      tags: "Design · Simulation",
-      short: "Watertight airframe surface model, CFD mesh, and printed scale study.",
-      no: "2.5",
-      title: "AIM-174B Missile — CAD",
-      status: "Complete",
-      meta: ["Surface modelling", "CFD surface mesh", "3-D printed scale model"],
-      line: "A watertight airframe reconstruction from public dimensions, prepared for external-flow meshing and scale printing.",
-      images: [
-        ["assets/projects/aim174b/model-photo.jpg", "3-D printed scale model with reference notebook", 1280, 1280],
-        ["assets/projects/aim174b/title-page.jpg", "Design study — title sheet", 1238, 1580],
-        ["assets/projects/aim174b/aim-01.jpg", "Frontal view — fin arrangement", 1056, 1062],
-        ["assets/projects/aim174b/aim-02.jpg", "Aft view — nozzle and control surfaces", 1350, 1398],
-        ["assets/projects/aim174b/aim-03.jpg", "Isometric view — full airframe", 1534, 1072],
-        ["assets/projects/aim174b/aim-04.jpg", "Strake detail", 1600, 925],
-        ["assets/projects/aim174b/mesh.png", "Surface mesh — full airframe", 938, 640],
-        ["assets/projects/aim174b/render-01.jpg", "Airframe render — side view", 1280, 592],
-        ["assets/projects/aim174b/render-02.jpg", "Surface detail render", 1185, 1185],
-        ["assets/projects/aim174b/render-03.jpg", "Fin detail render", 1177, 1177]
-      ]
-    },
     "rocket-sim": {
       cover: "assets/projects/rocket-sim/results.png",
-      tags: "Simulation · Analysis",
       short: "Python ascent model with drag, mass variation, staging, and q-gating.",
-      no: "2.6",
       title: "Two-Stage Rocket Simulation",
-      status: "Complete",
-      meta: ["Python", "NumPy · Matplotlib", "Flight dynamics"],
       line: "Numerical ascent model with thrust, drag, mass variation, staging logic, and dynamic-pressure-gated ignition.",
       docs: [
         ["assets/docs/two-stage-rocket-simulation.pdf", "Two-stage rocket simulation"]
@@ -112,12 +80,8 @@
     },
     "rocket-design": {
       cover: "assets/projects/rocket-design/presentation.jpg",
-      tags: "Design · Analysis",
       short: "Thrust chamber geometry, nozzle sizing, and turbopump fundamentals.",
-      no: "2.7",
       title: "Introduction to Rocket Design",
-      status: "Complete",
-      meta: ["Presentation", "TU Wien", "Thrust chamber geometry"],
       line: "A lecture-format study of thrust chamber geometry, nozzle contours, turbopump assemblies, and first-principles sizing.",
       images: [
         ["assets/projects/rocket-design/presentation.jpg", "Presentation — TU Wien", 2060, 1170],
@@ -127,34 +91,30 @@
       ]
     },
     "rod-end": {
-      cover: "assets/projects/rod-end/cad-iso.jpg",
-      tags: "Design · Analysis",
+      cover: "assets/projects/rod-end/render-iso.webp",
       short: "Series part measured, sketched by hand, and rebuilt in Fusion 360 with a derived drawing.",
-      no: "2.1",
       title: "Rod End M14 — Reverse Engineering",
-      status: "Complete",
-      meta: ["Fusion 360", "Caliper measurement · DIN 862", "ISO 2768-mK drawing"],
       line: "A series rod end with M14×2 male thread (DIN ISO 12240-4, series K) measured against catalogue values, " +
-        "fixed in a dimensioned hand sketch with a Ø14 H7 bore, and rebuilt as a Fusion 360 solid model with a derived technical drawing.",
+        "fixed in a dimensioned hand sketch with a Ø14 H7 bore, and rebuilt in Fusion 360: C45 housing, brass bearing shell " +
+        "and hardened 100Cr6 ball with about 16° of tilt, rendered and set out in an assembly drawing at 2:1.",
       images: [
-        ["assets/projects/rod-end/project-sheet.jpg", "Project sheet — the full process on one A4 page (DE)", 2400, 3395],
+        ["assets/projects/rod-end/render-iso.webp", "Render — rod end M14×2, isometric view", 1699, 1147],
+        ["assets/drawings/rod-end-drawing.webp", "Assembly drawing, 2:1 — housing, brass bearing shell, hardened ball, parts list (DE)", 3000, 2121],
         ["assets/projects/rod-end/part.jpg", "Series part — rod end M14×2 with spherical plain bearing", 1500, 2000],
-        ["assets/projects/rod-end/measurement.jpg", "Caliper measurement and dimensioned hand sketch", 1500, 2000],
-        ["assets/projects/rod-end/cad-iso.jpg", "Solid model — Fusion 360, isometric view", 1556, 1070],
-        ["assets/projects/rod-end/cad-front.jpg", "Solid model — front view", 906, 1392],
-        ["assets/projects/rod-end/drawing.jpg", "Technical drawing — three views, partial section, ISO 2768-mK, scale 1:1", 3000, 2090]
+        ["assets/projects/rod-end/measurement.jpg", "Hand drawing, caliper and the series part", 1500, 2000],
+        ["assets/drawings/dwg-15.jpg", "Dimensioned hand drawing with partial section and shaded sketches", 2089, 1170],
+        ["assets/projects/rod-end/render-bearing.webp", "Render — spherical plain bearing, close-up", 1868, 1392],
+        ["assets/projects/rod-end/render-top.webp", "Render — top view", 960, 1519],
+        ["assets/projects/rod-end/render-side.webp", "Render — side view, bearing and M14×2 thread", 2000, 891]
       ]
     },
     "night-light": {
       cover: "assets/projects/nc-01/back-lit.webp",
-      tags: "Design · Manufacturing",
       short: "Wall-mounted red night light: 12 LEDs, LiPo cell, USB-C, 45 mm square. Drawings ready for manufacture.",
       title: "Night Light NC-01",
-      status: "Manufacturing ready",
-      meta: ["Fusion 360", "45 × 45 × 13.3 mm · 23.7 g", "12 parts · ISO 2768-mK", "2026"],
       line: "Wall-mounted night light for getting up at night without switching on the room lights. " +
-        "Pressing the front switches twelve red 625\u00a0nm LEDs, which shine through four diffusers onto the wall. " +
-        "45\u00a0×\u00a045\u00a0×\u00a013.3\u00a0mm, 23.7\u00a0g. The 300\u00a0mAh LiPo cell is sized for about one year per charge and is charged over USB-C; 12 parts, snap-fit button, four thread-forming screws.",
+        "Pressing the front switches twelve red 625 nm LEDs, which shine through four diffusers onto the wall. " +
+        "45 × 45 × 13.3 mm, 23.7 g. The 300 mAh LiPo cell is sized for about one year per charge and is charged over USB-C; 12 parts, snap-fit button, four thread-forming screws.",
       images: [
         ["assets/projects/nc-01/drawing-1.webp", "Assembly drawing, sheet 1 — sections A–A and B–B, details X, Y, Z, parts list (DE)", 3000, 2121],
         ["assets/projects/nc-01/drawing-2.webp", "Assembly drawing, sheet 2 — exploded view and isometric quarter section (DE)", 3000, 2121],
@@ -179,9 +139,8 @@
     }
   };
 
-  // Display order; the list and project pages number them 01–08.
+  // Display order on the list and for previous / next.
   window.PORTFOLIO_PROJECT_ORDER = [
-    "night-light", "rod-end", "scissor-lift", "aerospace-platform", "vtol-study",
-    "aim174b", "rocket-sim", "rocket-design"
+    "night-light", "countershaft", "rod-end", "scissor-lift", "vtol-study", "rocket-sim", "rocket-design"
   ];
 })();
