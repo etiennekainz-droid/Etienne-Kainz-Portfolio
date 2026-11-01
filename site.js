@@ -236,7 +236,7 @@
   // its hand on screen, the second click on the label, a card or the hint
   // under the pile opens the page. A click elsewhere or Escape lets go.
   var DECK_SIZE = 6; // tools/thumbs.py writes this many cards per category
-  var DECK_VERSION = 2; // bump after rebuilding the cards, so no cached old ones show
+  var DECK_VERSION = 3; // bump after rebuilding the cards, so no cached old ones show
   // The pile around its centre, in card widths and heights, and each card's
   // turn in degrees; later cards lie on top.
   var DECK_SLOTS = [

@@ -20,10 +20,10 @@ from PIL import Image, ImageOps
 PICKS = {  # six each, in step with DECK_SIZE in site.js
     "projects": [
         "assets/projects/scissor-lift/sl-06.jpg",
-        "assets/projects/vtol/uav-render.png",
-        "assets/projects/rocket-design/presentation.jpg",
-        "assets/projects/rod-end/render-iso.webp",
-        "assets/projects/nc-01/back-lit.webp",
+        ("assets/projects/nc-01/split.webp", (0.11, 0.0, 0.81, 1.0)),
+        "assets/projects/rod-end/render-bearing.webp",
+        ("assets/projects/countershaft/render-end.webp", (0.02, 0.1, 0.98, 0.86)),
+        "assets/projects/nc-01/wall-glow.webp",
         "assets/projects/countershaft/render-gears.webp",
     ],
     "drawings": [
