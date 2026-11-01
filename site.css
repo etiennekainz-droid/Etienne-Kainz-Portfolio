@@ -394,7 +394,7 @@ main {
 
 .home__photo {
   flex: none;
-  width: clamp(163px, 16.5vw, 275px);
+  width: clamp(187px, min(19vw, 32.5vh), 316px); /* short windows: still one screen */
   height: auto;
   aspect-ratio: 3 / 4;
   object-fit: cover;
@@ -522,11 +522,6 @@ main {
   grid-row: 4;
   align-self: end;
   margin: clamp(24px, 4vh, 40px) 0 0;
-}
-
-.home__contact span {
-  display: block;
-  margin-bottom: 6px;
 }
 
 .home__contact a {
@@ -1107,7 +1102,7 @@ main {
   }
 
   .home__photo {
-    width: clamp(108px, 17.9svh, 160px);
+    width: clamp(124px, 20.6svh, 184px);
   }
 
   .home__bio p {
