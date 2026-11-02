@@ -3,24 +3,25 @@
 
   window.PORTFOLIO_PROJECTS = {
     "scissor-lift": {
-      cover: "assets/projects/scissor-lift/sl-06.jpg",
+      cover: "assets/projects/scissor-lift/render-below.webp",
       short: "350 kg lifting table, 30+ self-designed parts, strength verified to FKM and Roloff/Matek.",
       title: "Screw Jack Lifting Table",
       line: "A 350 kg lifting table with more than 30 self-designed parts: a Tr 28×5 trapezoidal spindle to DIN 103, " +
         "strength verification to the FKM guideline and Roloff/Matek, and assembly and detail drawings with ISO tolerances in PTC Creo 12.",
       images: [
-        ["assets/projects/scissor-lift/sl-06.jpg", "Assembly — raised position", 1800, 1176],
-        ["assets/projects/scissor-lift/sl-01.jpg", "Assembly — lowered position", 2000, 1262],
-        ["assets/projects/scissor-lift/sl-02.jpg", "Undercarriage and drive", 1948, 1541],
-        ["assets/projects/scissor-lift/sl-03.jpg", "CAD detail / joint study", 1273, 1800],
-        ["assets/projects/scissor-lift/sl-04.jpg", "CAD detail / guide system", 1800, 1273],
-        ["assets/projects/scissor-lift/sl-05.jpg", "CAD detail / platform interface", 2000, 1414],
-        ["assets/projects/scissor-lift/sl-07.jpg", "Assembly view", 1800, 1163],
-        ["assets/projects/scissor-lift/sl-08.jpg", "Assembly view / structure", 1800, 1325],
-        ["assets/projects/scissor-lift/sl-09.jpg", "Spindle detail drawing — Tr 28×5", 1800, 1350],
-        ["assets/projects/scissor-lift/sl-10.jpg", "Bearing housing — datum setup", 1280, 1280],
-        ["assets/projects/scissor-lift/sl-11.jpg", "Castor mount — detail", 1280, 1280],
-        ["assets/projects/scissor-lift/sl-12.jpg", "Flange — reference check", 1280, 1280]
+        ["assets/projects/scissor-lift/render-below.webp", "Render — the lifting table from below", 1864, 1256],
+        ["assets/projects/scissor-lift/render-three-quarter.webp", "Render — three-quarter view", 2000, 1351],
+        ["assets/projects/scissor-lift/render-front.webp", "Render — front view, spindle nut under the platform", 2000, 1360],
+        ["assets/projects/scissor-lift/render-side.webp", "Render — side view", 1604, 1080],
+        ["assets/projects/scissor-lift/sl-04.jpg", "Assembly drawing — A0, 1:2, sections, details and parts list (DE)", 1800, 1273],
+        ["assets/projects/scissor-lift/render-nut.webp", "Render — brass spindle nut seated between the cross tubes", 1346, 1136],
+        ["assets/projects/scissor-lift/sl-03.jpg", "Strength verification — forces, Tr 28×5 spindle, buckling, bolts and welds (DE)", 1273, 1800],
+        ["assets/projects/scissor-lift/render-pivot.webp", "Render — scissor pivot under the platform", 1866, 1254],
+        ["assets/projects/scissor-lift/sl-05.jpg", "Spindle detail drawing — Tr 28×5", 2000, 1414],
+        ["assets/projects/scissor-lift/render-plan.webp", "Render — straight-on view along the spindle", 1205, 1497],
+        ["assets/projects/scissor-lift/sl-09.jpg", "The spindle drawing on screen", 1800, 1350],
+        ["assets/projects/scissor-lift/render-castor.webp", "Render — castor mount, close-up", 2000, 1365],
+        ["assets/projects/scissor-lift/sl-12.jpg", "Flange — reference check in Creo", 1280, 1280]
       ]
     },
     "countershaft": {
