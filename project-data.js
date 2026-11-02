@@ -36,7 +36,7 @@
       ],
       images: [
         ["assets/projects/countershaft/render-gears.webp", "Render — the helical gears and the straight-cut pinion", 2000, 1341],
-        ["assets/projects/countershaft/drawing.webp", "Manufacturing drawing — A2, 1:1, sections, details and gear data (DE)", 3000, 2121],
+        ["assets/projects/countershaft/drawing.webp?v=2", "Manufacturing drawing — A2, 1:1, sections, details and gear data (DE)", 3000, 2121],
         ["assets/projects/countershaft/render-iso.webp", "Render — the whole countershaft", 1733, 1038],
         ["assets/projects/countershaft/fusion-gears.webp", "Fusion 360 — helical gears and the straight-cut pinion", 2000, 1391],
         ["assets/projects/countershaft/render-end.webp", "Render — along the axis, the gears stepping down behind the journal", 1250, 1357],
@@ -99,7 +99,7 @@
         "and hardened 100Cr6 ball with about 16° of tilt, rendered and set out in an assembly drawing at 2:1.",
       images: [
         ["assets/projects/rod-end/render-iso.webp", "Render — rod end M14×2, isometric view", 1699, 1147],
-        ["assets/drawings/rod-end-drawing.webp", "Assembly drawing, 2:1 — housing, brass bearing shell, hardened ball, parts list (DE)", 3000, 2121],
+        ["assets/drawings/rod-end-drawing.webp?v=2", "Assembly drawing, 2:1 — housing, brass bearing shell, hardened ball, parts list (DE)", 3000, 2121],
         ["assets/projects/rod-end/part.jpg", "Series part — rod end M14×2 with spherical plain bearing", 1500, 2000],
         ["assets/projects/rod-end/measurement.jpg", "Hand drawing, caliper and the series part", 1500, 2000],
         ["assets/drawings/dwg-15.jpg", "Dimensioned hand drawing with partial section and shaded sketches", 2089, 1170],
