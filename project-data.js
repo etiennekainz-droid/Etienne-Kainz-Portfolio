@@ -13,13 +13,13 @@
         ["assets/projects/scissor-lift/render-three-quarter.webp", "Render — three-quarter view", 2000, 1351],
         ["assets/projects/scissor-lift/render-front.webp", "Render — front view, spindle nut under the platform", 2000, 1360],
         ["assets/projects/scissor-lift/render-side.webp", "Render — side view", 1604, 1080],
-        ["assets/projects/scissor-lift/sl-04.jpg", "Assembly drawing — A0, 1:2, sections, details and parts list (DE)", 1800, 1273],
+        ["assets/projects/scissor-lift/sl-04.jpg?v=2", "Assembly drawing — A0, 1:2, sections, details and parts list (DE)", 1800, 1273],
         ["assets/projects/scissor-lift/render-nut.webp", "Render — brass spindle nut seated between the cross tubes", 1346, 1136],
-        ["assets/projects/scissor-lift/sl-03.jpg", "Strength verification — forces, Tr 28×5 spindle, buckling, bolts and welds (DE)", 1273, 1800],
+        ["assets/projects/scissor-lift/sl-03.jpg?v=2", "Strength verification — forces, Tr 28×5 spindle, buckling, bolts and welds (DE)", 1273, 1800],
         ["assets/projects/scissor-lift/render-pivot.webp", "Render — scissor pivot under the platform", 1866, 1254],
-        ["assets/projects/scissor-lift/sl-05.jpg", "Spindle detail drawing — Tr 28×5", 2000, 1414],
+        ["assets/projects/scissor-lift/sl-05.jpg?v=2", "Spindle detail drawing — Tr 28×5", 2000, 1414],
         ["assets/projects/scissor-lift/render-plan.webp", "Render — straight-on view along the spindle", 1205, 1497],
-        ["assets/projects/scissor-lift/sl-09.jpg", "The spindle drawing on screen", 1800, 1350],
+        ["assets/projects/scissor-lift/sl-09.jpg?v=2", "The spindle drawing on screen", 1800, 1350],
         ["assets/projects/scissor-lift/render-castor.webp", "Render — castor mount, close-up", 2000, 1365],
         ["assets/projects/scissor-lift/sl-12.jpg", "Flange — reference check in Creo", 1280, 1280]
       ]
