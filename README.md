@@ -1,4 +1,4 @@
-# Etienne Kainz — Engineering Portfolio
+# Etienne Kainz — Portfolio
 
 Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
 
@@ -13,21 +13,21 @@ Static portfolio for Etienne Kainz, Mechanical Engineering at TU Wien.
   Misc and Aerial Photography pages show exactly what is in the matching media
   folders, in a shuffled order that keeps pictures of the same kind, project
   or format apart and puts tall pictures in the narrow slots.
-- `field.js` — the background. One WebGL point cloud on black: fine dust in
-  three depth layers, each grain drawn as a small gaussian spot so it glides
-  between pixels instead of snapping, seeded past every edge, carried by slow
-  currents (the curl of an evolving stream function whose coordinates are
-  folded by a second wave field, so eddies stretch and wrap around each other) that
-  swell and ease. Near dots shift with the pointer and with scrolling, and
-  the cursor presses the dust aside. Moving the cursor (or a finger) cuts it
-  like a blade through a soft solid: a thin crack opens along the stroke
-  with a crack-tip (square-root) opening profile, the blade drags the grains
-  along and they spring back, the crack zips shut about a second behind a
-  blade that keeps moving, and once it stops the rest closes from both tips
-  inward. Every closed stretch leaves a hairline weld seam that fades. The cracks are painted
-  each frame into a fine grid texture (signed distance to the crack,
-  opening, seam, drag) that the vertex shader samples. Clicks and page
-  changes send a ring through the dust.
+- `field.js` — the background: a night sky in WebGL, drawn additively on
+  black and laid out anew on every visit. Most of its stars are very fine and
+  far away and follow a map: one broad band along a diagonal, like the Milky
+  Way, swelling into a bulge, bunched into star clouds and cut by dark
+  streaks, lanes, threads and clouds that run with it. The same map is drawn
+  once more as a faint glow, so the dark lanes stand against it. In the sky
+  are a few globular clusters, a small spiral galaxy seen at a slant, two
+  remoter ones and two nebulae. The other stars lie at every distance in
+  front of it: the view drifts slowly sideways, so near stars pass faster
+  than far ones, and the same parallax answers the pointer and scrolling.
+  Every star is a small gaussian spot, so it glides between pixels instead of
+  snapping, and twinkles at its own pace; the few brightest carry a fine
+  cross of spikes. Nothing is drawn at the pointer: where it (or a finger)
+  moves, the stars near it are carried a few px along and swing back. Clicks
+  and page changes send a ring through the sky.
 - `site.js` — menu, page changes (internal links swap `<main>` in place so the
   background never restarts), pictures revealing as they scroll in, the home
   page's preview cards, project pages, and the lightbox. Pointing at a
@@ -66,5 +66,6 @@ Then open `http://localhost:8080`.
 No build step and no external dependencies. Publish from the repository root
 and keep `.nojekyll`. All paths are relative.
 
-`prefers-reduced-motion` slows the field almost to a stop and turns off the
-page transitions; without WebGL the background is plain black.
+`prefers-reduced-motion` slows the sky almost to a stop and turns off the
+sway, the rings and the page transitions; without WebGL the background is
+plain black.

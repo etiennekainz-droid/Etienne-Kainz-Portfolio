@@ -47,6 +47,12 @@
     });
   }
 
+  // The button at the end of a page opens the menu too. <main> is swapped on
+  // page changes, so its click is caught here.
+  doc.addEventListener("click", function (event) {
+    if (event.target.closest && event.target.closest("[data-menu-open]")) setMenu(true);
+  });
+
   function markCurrent() {
     var here = pageKey(window.location.href);
     qsa(".menu nav a").forEach(function (link) {
@@ -125,8 +131,6 @@
     var docs = (p.docs || []).map(function (d) {
       return '<a href="' + escapeHtml(d[0]) + '" target="_blank" rel="noopener"><span>PDF</span>' + escapeHtml(d[1]) + ' ↗</a>';
     }).join("");
-    var next = keys[(index + 1) % keys.length];
-    var prev = keys[(index - 1 + keys.length) % keys.length];
     holder.innerHTML =
       '<header class="page-head">' +
         '<div class="page-head__meta label"><a href="projects.html">← Projects</a></div>' +
@@ -137,10 +141,7 @@
       '<div class="gallery gallery--drawings">' +
         p.images.map(function (img, i) { return figure(img[0], img[1], img[2], img[3], i < 2); }).join("") +
       '</div>' +
-      '<nav class="page-end" aria-label="More projects">' +
-        '<a href="project.html?p=' + encodeURIComponent(prev) + '"><span class="label">Previous</span><span class="page-end__title">' + escapeHtml(data[prev].title) + '</span></a>' +
-        '<a class="page-end__next" href="project.html?p=' + encodeURIComponent(next) + '"><span class="label">Next</span><span class="page-end__title">' + escapeHtml(data[next].title) + '</span></a>' +
-      '</nav>';
+      '<div class="page-end"><a class="menu-toggle" href="projects.html">All projects</a></div>';
   }
 
   // ------------------------------------------------------------ lightbox
